@@ -1,48 +1,55 @@
 'use server';
 
-import {
-  churnRiskAnalysis,
-  ChurnRiskAnalysisInput,
-} from '@/ai/flows/churn-risk-analysis-flow';
-import type { User } from '@/lib/placeholder-data';
+import type { User, ChurnRiskAnalysisOutput } from '@/lib/definitions';
 
-export async function runChurnAnalysis(user: User) {
-  const input: ChurnRiskAnalysisInput = {
-    userId: user.id,
-    accountId: user.account.id,
-    usageStats: {
-      lastLoginDaysAgo: user.lastLoginDaysAgo,
-      loginFrequencyLast7Days: user.loginFrequencyLast7Days,
-      featureUsageLast30Days: user.featureUsageLast30Days,
-      sessionDepthAverage: Math.floor(Math.random() * 20) + 1, // Mock data
-      totalFeaturesAvailable: 10, // Mock data
-    },
-    subscriptionDetails: {
-      planType: user.plan,
-      mrr: user.mrr,
-      isTrialing: user.lifecycleState === 'Trial',
-      daysUntilRenewal: Math.floor(Math.random() * 30), // Mock data
-      hasPaymentIssues: user.lifecycleState === 'AtRisk' && Math.random() > 0.5, // Mock data
-    },
-    accountDetails: {
-      numberOfUsers: Math.floor(Math.random() * 10) + 1, // Mock data
-      seatsAvailable: 10, // Mock data
-      seatsUsed: Math.floor(Math.random() * 10), // Mock data
-    },
-  };
+export async function runChurnAnalysis(
+  user: User
+): Promise<ChurnRiskAnalysisOutput> {
+  // Mock AI analysis
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
-  try {
-    // Adding a delay to simulate network latency
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    const result = await churnRiskAnalysis(input);
-    return result;
-  } catch (error) {
-    console.error('Error running churn analysis:', error);
-    // In a real app, you'd return a structured error object
-    return {
-      riskScore: 0,
-      explanation: 'An error occurred during analysis. Please try again.',
-      recommendations: [],
-    };
+  let riskScore = Math.floor(Math.random() * 20) + 5; // Base risk between 5 and 24
+  let explanation =
+    'This is a mock analysis based on user data. ';
+  const recommendations = [
+    'Engage with user through a targeted email campaign.',
+    'Offer a discount on their next billing cycle.',
+    'Schedule a call to understand their needs better.',
+  ];
+
+  if (user.lifecycleState === 'AtRisk') {
+    riskScore += 30;
+    explanation += 'User is in "At Risk" state. ';
   }
+  if (user.lastLoginDaysAgo > 14) {
+    riskScore += 25;
+    explanation += `User has not logged in for ${user.lastLoginDaysAgo} days. `;
+  }
+  if (user.loginFrequencyLast7Days < 2) {
+    riskScore += 15;
+    explanation += 'Low login frequency in the last week. ';
+  }
+  if (user.featureUsageLast30Days.length < 3) {
+    riskScore += 10;
+    explanation += 'User is not utilizing many features. ';
+  }
+
+  if (user.lifecycleState === 'Churned') {
+    riskScore = 100;
+    explanation = 'User has already churned.';
+    recommendations.splice(
+      0,
+      recommendations.length,
+      'Attempt to win back user with a special offer.'
+    );
+  }
+
+  riskScore = Math.min(riskScore, 100);
+  riskScore = Math.max(riskScore, 0);
+
+  return {
+    riskScore: Math.round(riskScore),
+    explanation,
+    recommendations,
+  };
 }

@@ -1,5 +1,5 @@
 'use client';
-import type { User } from '@/lib/placeholder-data';
+import type { User, ChurnRiskAnalysisOutput } from '@/lib/definitions';
 import { useState } from 'react';
 import {
   Table,
@@ -21,7 +21,6 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { runChurnAnalysis } from '@/app/actions';
-import type { ChurnRiskAnalysisOutput } from '@/ai/flows/churn-risk-analysis-flow';
 import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
 
