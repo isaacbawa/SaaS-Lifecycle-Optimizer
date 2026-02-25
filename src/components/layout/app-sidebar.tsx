@@ -9,10 +9,15 @@ import {
   DollarSign,
   GitFork,
   Heart,
+  Layers,
   LayoutDashboard,
+  Mail,
   MailCheck,
+  Megaphone,
+  PenTool,
   Rocket,
   Settings,
+  Sparkles,
   Users,
 } from 'lucide-react';
 
@@ -28,7 +33,7 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Avatar, AvatarFallback } from '../ui/avatar';
 
 const menuItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -36,7 +41,12 @@ const menuItems = [
   { href: '/retention', icon: Heart, label: 'Retention' },
   { href: '/expansion', icon: BarChart3, label: 'Expansion' },
   { href: '/accounts', icon: Users, label: 'Accounts' },
+  { href: '/segments', icon: Layers, label: 'Segments' },
+  { href: '/personalization', icon: Sparkles, label: 'Personalization' },
   { href: '/flows', icon: GitFork, label: 'Flows' },
+  { href: '/email', icon: Mail, label: 'Email' },
+  { href: '/campaigns/new', icon: Megaphone, label: 'Campaigns' },
+  { href: '/email-builder', icon: PenTool, label: 'Email Builder' },
   { href: '/revenue', icon: DollarSign, label: 'Revenue' },
 ];
 
@@ -61,7 +71,7 @@ export function AppSidebar() {
         <span
           className={cn('text-lg font-semibold', state === 'collapsed' && 'hidden')}
         >
-          SaaS Optimizer
+          LifecycleOS
         </span>
       </SidebarHeader>
       <SidebarContent className="flex-1 p-2">
@@ -109,11 +119,6 @@ export function AppSidebar() {
             )}
           >
             <Avatar className="h-9 w-9">
-              <AvatarImage
-                src="https://picsum.photos/seed/avatar/100/100"
-                alt="Admin"
-                data-ai-hint="person face"
-              />
               <AvatarFallback>AD</AvatarFallback>
             </Avatar>
             <div className={cn('flex flex-col', state === 'collapsed' && 'hidden')}>

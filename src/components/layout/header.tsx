@@ -1,18 +1,9 @@
 'use client';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { UserButton } from '@clerk/nextjs';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
-import { Button } from '../ui/button';
 import { usePathname } from 'next/navigation';
 import { SidebarTrigger } from '../ui/sidebar';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 const pageTitles: { [key: string]: string } = {
   '/dashboard': 'Dashboard',
@@ -46,32 +37,14 @@ export function Header() {
             className="w-full rounded-lg bg-card pl-8 md:w-[200px] lg:w-[320px]"
           />
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="overflow-hidden rounded-full"
-            >
-              <Avatar className="h-9 w-9">
-                <AvatarImage
-                  src="https://picsum.photos/seed/avatar/100/100"
-                  alt="Admin"
-                  data-ai-hint="person face"
-                />
-                <AvatarFallback>AD</AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Settings</DropdownMenuItem>
-            <DropdownMenuItem>Support</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Logout</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <UserButton
+          afterSignOutUrl="/"
+          appearance={{
+            elements: {
+              avatarBox: 'h-9 w-9',
+            },
+          }}
+        />
       </div>
     </header>
   );
