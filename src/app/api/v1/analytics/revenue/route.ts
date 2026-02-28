@@ -4,17 +4,20 @@
 
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess } from '@/lib/api/auth';
-import { store } from '@/lib/store';
+import { getRevenueRecords, getKPISummary } from '@/lib/db/operations';
+import { aggregateRevenueRecords, computeRevenueWaterfall } from '@/lib/db/mappers';
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request, ['read'], 'analysis');
   if (!auth.success) return auth.response;
 
-  const [revenue, waterfall, kpi] = await Promise.all([
-    store.getRevenueData(),
-    store.getRevenueWaterfall(),
-    store.getKPISummary(),
+  const [dbRevenue, kpi] = await Promise.all([
+    getRevenueRecords(auth.orgId),
+    getKPISummary(auth.orgId),
   ]);
+
+  const revenue = aggregateRevenueRecords(dbRevenue);
+  const waterfall = computeRevenueWaterfall(dbRevenue);
 
   const latestMonth = revenue.length > 0 ? revenue[revenue.length - 1] : null;
   const prevMonth = revenue.length > 1 ? revenue[revenue.length - 2] : null;

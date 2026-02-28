@@ -7,8 +7,10 @@
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { store } from '@/lib/store';
-import type { FlowDefinition, FlowBuilderStatus } from '@/lib/definitions';
+import { resolveOrgId } from '@/lib/auth/resolve-org';
+import { getFlowDefinition, upsertFlowDefinition, deleteFlowDefinition } from '@/lib/db/operations';
+import { mapFlowDefToUI } from '@/lib/db/mappers';
+import type { FlowBuilderStatus } from '@/lib/definitions';
 
 function jsonSuccess<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -26,18 +28,20 @@ type RouteContext = { params: Promise<{ id: string }> };
 /* ── GET ─────────────────────────────────────────────────────────────── */
 
 export async function GET(_request: NextRequest, ctx: RouteContext) {
+  const orgId = await resolveOrgId();
   const { id } = await ctx.params;
-  const flow = await store.getFlowDefinition(id);
-  if (!flow) return jsonError('NOT_FOUND', `Flow definition '${id}' not found.`, 404);
-  return jsonSuccess(flow);
+  const dbFlow = await getFlowDefinition(orgId, id);
+  if (!dbFlow) return jsonError('NOT_FOUND', `Flow definition '${id}' not found.`, 404);
+  return jsonSuccess(mapFlowDefToUI(dbFlow));
 }
 
 /* ── PUT ─────────────────────────────────────────────────────────────── */
 
 export async function PUT(request: NextRequest, ctx: RouteContext) {
+  const orgId = await resolveOrgId();
   const { id } = await ctx.params;
 
-  const existing = await store.getFlowDefinition(id);
+  const existing = await getFlowDefinition(orgId, id);
   if (!existing) return jsonError('NOT_FOUND', `Flow definition '${id}' not found.`, 404);
 
   let body: Record<string, unknown>;
@@ -48,7 +52,7 @@ export async function PUT(request: NextRequest, ctx: RouteContext) {
   }
 
   // Merge provided fields onto existing flow
-  const updated: FlowDefinition = {
+  const mergedData = {
     ...existing,
     ...(typeof body.name === 'string' ? { name: body.name.trim() } : {}),
     ...(typeof body.description === 'string' ? { description: body.description.trim() } : {}),
@@ -56,33 +60,33 @@ export async function PUT(request: NextRequest, ctx: RouteContext) {
     ...(Array.isArray(body.nodes) ? { nodes: body.nodes } : {}),
     ...(Array.isArray(body.edges) ? { edges: body.edges } : {}),
     ...(Array.isArray(body.variables) ? { variables: body.variables } : {}),
-    ...(body.settings && typeof body.settings === 'object' ? { settings: body.settings as FlowDefinition['settings'] } : {}),
+    ...(body.settings && typeof body.settings === 'object' ? { settings: body.settings } : {}),
     ...(typeof body.version === 'number' ? { version: body.version } : {}),
     ...(typeof body.trigger === 'string' ? { trigger: body.trigger.trim() } : {}),
-    updatedAt: new Date().toISOString(),
   };
 
   // Track status transitions
   if (body.status === 'active' && existing.status !== 'active') {
-    updated.publishedAt = new Date().toISOString();
+    (mergedData as Record<string, unknown>).publishedAt = new Date().toISOString();
   }
   if (body.status === 'archived' && existing.status !== 'archived') {
-    updated.archivedAt = new Date().toISOString();
+    (mergedData as Record<string, unknown>).archivedAt = new Date().toISOString();
   }
 
-  const saved = await store.upsertFlowDefinition(updated);
-  return jsonSuccess(saved);
+  const saved = await upsertFlowDefinition(orgId, mergedData);
+  return jsonSuccess(mapFlowDefToUI(saved));
 }
 
 /* ── DELETE ───────────────────────────────────────────────────────────── */
 
 export async function DELETE(_request: NextRequest, ctx: RouteContext) {
+  const orgId = await resolveOrgId();
   const { id } = await ctx.params;
 
-  const existing = await store.getFlowDefinition(id);
+  const existing = await getFlowDefinition(orgId, id);
   if (!existing) return jsonError('NOT_FOUND', `Flow definition '${id}' not found.`, 404);
 
-  await store.deleteFlowDefinition(id);
+  await deleteFlowDefinition(orgId, id);
   return jsonSuccess({ deleted: true, id });
 }
 

@@ -23,7 +23,11 @@
  *     Buffer.from(signature), Buffer.from(expected));
  * ═══════════════════════════════════════════════════════════════════════ */
 
-import { store } from '@/lib/store';
+import {
+  getWebhooks as dbGetWebhooks,
+  updateWebhookDeliveryStatus,
+  recordWebhookDelivery,
+} from '@/lib/db/operations';
 import type { WebhookConfig } from '@/lib/definitions';
 import type { WebhookEventType, WebhookDeliveryPayload, WebhookDeliveryAttempt } from '@/lib/sdk/types';
 
@@ -339,12 +343,37 @@ const LEGACY_EVENT_MAP: Record<string, WebhookEventType[]> = {
  *
  * Returns a summary with delivery stats. Failed deliveries (after all
  * retries) are pushed to the dead-letter queue for manual replay.
+ *
+ * orgId: Organization ID for tenant isolation. If not provided,
+ * dispatch is skipped (no webhooks can be resolved).
  */
 export async function dispatchWebhooks(
   eventType: WebhookEventType,
   data: Record<string, unknown>,
+  orgId?: string,
 ): Promise<DispatchSummary> {
-  const webhooks = await store.getWebhooks();
+  if (!orgId) {
+    // No org context — cannot resolve webhooks. Silently skip.
+    return { dispatched: 0, delivered: 0, failed: 0, circuitOpen: 0, results: [] };
+  }
+
+  // Fetch webhooks from DB
+  const dbWebhooks = await dbGetWebhooks(orgId);
+
+  // Map DB webhook rows to the WebhookConfig interface used by delivery
+  const webhooks: WebhookConfig[] = dbWebhooks.map((wh) => ({
+    id: wh.id,
+    url: wh.url,
+    events: (wh.events as string[]) ?? [],
+    status: wh.status as WebhookConfig['status'],
+    // NOTE: The DB stores a hash, not the raw secret. We use the secretHash
+    // as the HMAC key. In production, receivers should be told to verify
+    // against this derived key, or we store the actual secret encrypted.
+    secret: wh.secretHash,
+    createdDate: new Date(wh.createdAt).toISOString().split('T')[0],
+    lastTriggered: wh.lastTriggeredAt ? new Date(wh.lastTriggeredAt).toISOString() : undefined,
+    successRate: wh.successRate ?? 100,
+  }));
 
   const matchingWebhooks = webhooks.filter((wh) => {
     if (wh.status === 'inactive') return false;
@@ -374,13 +403,14 @@ export async function dispatchWebhooks(
     matchingWebhooks.map(async (wh) => {
       const result = await deliverToEndpoint(wh, payload);
 
+      const now = new Date();
+
       if (result.delivered) {
-        // Success — restore health if previously failing
-        if (wh.status === 'failing') {
-          await store.upsertWebhook({ ...wh, status: 'active', lastTriggered: new Date().toISOString() });
-        } else {
-          await store.upsertWebhook({ ...wh, lastTriggered: new Date().toISOString() });
-        }
+        // Success — update status in DB
+        await updateWebhookDeliveryStatus(wh.id, {
+          status: wh.status === 'failing' ? 'active' : undefined,
+          lastTriggeredAt: now,
+        }).catch(() => { });
       } else if (!result.circuitOpen) {
         // Failed after retries — push to DLQ
         addToDLQ(wh, payload, result);
@@ -393,20 +423,28 @@ export async function dispatchWebhooks(
         const circuit = circuits.get(wh.id);
         const shouldMarkFailing = (circuit?.tripped) || (circuit && circuit.consecutiveFailures >= 5);
 
-        await store.upsertWebhook({
-          ...wh,
-          status: shouldMarkFailing ? 'failing' : wh.status,
+        await updateWebhookDeliveryStatus(wh.id, {
+          status: shouldMarkFailing ? 'failing' : undefined,
           successRate: rate,
-          lastTriggered: new Date().toISOString(),
-        });
+          lastTriggeredAt: now,
+        }).catch(() => { });
       } else {
-        // Circuit open — update status without attempting delivery
-        await store.upsertWebhook({
-          ...wh,
+        // Circuit open — mark as failing
+        await updateWebhookDeliveryStatus(wh.id, {
           status: 'failing',
-          lastTriggered: new Date().toISOString(),
-        });
+          lastTriggeredAt: now,
+        }).catch(() => { });
       }
+
+      // Record delivery attempt in DB for audit trail
+      await recordWebhookDelivery({
+        webhookId: wh.id,
+        eventType,
+        payload: data,
+        responseStatus: result.statusCode ?? undefined,
+        success: result.delivered,
+        attemptCount: result.attempts,
+      }).catch(() => { });
 
       return result;
     }),

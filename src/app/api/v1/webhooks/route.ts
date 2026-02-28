@@ -6,15 +6,16 @@
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess, apiError, apiValidationError } from '@/lib/api/auth';
 import { validateWebhookCreate } from '@/lib/api/validation';
-import { store } from '@/lib/store';
+import { getWebhooks, upsertWebhook } from '@/lib/db/operations';
+import { mapWebhookToUI } from '@/lib/db/mappers';
 import { getDeliveryLog } from '@/lib/engine/webhooks';
-import type { WebhookConfig } from '@/lib/definitions';
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request, ['read'], 'webhooks');
   if (!auth.success) return auth.response;
 
-  const webhooks = await store.getWebhooks();
+  const dbWebhooks = await getWebhooks(auth.orgId);
+  const webhooks = dbWebhooks.map(mapWebhookToUI);
 
   // Enrich with recent delivery stats
   const enriched = webhooks.map((wh) => {
@@ -40,7 +41,6 @@ export async function POST(request: NextRequest) {
   const auth = await authenticate(request, ['write'], 'webhooks');
   if (!auth.success) return auth.response;
 
-  // ── Parse & validate ──────────────────────────────────────────
   let raw: unknown;
   try {
     raw = await request.json();
@@ -55,23 +55,25 @@ export async function POST(request: NextRequest) {
 
   const { url, events } = validation.data;
 
-  // Generate crypto-secure secret via store helper
-  const secret = store.generateWebhookSecret();
+  // Generate a crypto-secure secret and hash it for storage
+  const rawSecret = `whsec_${crypto.randomUUID().replace(/-/g, '')}`;
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(rawSecret));
+  const secretHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 
-  const webhook: WebhookConfig = {
-    id: `wh_${Date.now().toString(36)}_${crypto.randomUUID().substring(0, 6)}`,
+  const dbWebhook = await upsertWebhook(auth.orgId, {
     url,
     events,
     status: 'active',
-    secret,
-    createdDate: new Date().toISOString().split('T')[0],
+    secretHash,
+    secretPrefix: rawSecret.substring(0, 10),
     successRate: 100,
-  };
+  });
 
-  await store.upsertWebhook(webhook);
-
+  const webhook = mapWebhookToUI(dbWebhook);
+  // Return the raw secret once — it cannot be retrieved after this
   return apiSuccess(
-    { webhook },
+    { webhook: { ...webhook, secret: rawSecret } },
     201,
     auth.startTime,
     auth.requestId,

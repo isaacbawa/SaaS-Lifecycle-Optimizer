@@ -17,7 +17,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { processScheduledEnrollments } from '@/lib/engine/event-pipeline';
-import { store } from '@/lib/store';
+import { resolveOrgId } from '@/lib/auth/resolve-org';
+import { getActiveEnrollmentsDue, getAllFlowDefinitions, getFlowEnrollments } from '@/lib/db/operations';
 
 /* ── Scheduler State (survives HMR) ──────────────────────────────────── */
 
@@ -77,8 +78,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const pendingEnrollments = await store.getActiveEnrollmentsDue();
-    const allEnrollments = await getAllActiveEnrollmentCount();
+    const orgId = await resolveOrgId();
+    const pendingEnrollments = await getActiveEnrollmentsDue();
+    const allEnrollments = await getAllActiveEnrollmentCount(orgId);
 
     return NextResponse.json({
         success: true,
@@ -139,12 +141,12 @@ export async function POST(request: NextRequest) {
 
 /* ── Helper ──────────────────────────────────────────────────────────── */
 
-async function getAllActiveEnrollmentCount(): Promise<number> {
+async function getAllActiveEnrollmentCount(orgId: string): Promise<number> {
     // Count enrollments across all flows
-    const allFlows = await store.getAllFlowDefinitions();
+    const allFlows = await getAllFlowDefinitions(orgId);
     let count = 0;
     for (const flow of allFlows) {
-        const enrollments = await store.getFlowEnrollments(flow.id, 'active');
+        const enrollments = await getFlowEnrollments(orgId, flow.id, 'active');
         count += enrollments.length;
     }
     return count;

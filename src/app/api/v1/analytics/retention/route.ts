@@ -4,13 +4,15 @@
 
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess } from '@/lib/api/auth';
-import { store } from '@/lib/store';
+import { getAllTrackedUsers } from '@/lib/db/operations';
+import { computeRetentionCohorts } from '@/lib/db/mappers';
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request, ['read'], 'analysis');
   if (!auth.success) return auth.response;
 
-  const cohorts = await store.getRetentionCohorts();
+  const dbUsers = await getAllTrackedUsers(auth.orgId);
+  const cohorts = computeRetentionCohorts(dbUsers);
 
   // Compute aggregate metrics (safe division)
   const totalUsers = cohorts.reduce((acc, c) => acc + c.size, 0);

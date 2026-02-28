@@ -14,7 +14,6 @@
  * ═══════════════════════════════════════════════════════════════════════ */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { store } from '@/lib/store';
 import type { ApiKeyRecord } from '@/lib/sdk/types';
 import {
   checkRateLimit,
@@ -23,6 +22,43 @@ import {
   type RateLimitConfig,
   RATE_LIMITS,
 } from './rate-limit';
+
+/* ── DB-backed API key validation (production path) ──────────────────── */
+
+async function validateApiKeyViaDb(rawKey: string): Promise<{ record: ApiKeyRecord; orgId: string } | null> {
+  try {
+    // Hash the raw key with SHA-256 to match the DB keyHash column
+    const encoder = new TextEncoder();
+    const data = encoder.encode(rawKey);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const keyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // Dynamic import to avoid circular dependencies at module init
+    const { validateApiKey, touchApiKeyUsage } = await import('@/lib/db/operations');
+    const dbKey = await validateApiKey(keyHash);
+    if (!dbKey) return null;
+
+    // Fire-and-forget usage update
+    touchApiKeyUsage(dbKey.id).catch(() => { /* silent */ });
+
+    // Convert DB key to ApiKeyRecord for compatibility
+    const record: ApiKeyRecord = {
+      id: dbKey.id,
+      key: dbKey.keyPrefix + '***',
+      name: dbKey.name,
+      environment: dbKey.environment as ApiKeyRecord['environment'],
+      createdAt: new Date(dbKey.createdAt).toISOString(),
+      lastUsedAt: dbKey.lastUsedAt ? new Date(dbKey.lastUsedAt).toISOString() : undefined,
+      revokedAt: dbKey.revokedAt ? new Date(dbKey.revokedAt).toISOString() : undefined,
+      scopes: (dbKey.scopes as string[]) ?? ['identify', 'track', 'group', 'read'],
+    };
+
+    return { record, orgId: dbKey.organizationId };
+  } catch {
+    return null;
+  }
+}
 
 /* ── Scope Definitions ───────────────────────────────────────────────── */
 
@@ -49,6 +85,7 @@ function hasRequiredScopes(keyScopes: string[], required: ApiScope[]): boolean {
 export interface AuthSuccess {
   success: true;
   apiKey: ApiKeyRecord;
+  orgId: string;
   requestId: string;
   startTime: number;
   rateLimit: RateLimitResult;
@@ -146,8 +183,15 @@ export async function authenticate(
     }
   }
 
-  // ── Validate API key ────────────────────────────────────────────────
-  const record = await store.validateApiKey(token);
+  // ── Validate API key (DB-backed) ──────────────────────────────────
+  let record: ApiKeyRecord | null = null;
+  let resolvedOrgId = '';
+
+  const dbResult = await validateApiKeyViaDb(token);
+  if (dbResult) {
+    record = dbResult.record;
+    resolvedOrgId = dbResult.orgId;
+  }
 
   if (!record) {
     // Use consistent timing to prevent timing attacks (always ~same response time)
@@ -184,12 +228,12 @@ export async function authenticate(
     };
   }
 
-  // ── Record usage (fire-and-forget) ─────────────────────────────────
-  store.touchApiKey(record.id).catch(() => { /* silent */ });
+  // ── Record usage is already handled in validateApiKeyViaDb ──────────
 
   return {
     success: true,
     apiKey: record,
+    orgId: resolvedOrgId,
     requestId,
     startTime,
     rateLimit: rl,

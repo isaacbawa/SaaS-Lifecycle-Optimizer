@@ -3,7 +3,9 @@ import { UserButton } from '@clerk/nextjs';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { SidebarTrigger } from '../ui/sidebar';
+import { Skeleton } from '../ui/skeleton';
 
 const pageTitles: { [key: string]: string } = {
   '/dashboard': 'Dashboard',
@@ -21,6 +23,9 @@ const pageTitles: { [key: string]: string } = {
 export function Header() {
   const pathname = usePathname();
   const title = pageTitles[pathname] || 'Dashboard';
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -37,14 +42,18 @@ export function Header() {
             className="w-full rounded-lg bg-card pl-8 md:w-[200px] lg:w-[320px]"
           />
         </div>
-        <UserButton
-          afterSignOutUrl="/"
-          appearance={{
-            elements: {
-              avatarBox: 'h-9 w-9',
-            },
-          }}
-        />
+        {mounted ? (
+          <UserButton
+            afterSignOutUrl="/"
+            appearance={{
+              elements: {
+                avatarBox: 'h-9 w-9',
+              },
+            }}
+          />
+        ) : (
+          <Skeleton className="h-9 w-9 rounded-full" />
+        )}
       </div>
     </header>
   );

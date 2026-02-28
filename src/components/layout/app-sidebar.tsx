@@ -14,7 +14,6 @@ import {
   Mail,
   MailCheck,
   Megaphone,
-  PenTool,
   Rocket,
   Settings,
   Sparkles,
@@ -45,8 +44,7 @@ const menuItems = [
   { href: '/personalization', icon: Sparkles, label: 'Personalization' },
   { href: '/flows', icon: GitFork, label: 'Flows' },
   { href: '/email', icon: Mail, label: 'Email' },
-  { href: '/campaigns/new', icon: Megaphone, label: 'Campaigns' },
-  { href: '/email-builder', icon: PenTool, label: 'Email Builder' },
+  { href: '/campaigns', icon: Megaphone, label: 'Campaigns' },
   { href: '/revenue', icon: DollarSign, label: 'Revenue' },
 ];
 
@@ -61,6 +59,8 @@ export function AppSidebar() {
   const { state } = useSidebar();
 
   const isActive = (href: string) => {
+    if (href === '/email') return pathname === '/email' || pathname.startsWith('/email-builder');
+    if (href === '/campaigns') return pathname.startsWith('/campaigns');
     return pathname === href;
   };
 

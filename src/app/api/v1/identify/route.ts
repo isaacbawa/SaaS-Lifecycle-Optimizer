@@ -1,24 +1,36 @@
 /* ==========================================================================
  * POST /api/v1/identify — User Identification Endpoint
  *
- * Upserts a user with traits from the SDK identify() call.
+ * Upserts a tracked user with traits from the SDK identify() call.
+ * Writes directly to PostgreSQL via Drizzle ORM.
  * Runs the lifecycle engine and dispatches webhooks on state transitions.
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess, apiError, apiValidationError } from '@/lib/api/auth';
 import { validateIdentify } from '@/lib/api/validation';
-import { store } from '@/lib/store';
+import {
+  getTrackedUserByExternalId,
+  upsertTrackedUser,
+  getTrackedAccountByExternalId,
+  addActivityEntry,
+} from '@/lib/db/operations';
+import { mapTrackedUserToUser, mapTrackedAccountToAccount } from '@/lib/db/mappers';
 import { classifyLifecycleState } from '@/lib/engine/lifecycle';
 import { scoreChurnRisk } from '@/lib/engine/churn';
 import { detectExpansionSignals, computeExpansionScore } from '@/lib/engine/expansion';
 import { dispatchWebhooks } from '@/lib/engine/webhooks';
-import type { User } from '@/lib/definitions';
+import type { LifecycleState } from '@/lib/definitions';
 
 export async function POST(request: NextRequest) {
   // ── Auth (identify scope, standard rate tier) ─────────────────
   const auth = await authenticate(request, ['identify'], 'standard');
   if (!auth.success) return auth.response;
+
+  const orgId = auth.orgId;
+  if (!orgId) {
+    return apiError('ORG_NOT_FOUND', 'No organization associated with this API key.', 400);
+  }
 
   // ── Parse & validate ──────────────────────────────────────────
   let raw: unknown;
@@ -34,101 +46,105 @@ export async function POST(request: NextRequest) {
   }
 
   const { userId, traits } = validation.data;
-  const now = new Date().toISOString();
+  const now = new Date();
 
-  // ── Upsert User ───────────────────────────────────────────────
-  let user = await store.getUser(userId);
-  const isNew = !user;
+  // ── Look up or create tracked user in DB ──────────────────────
+  const existing = await getTrackedUserByExternalId(orgId, userId);
+  const isNew = !existing;
 
+  // Resolve account reference (if accountId trait provided)
+  let dbAccountId: string | undefined;
+  let accountName = 'Unknown Account';
+  if (traits.accountId) {
+    const account = await getTrackedAccountByExternalId(orgId, traits.accountId as string);
+    if (account) {
+      dbAccountId = account.id;
+      accountName = account.name;
+    }
+  } else if (existing?.accountId) {
+    dbAccountId = existing.accountId;
+  }
+
+  const name = (traits.name as string) || existing?.name || 'Unknown User';
+
+  // Upsert tracked user
+  const dbUser = await upsertTrackedUser(orgId, {
+    id: existing?.id,
+    externalId: userId,
+    email: (traits.email as string) || existing?.email || undefined,
+    name,
+    accountId: dbAccountId ?? existing?.accountId ?? undefined,
+    lifecycleState: existing?.lifecycleState ?? ('Lead' as const),
+    previousState: existing?.previousState,
+    mrr: existing?.mrr ?? 0,
+    plan: (traits.plan as string) || existing?.plan || 'Trial',
+    signupDate: (traits.createdAt ? new Date(traits.createdAt as string) : null) ?? existing?.signupDate ?? now,
+    lastLoginAt: existing?.lastLoginAt ?? now,
+    loginFrequency7d: existing?.loginFrequency7d ?? 1,
+    loginFrequency30d: existing?.loginFrequency30d ?? 1,
+    featureUsage30d: existing?.featureUsage30d ?? [],
+    sessionDepthMinutes: existing?.sessionDepthMinutes ?? 0,
+    churnRiskScore: existing?.churnRiskScore ?? 15,
+    expansionScore: existing?.expansionScore ?? 0,
+    seatCount: existing?.seatCount ?? 1,
+    seatLimit: existing?.seatLimit ?? 3,
+    apiCalls30d: existing?.apiCalls30d ?? 0,
+    apiLimit: existing?.apiLimit ?? 500,
+  });
+
+  // Activity log for new users
   if (isNew) {
-    const name = (traits.name as string) || 'Unknown User';
-    const initials = name
-      .split(' ')
-      .map((p) => p[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-
-    const newUser: User = {
-      id: userId,
-      name,
-      email: (traits.email as string) || '',
-      initials,
-      account: {
-        id: (traits.accountId as string) || `acc_auto_${userId}`,
-        name: (traits.accountId as string) || 'Unknown Account',
-      },
-      lifecycleState: 'Lead',
-      mrr: 0,
-      lastLoginDaysAgo: 0,
-      loginFrequencyLast7Days: 1,
-      loginFrequencyLast30Days: 1,
-      featureUsageLast30Days: [],
-      sessionDepthMinutes: 0,
-      plan: (traits.plan as string) || 'Trial',
-      signupDate: (traits.createdAt as string) || now.split('T')[0],
-      churnRiskScore: 15,
-      expansionScore: 0,
-      seatCount: 1,
-      seatLimit: 3,
-      apiCallsLast30Days: 0,
-      apiLimit: 500,
-      stateChangedAt: now,
-    };
-
-    user = await store.upsertUser(newUser);
-
-    await store.addActivity({
-      id: `act_${Date.now().toString(36)}_${crypto.randomUUID().substring(0, 6)}`,
+    await addActivityEntry(orgId, {
       type: 'account_event',
       title: 'New User Identified',
       description: `${name} identified via SDK`,
-      timestamp: now,
-      userId,
-      accountId: user.account.id,
+      trackedUserId: dbUser.id,
+      accountId: dbAccountId ?? undefined,
     });
-  } else {
-    // Merge traits into existing user
-    const updates: Partial<User> = {};
-
-    if (traits.name) updates.name = traits.name as string;
-    if (traits.email) updates.email = traits.email as string;
-    if (traits.plan) updates.plan = traits.plan as string;
-    if (traits.accountId) {
-      updates.account = {
-        id: traits.accountId as string,
-        name: user!.account.name,
-      };
-    }
-
-    if (Object.keys(updates).length > 0) {
-      user = (await store.updateUser(userId, updates))!;
-    }
   }
+
+  // ── Convert to UI User type for engine processing ─────────────
+  let user = mapTrackedUserToUser(dbUser, accountName);
 
   // ── Classify Lifecycle State ──────────────────────────────────
-  const classification = classifyLifecycleState(user!);
-  const stateChanged = classification.state !== user!.lifecycleState;
+  const classification = classifyLifecycleState(user);
+  const stateChanged = classification.state !== user.lifecycleState;
 
   if (stateChanged) {
-    await store.updateUser(userId, {
-      lifecycleState: classification.state,
-      previousState: user!.lifecycleState,
+    await upsertTrackedUser(orgId, {
+      id: dbUser.id,
+      externalId: userId,
+      name,
+      lifecycleState: classification.state as LifecycleState,
+      previousState: user.lifecycleState as LifecycleState,
       stateChangedAt: now,
     });
+    user = { ...user, lifecycleState: classification.state, previousState: user.lifecycleState };
   }
 
-  // ── Score Risks ───────────────────────────────────────────────
-  const refreshed = (await store.getUser(userId))!;
-  const churnResult = scoreChurnRisk(refreshed);
-  await store.updateUser(userId, { churnRiskScore: churnResult.riskScore });
+  // ── Score Churn Risk ──────────────────────────────────────────
+  const churnResult = scoreChurnRisk(user);
+  await upsertTrackedUser(orgId, {
+    id: dbUser.id,
+    externalId: userId,
+    name,
+    churnRiskScore: churnResult.riskScore,
+  });
 
   // ── Expansion Scan ────────────────────────────────────────────
-  const account = await store.getAccount(refreshed.account.id);
-  if (account) {
-    const signals = detectExpansionSignals(refreshed, account);
-    const expansionScore = computeExpansionScore(signals);
-    await store.updateUser(userId, { expansionScore });
+  if (traits.accountId) {
+    const dbAccount = await getTrackedAccountByExternalId(orgId, traits.accountId as string);
+    if (dbAccount) {
+      const account = mapTrackedAccountToAccount(dbAccount);
+      const signals = detectExpansionSignals(user, account);
+      const expansionScore = computeExpansionScore(signals);
+      await upsertTrackedUser(orgId, {
+        id: dbUser.id,
+        externalId: userId,
+        name,
+        expansionScore,
+      });
+    }
   }
 
   // ── Webhooks ──────────────────────────────────────────────────
@@ -137,24 +153,25 @@ export async function POST(request: NextRequest) {
     traits,
     isNew,
     lifecycleState: classification.state,
-    timestamp: now,
-  });
+    timestamp: now.toISOString(),
+  }, orgId);
 
   if (stateChanged) {
     void dispatchWebhooks('user.lifecycle_changed', {
       userId,
-      previousState: user!.lifecycleState,
+      previousState: user.previousState,
       newState: classification.state,
-      account: user!.account,
-    });
+      account: user.account,
+    }, orgId);
   }
 
   // ── Response ──────────────────────────────────────────────────
-  const final = await store.getUser(userId);
+  const finalUser = await getTrackedUserByExternalId(orgId, userId);
+  const finalMapped = finalUser ? mapTrackedUserToUser(finalUser, accountName) : user;
 
   return apiSuccess(
     {
-      user: final,
+      user: finalMapped,
       isNew,
       lifecycleState: classification.state,
       stateChanged,

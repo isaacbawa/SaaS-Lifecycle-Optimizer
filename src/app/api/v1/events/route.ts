@@ -1,7 +1,7 @@
 /* ==========================================================================
  * POST /api/v1/events — Event Ingestion Endpoint
  *
- * Accepts batched events from the SDK, persists them to the store,
+ * Accepts batched events from the SDK, persists them to PostgreSQL,
  * and triggers the full event processing pipeline:
  *   • Lifecycle reclassification
  *   • Churn risk re-scoring
@@ -15,7 +15,11 @@
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess, apiError, apiValidationError } from '@/lib/api/auth';
 import { validateEventsBatch } from '@/lib/api/validation';
-import { store } from '@/lib/store';
+import {
+  ingestEvents as dbIngestEvents,
+  getTrackedUserByExternalId,
+  getTrackedAccountByExternalId,
+} from '@/lib/db/operations';
 import { processEventBatch, type PipelineResult } from '@/lib/engine/event-pipeline';
 import type { StoredEvent } from '@/lib/sdk/types';
 
@@ -23,6 +27,11 @@ export async function POST(request: NextRequest) {
   // ── Auth (track scope, events rate tier) ──────────────────────
   const auth = await authenticate(request, ['track'], 'events');
   if (!auth.success) return auth.response;
+
+  const orgId = auth.orgId;
+  if (!orgId) {
+    return apiError('ORG_NOT_FOUND', 'No organization associated with this API key.', 400);
+  }
 
   // ── Parse & validate ──────────────────────────────────────────
   let raw: unknown;
@@ -38,38 +47,69 @@ export async function POST(request: NextRequest) {
   }
 
   const { batch, sentAt } = validation.data;
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
 
-  // ── Build StoredEvent objects ─────────────────────────────────
+  // ── Resolve tracked user/account UUIDs for DB foreign keys ───
+  // Build a cache of external → internal IDs for this batch
+  const userIdCache = new Map<string, string | null>();
+  const accountIdCache = new Map<string, string | null>();
+
+  for (const item of batch) {
+    const extUserId = (item.properties.userId as string) || undefined;
+    const extAccountId = (item.properties.accountId as string) || undefined;
+
+    if (extUserId && !userIdCache.has(extUserId)) {
+      const dbUser = await getTrackedUserByExternalId(orgId, extUserId);
+      userIdCache.set(extUserId, dbUser?.id ?? null);
+    }
+    if (extAccountId && !accountIdCache.has(extAccountId)) {
+      const dbAccount = await getTrackedAccountByExternalId(orgId, extAccountId);
+      accountIdCache.set(extAccountId, dbAccount?.id ?? null);
+    }
+  }
+
+  // ── Build DB event records ──────────────────────────────────
+  const dbEventRecords = batch.map((item) => {
+    const extUserId = (item.properties.userId as string) || undefined;
+    const extAccountId = (item.properties.accountId as string) || undefined;
+
+    return {
+      name: item.event,
+      trackedUserId: extUserId ? (userIdCache.get(extUserId) ?? undefined) : undefined,
+      accountId: extAccountId ? (accountIdCache.get(extAccountId) ?? undefined) : undefined,
+      externalUserId: extUserId,
+      properties: item.properties as Record<string, unknown>,
+      messageId: item.messageId,
+      clientTimestamp: item.timestamp ? new Date(item.timestamp) : undefined,
+    };
+  });
+
+  // ── Ingest to DB (deduplication by messageId) ────────────────
+  const { ingested, duplicates } = await dbIngestEvents(orgId, dbEventRecords);
+
+  // ── Also build StoredEvent objects for the pipeline ──────────
+  // The pipeline currently expects StoredEvent interface
   const storedEvents: StoredEvent[] = batch.map((item, i) => ({
     id: `evt_${Date.now().toString(36)}_${i}_${crypto.randomUUID().substring(0, 8)}`,
     event: item.event,
     userId: (item.properties.userId as string) || undefined,
     accountId: (item.properties.accountId as string) || undefined,
     properties: item.properties as StoredEvent['properties'],
-    timestamp: item.timestamp || sentAt || now,
-    receivedAt: now,
+    timestamp: item.timestamp || sentAt || nowIso,
+    receivedAt: nowIso,
     messageId: item.messageId,
     context: {} as StoredEvent['context'],
     processed: false,
   }));
 
-  // ── Ingest (deduplication handled by store) ───────────────────
-  const { ingested, duplicates } = await store.ingestEvents(storedEvents);
-
   // ── Process events through the full pipeline ──────────────────
-  // Only process newly ingested events (not duplicates)
-  const eventsToProcess = storedEvents.filter((e) => {
-    // If the event was a duplicate, skip processing
-    return !e.messageId || !duplicates;
-  });
-
   let pipelineResults: PipelineResult[] = [];
   try {
-    pipelineResults = await processEventBatch(eventsToProcess);
+    pipelineResults = await processEventBatch(storedEvents, orgId);
   } catch (e) {
     console.error('[events] Pipeline error:', (e as Error).message);
-    // Pipeline errors don't fail the ingestion — events are still stored
+    // Pipeline errors don't fail the ingestion — events are already stored
   }
 
   // ── Aggregate pipeline stats ─────────────────────────────────

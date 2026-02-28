@@ -4,7 +4,7 @@
 
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess, apiError } from '@/lib/api/auth';
-import { store } from '@/lib/store';
+import { revokeApiKey } from '@/lib/db/operations';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -25,7 +25,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const revoked = await store.revokeApiKey(id);
+  const revoked = await revokeApiKey(auth.orgId, id);
 
   if (!revoked) {
     return apiError('NOT_FOUND', `API key "${id}" not found.`, 404);

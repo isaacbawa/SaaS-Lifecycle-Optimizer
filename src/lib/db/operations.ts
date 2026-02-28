@@ -318,6 +318,55 @@ export async function upsertTrackedUser(orgId: string, data: Omit<TrackedUserIns
     return user;
 }
 
+/**
+ * Partial update of a tracked user by internal UUID.
+ * Only updates the provided fields — does NOT overwrite unset fields.
+ * Used by the event pipeline for targeted field updates (e.g. lifecycleState, churnRiskScore).
+ */
+export async function updateTrackedUser(
+    orgId: string,
+    id: string,
+    updates: Partial<Omit<TrackedUserInsert, 'organizationId' | 'externalId'>>,
+) {
+    const set: Record<string, unknown> = { updatedAt: new Date() };
+    for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) set[key] = value;
+    }
+    const [user] = await db
+        .update(schema.trackedUsers)
+        .set(set)
+        .where(and(
+            eq(schema.trackedUsers.organizationId, orgId),
+            eq(schema.trackedUsers.id, id),
+        ))
+        .returning();
+    return user ?? null;
+}
+
+/**
+ * Partial update of a tracked user by externalId.
+ * Convenience wrapper when you only have the SDK-provided user ID.
+ */
+export async function updateTrackedUserByExternalId(
+    orgId: string,
+    externalId: string,
+    updates: Partial<Omit<TrackedUserInsert, 'organizationId' | 'externalId'>>,
+) {
+    const set: Record<string, unknown> = { updatedAt: new Date() };
+    for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined) set[key] = value;
+    }
+    const [user] = await db
+        .update(schema.trackedUsers)
+        .set(set)
+        .where(and(
+            eq(schema.trackedUsers.organizationId, orgId),
+            eq(schema.trackedUsers.externalId, externalId),
+        ))
+        .returning();
+    return user ?? null;
+}
+
 export async function getTrackedUserCount(orgId: string) {
     const [result] = await db
         .select({ count: count() })
@@ -539,6 +588,38 @@ export async function deleteFlowDefinition(orgId: string, id: string) {
     return result.length > 0;
 }
 
+export async function duplicateFlowDefinition(orgId: string, id: string) {
+    const [original] = await db
+        .select()
+        .from(schema.flowDefinitions)
+        .where(and(
+            eq(schema.flowDefinitions.organizationId, orgId),
+            eq(schema.flowDefinitions.id, id),
+        ))
+        .limit(1);
+    if (!original) return null;
+
+    const now = new Date();
+    const [copy] = await db
+        .insert(schema.flowDefinitions)
+        .values({
+            organizationId: orgId,
+            name: `${original.name} (Copy)`,
+            description: original.description,
+            status: 'draft',
+            version: 1,
+            nodes: original.nodes,
+            edges: original.edges,
+            variables: original.variables,
+            settings: original.settings,
+            metrics: {},
+            createdAt: now,
+            updatedAt: now,
+        })
+        .returning();
+    return copy;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
  * Flow Enrollments
  * ═══════════════════════════════════════════════════════════════════════ */
@@ -654,6 +735,32 @@ export async function deleteWebhook(orgId: string, id: string) {
         ))
         .returning({ id: schema.webhooks.id });
     return result.length > 0;
+}
+
+/**
+ * Targeted webhook status update for the delivery system.
+ * Only updates status, successRate, lastTriggeredAt, failCount.
+ */
+export async function updateWebhookDeliveryStatus(
+    id: string,
+    updates: {
+        status?: 'active' | 'failing' | 'inactive';
+        successRate?: number;
+        lastTriggeredAt?: Date;
+        failCount?: number;
+    },
+) {
+    const set: Record<string, unknown> = { updatedAt: new Date() };
+    if (updates.status !== undefined) set.status = updates.status;
+    if (updates.successRate !== undefined) set.successRate = updates.successRate;
+    if (updates.lastTriggeredAt !== undefined) set.lastTriggeredAt = updates.lastTriggeredAt;
+    if (updates.failCount !== undefined) set.failCount = updates.failCount;
+    const [webhook] = await db
+        .update(schema.webhooks)
+        .set(set)
+        .where(eq(schema.webhooks.id, id))
+        .returning();
+    return webhook ?? null;
 }
 
 export async function recordWebhookDelivery(data: typeof schema.webhookDeliveries.$inferInsert) {

@@ -6,7 +6,8 @@
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess, apiError, apiValidationError } from '@/lib/api/auth';
 import { validateUserUpdate } from '@/lib/api/validation';
-import { store } from '@/lib/store';
+import { getTrackedUserByExternalId, updateTrackedUserByExternalId, getTrackedAccount } from '@/lib/db/operations';
+import { mapTrackedUserToUser } from '@/lib/db/mappers';
 import { classifyLifecycleState } from '@/lib/engine/lifecycle';
 import { scoreChurnRisk } from '@/lib/engine/churn';
 
@@ -19,11 +20,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!auth.success) return auth.response;
 
   const { id } = await context.params;
-  const user = await store.getUser(id);
+  const dbUser = await getTrackedUserByExternalId(auth.orgId, id);
 
-  if (!user) {
+  if (!dbUser) {
     return apiError('NOT_FOUND', `User "${id}" not found.`, 404);
   }
+
+  let accountName: string | undefined;
+  if (dbUser.accountId) {
+    const dbAccount = await getTrackedAccount(auth.orgId, dbUser.accountId);
+    accountName = dbAccount?.name ?? undefined;
+  }
+  const user = mapTrackedUserToUser(dbUser, accountName);
 
   // Return user with fresh lifecycle classification
   const classification = classifyLifecycleState(user);
@@ -69,10 +77,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return apiValidationError(validation.errors);
   }
 
-  const user = await store.updateUser(id, validation.data);
-  if (!user) {
+  const updated = await updateTrackedUserByExternalId(auth.orgId, id, validation.data as Record<string, unknown>);
+  if (!updated) {
     return apiError('NOT_FOUND', `User "${id}" not found.`, 404);
   }
+
+  const user = mapTrackedUserToUser(updated);
 
   return apiSuccess(
     { user },

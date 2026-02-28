@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
+import { ChunkLoadErrorRecovery } from '@/components/chunk-load-error-recovery';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -28,6 +29,7 @@ export default function RootLayout({
     >
       <html lang="en" suppressHydrationWarning>
         <body className={`${inter.variable} font-body antialiased`}>
+          <ChunkLoadErrorRecovery />
           {children}
           <Toaster />
         </body>

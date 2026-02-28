@@ -7,7 +7,8 @@
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess, apiError, apiValidationError } from '@/lib/api/auth';
 import { validateWebhookUpdate } from '@/lib/api/validation';
-import { store } from '@/lib/store';
+import { getWebhook, upsertWebhook, deleteWebhook } from '@/lib/db/operations';
+import { mapWebhookToUI } from '@/lib/db/mappers';
 import { getDeliveryLog } from '@/lib/engine/webhooks';
 
 interface RouteContext {
@@ -19,12 +20,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!auth.success) return auth.response;
 
   const { id } = await context.params;
-  const webhook = await store.getWebhook(id);
+  const dbWebhook = await getWebhook(auth.orgId, id);
 
-  if (!webhook) {
+  if (!dbWebhook) {
     return apiError('NOT_FOUND', `Webhook "${id}" not found.`, 404);
   }
 
+  const webhook = mapWebhookToUI(dbWebhook);
   const deliveries = getDeliveryLog(id, 20);
 
   return apiSuccess(
@@ -41,13 +43,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   if (!auth.success) return auth.response;
 
   const { id } = await context.params;
-  const webhook = await store.getWebhook(id);
+  const dbWebhook = await getWebhook(auth.orgId, id);
 
-  if (!webhook) {
+  if (!dbWebhook) {
     return apiError('NOT_FOUND', `Webhook "${id}" not found.`, 404);
   }
 
-  // ── Parse & validate ──────────────────────────────────────────
   let raw: unknown;
   try {
     raw = await request.json();
@@ -61,11 +62,15 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
 
   const updates = validation.data;
-  if (updates.url) webhook.url = updates.url;
-  if (updates.events) webhook.events = updates.events;
-  if (updates.status) webhook.status = updates.status;
+  const updated = await upsertWebhook(auth.orgId, {
+    ...dbWebhook,
+    ...(updates.url ? { url: updates.url } : {}),
+    ...(updates.events ? { events: updates.events } : {}),
+    ...(updates.status ? { status: updates.status as 'active' | 'inactive' | 'failing' } : {}),
+    id,
+  });
 
-  await store.upsertWebhook(webhook);
+  const webhook = mapWebhookToUI(updated);
 
   return apiSuccess(
     { webhook },
@@ -81,7 +86,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   if (!auth.success) return auth.response;
 
   const { id } = await context.params;
-  const deleted = await store.deleteWebhook(id);
+  const deleted = await deleteWebhook(auth.orgId, id);
 
   if (!deleted) {
     return apiError('NOT_FOUND', `Webhook "${id}" not found.`, 404);

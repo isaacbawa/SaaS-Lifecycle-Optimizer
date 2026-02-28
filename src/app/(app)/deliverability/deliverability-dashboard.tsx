@@ -320,7 +320,7 @@ export default function DeliverabilityDashboard() {
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle>No sending domains configured</AlertTitle>
                     <AlertDescription>
-                        Email authentication is critical for deliverability. Without SPF, DKIM, and DMARC records,
+                        Email authentication is critical for deliverability. Without DNS records (SPF, DKIM, DMARC),
                         your emails are much more likely to land in spam. Add your first sending domain to get started.
                     </AlertDescription>
                 </Alert>

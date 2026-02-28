@@ -308,7 +308,7 @@ export interface TickResult {
 }
 
 export type TickAction =
-    | { type: 'send_email'; subject: string; body: string; to: string; fromName?: string; replyTo?: string }
+    | { type: 'send_email'; subject: string; body: string; to: string; fromName?: string; replyTo?: string; templateId?: string }
     | { type: 'send_webhook'; url: string; method: string; headers: Record<string, string>; payload: string }
     | { type: 'update_user'; userId: string; properties: Record<string, string | number | boolean> }
     | { type: 'add_tag'; userId: string; tag: string }
@@ -391,6 +391,7 @@ export function tickEnrollment(ctx: TickContext): TickResult {
                         to: user?.email ?? '',
                         fromName: cfg.emailFromName,
                         replyTo: cfg.emailReplyTo,
+                        ...(cfg.emailTemplateId ? { templateId: cfg.emailTemplateId } : {}),
                     });
                     break;
                 case 'send_webhook':

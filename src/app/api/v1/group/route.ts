@@ -2,19 +2,31 @@
  * POST /api/v1/group — Account Grouping Endpoint
  *
  * Upserts an account with traits from the SDK group() call.
+ * All data persisted to PostgreSQL via DB operations.
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess, apiError, apiValidationError } from '@/lib/api/auth';
 import { validateGroup } from '@/lib/api/validation';
-import { store } from '@/lib/store';
+import {
+  getTrackedAccountByExternalId,
+  upsertTrackedAccount,
+  getAllTrackedUsers,
+  addActivityEntry,
+} from '@/lib/db/operations';
+import { mapTrackedAccountToAccount, mapTrackedUserToUser } from '@/lib/db/mappers';
 import { dispatchWebhooks } from '@/lib/engine/webhooks';
-import type { Account, PlanTier } from '@/lib/definitions';
+import type { PlanTier } from '@/lib/definitions';
 
 export async function POST(request: NextRequest) {
   // ── Auth (group scope, standard rate tier) ────────────────────
   const auth = await authenticate(request, ['group'], 'standard');
   if (!auth.success) return auth.response;
+
+  const orgId = auth.orgId;
+  if (!orgId) {
+    return apiError('ORG_NOT_FOUND', 'No organization associated with this API key.', 400);
+  }
 
   // ── Parse & validate ──────────────────────────────────────────
   let raw: unknown;
@@ -30,87 +42,70 @@ export async function POST(request: NextRequest) {
   }
 
   const { groupId, traits } = validation.data;
-  const now = new Date().toISOString();
+  const now = new Date();
+
+  // ── Check if account exists ──────────────────────────────────
+  const existingAccount = await getTrackedAccountByExternalId(orgId, groupId);
+  const isNew = !existingAccount;
 
   // ── Upsert Account ────────────────────────────────────────────
-  let account = await store.getAccount(groupId);
-  const isNew = !account;
+  const name = (traits.name as string) || existingAccount?.name || 'Unknown Account';
 
+  const dbAccount = await upsertTrackedAccount(orgId, {
+    externalId: groupId,
+    name,
+    domain: (traits.domain as string) || existingAccount?.domain || undefined,
+    plan: (traits.plan as string) || existingAccount?.plan || 'Trial',
+    mrr: existingAccount?.mrr ?? 0,
+    arr: (traits.arr as number) || existingAccount?.arr || 0,
+    userCount: existingAccount?.userCount ?? 1,
+    seatLimit: (traits.seats as number) || existingAccount?.seatLimit || 3,
+    health: existingAccount?.health ?? 'Fair',
+    churnRiskScore: existingAccount?.churnRiskScore ?? 15,
+    expansionScore: existingAccount?.expansionScore ?? 0,
+    lifecycleDistribution: existingAccount?.lifecycleDistribution ?? { Lead: 1 },
+    primaryContact: existingAccount?.primaryContact ?? '',
+    primaryContactEmail: existingAccount?.primaryContactEmail ?? '',
+    lastActivityAt: now,
+    tags: existingAccount?.tags ?? ['sdk-created'],
+    properties: {
+      ...((existingAccount?.properties as Record<string, unknown>) ?? {}),
+      industry: (traits.industry as string) || (existingAccount?.properties as Record<string, unknown>)?.industry || '',
+    },
+  });
+
+  // ── Activity log for new accounts ────────────────────────────
   if (isNew) {
-    const name = (traits.name as string) || 'Unknown Account';
-    const initials = name
-      .split(' ')
-      .map((p) => p[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-
-    const newAccount: Account = {
-      id: groupId,
-      name,
-      initials,
-      mrr: 0,
-      arr: (traits.arr as number) || 0,
-      userCount: 1,
-      seatLimit: (traits.seats as number) || 3,
-      health: 'Fair',
-      plan: ((traits.plan as string) || 'Trial') as PlanTier,
-      lifecycleDistribution: { Lead: 1 },
-      churnRiskScore: 15,
-      expansionScore: 0,
-      signupDate: now.split('T')[0],
-      lastActivityDate: now.split('T')[0],
-      industry: (traits.industry as string) || '',
-      primaryContact: '',
-      primaryContactEmail: '',
-      domain: (traits.domain as string) || '',
-      tags: ['sdk-created'],
-    };
-
-    account = await store.upsertAccount(newAccount);
-
-    await store.addActivity({
-      id: `act_${Date.now().toString(36)}_${crypto.randomUUID().substring(0, 6)}`,
+    await addActivityEntry(orgId, {
       type: 'account_event',
       title: 'New Account Created',
       description: `${name} created via SDK group() call`,
-      timestamp: now,
-      accountId: groupId,
+      accountId: dbAccount.id,
     });
-  } else {
-    // Merge traits
-    const updates: Partial<Account> = {
-      lastActivityDate: now.split('T')[0],
-    };
-
-    if (traits.name) updates.name = traits.name as string;
-    if (traits.industry) updates.industry = traits.industry as string;
-    if (traits.plan) updates.plan = (traits.plan as string) as PlanTier;
-    if (traits.seats) updates.seatLimit = traits.seats as number;
-    if (traits.arr) updates.arr = traits.arr as number;
-    if (traits.domain) updates.domain = traits.domain as string;
-
-    account = (await store.updateAccount(groupId, updates))!;
   }
 
-  // ── Recompute account metrics ─────────────────────────────────
-  const accountUsers = await store.getAccountUsers(groupId);
-  const distribution: Partial<Record<string, number>> = {};
+  // ── Recompute account metrics from its users ──────────────────
+  // getAllTrackedUsers filters by the internal accountId UUID
+  const accountUsers = await getAllTrackedUsers(orgId, { accountId: dbAccount.id });
+  const distribution: Record<string, number> = {};
   let totalMrr = 0;
   let totalRisk = 0;
   let totalExpansion = 0;
 
   for (const u of accountUsers) {
-    distribution[u.lifecycleState] = (distribution[u.lifecycleState] || 0) + 1;
-    totalMrr += u.mrr;
-    totalRisk += u.churnRiskScore;
-    totalExpansion += u.expansionScore;
+    const state = u.lifecycleState ?? 'Lead';
+    distribution[state] = (distribution[state] || 0) + 1;
+    totalMrr += u.mrr ?? 0;
+    totalRisk += u.churnRiskScore ?? 0;
+    totalExpansion += u.expansionScore ?? 0;
   }
 
   const avgRisk = accountUsers.length > 0 ? Math.round(totalRisk / accountUsers.length) : 0;
   const avgExpansion = accountUsers.length > 0 ? Math.round(totalExpansion / accountUsers.length) : 0;
 
-  await store.updateAccount(groupId, {
+  const updatedAccount = await upsertTrackedAccount(orgId, {
+    externalId: groupId,
+    name: dbAccount.name ?? name,
     userCount: accountUsers.length,
     mrr: totalMrr,
     arr: totalMrr * 12,
@@ -118,18 +113,19 @@ export async function POST(request: NextRequest) {
     churnRiskScore: avgRisk,
     expansionScore: avgExpansion,
     health: avgRisk >= 60 ? 'Poor' : avgRisk >= 30 ? 'Fair' : 'Good',
+    lastActivityAt: now,
   });
 
-  // ── Webhook ───────────────────────────────────────────────────
+  // ── Webhook ─────────────────────────────────────────────────
   void dispatchWebhooks('account.updated', {
     accountId: groupId,
     traits,
     isNew,
-    timestamp: now,
-  });
+    timestamp: now.toISOString(),
+  }, orgId);
 
-  // ── Response ──────────────────────────────────────────────────
-  const final = await store.getAccount(groupId);
+  // ── Response ────────────────────────────────────────────────
+  const final = mapTrackedAccountToAccount(updatedAccount);
 
   return apiSuccess(
     { account: final, isNew },

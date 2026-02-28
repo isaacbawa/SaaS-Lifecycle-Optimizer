@@ -22,8 +22,25 @@ import {
   Shield,
 } from 'lucide-react';
 import { LifecycleChart } from '@/components/dashboard/lifecycle-chart';
-import { store } from '@/lib/store';
-import type { LifecycleState, User, Account, RevenueData, ActivityEntry, ExpansionOpportunity, EmailFlow } from '@/lib/definitions';
+import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
+import { resolveOrgId } from '@/lib/auth/resolve-org';
+import {
+  getAllTrackedUsers,
+  getAllTrackedAccounts,
+  getRevenueRecords,
+  getExpansionOpportunities,
+  getAllFlowDefinitions,
+  getActivityLog,
+} from '@/lib/db/operations';
+import {
+  mapTrackedUserToUser,
+  mapTrackedAccountToAccount,
+  aggregateRevenueRecords,
+  mapExpansionOppToUI,
+  mapActivityLogToEntry,
+  mapFlowDefToUI,
+} from '@/lib/db/mappers';
+import type { LifecycleState, User, Account, RevenueData, ActivityEntry, ExpansionOpportunity } from '@/lib/definitions';
 
 /* ==========================================================================
  * Computed KPIs — derived from live store data, never hardcoded
@@ -34,7 +51,7 @@ function computeDashboardKPIs(
   accounts: Account[],
   revenueData: RevenueData[],
   expansionOpps: ExpansionOpportunity[],
-  emailFlows: EmailFlow[],
+  flowStats: { activeCount: number; totalRevenue: number },
 ) {
   const totalMrr = accounts.reduce((sum, a) => sum + a.mrr, 0);
   const totalArr = accounts.reduce((sum, a) => sum + a.arr, 0);
@@ -82,11 +99,8 @@ function computeDashboardKPIs(
   }
 
   // Flow performance
-  const activeFlows = emailFlows.filter((f) => f.status === 'Active');
-  const totalFlowRevenue = emailFlows.reduce(
-    (sum, f) => sum + f.revenueGenerated,
-    0,
-  );
+  const activeFlows = flowStats.activeCount;
+  const totalFlowRevenue = flowStats.totalRevenue;
 
   return {
     totalMrr,
@@ -102,7 +116,7 @@ function computeDashboardKPIs(
     revGrowth,
     currentMonthRev,
     lifecycleCounts,
-    activeFlows: activeFlows.length,
+    activeFlows,
     totalFlowRevenue,
     accountCount: accounts.length,
     payingAccountCount: accounts.filter((a) => a.mrr > 0).length,
@@ -114,17 +128,41 @@ function computeDashboardKPIs(
  * ========================================================================== */
 
 export default async function DashboardPage() {
-  const [users, accounts, revenueData, expansionOpps, emailFlows, activityFeed] =
+  const orgId = await resolveOrgId();
+
+  const [dbUsers, dbAccounts, dbRevenueRecords, dbExpansionOpps, dbFlows, dbActivityLog] =
     await Promise.all([
-      store.getAllUsers(),
-      store.getAllAccounts(),
-      store.getRevenueData(),
-      store.getExpansionOpportunities(),
-      store.getAllFlows(),
-      store.getActivityFeed(),
+      getAllTrackedUsers(orgId),
+      getAllTrackedAccounts(orgId),
+      getRevenueRecords(orgId),
+      getExpansionOpportunities(orgId),
+      getAllFlowDefinitions(orgId),
+      getActivityLog(orgId, 30),
     ]);
 
-  const kpi = computeDashboardKPIs(users, accounts, revenueData, expansionOpps, emailFlows);
+  // Map DB types to UI types
+  // Build account name lookup for user mapping
+  const accountNameMap = new Map<string, string>();
+  for (const a of dbAccounts) {
+    accountNameMap.set(a.id, a.name ?? 'Unknown');
+  }
+
+  const users = dbUsers.map((u) => mapTrackedUserToUser(u, accountNameMap.get(u.accountId ?? '')));
+  const accounts = dbAccounts.map(mapTrackedAccountToAccount);
+  const revenueData = aggregateRevenueRecords(
+    dbRevenueRecords.map((r) => ({ month: r.month, movementType: r.movementType, amount: r.amount })),
+  );
+  const expansionOpps = dbExpansionOpps.map((o) => mapExpansionOppToUI(o, accountNameMap.get(o.accountId ?? '')));
+  const activityFeed: ActivityEntry[] = dbActivityLog.map(mapActivityLogToEntry);
+
+  // Compute flow stats from DB flow definitions
+  const flowDefs = dbFlows.map(mapFlowDefToUI);
+  const flowStats = {
+    activeCount: flowDefs.filter((f) => f.status === 'active').length,
+    totalRevenue: flowDefs.reduce((sum, f) => sum + (f.metrics?.revenueGenerated ?? 0), 0),
+  };
+
+  const kpi = computeDashboardKPIs(users, accounts, revenueData, expansionOpps, flowStats);
 
   const stateColors: Record<string, string> = {
     Lead: 'bg-slate-500',
@@ -153,6 +191,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="grid gap-6">
+      {/* ── Onboarding Checklist (auto-hides when complete) ───── */}
+      <OnboardingChecklist />
+
       {/* ── KPI Row ─────────────────────────────────────────────── */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

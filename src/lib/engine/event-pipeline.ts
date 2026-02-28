@@ -14,15 +14,39 @@
  *  8. Activity log                 → Record significant events
  *
  * The pipeline is idempotent per event (dedup by messageId happens
- * upstream in the store). Processing is synchronous within a single
- * event but non-blocking for webhook delivery (fire-and-forget with
- * retry handled by the webhook engine).
+ * upstream in the ingest layer). Processing is synchronous within a
+ * single event but non-blocking for webhook delivery (fire-and-forget
+ * with retry handled by the webhook engine).
  *
- * Design: each stage returns a result object so the caller can inspect
- * what happened without side effects leaking across stages.
+ * All data access flows through the DB operations layer with full
+ * multi-tenant isolation via orgId.
  * ═══════════════════════════════════════════════════════════════════════ */
 
-import { store } from '@/lib/store';
+import {
+    getTrackedUserByExternalId,
+    getTrackedUser,
+    updateTrackedUser,
+    getTrackedAccount,
+    getTrackedAccountByExternalId,
+    getAllFlowDefinitions,
+    getFlowDefinition as dbGetFlowDefinition,
+    getUserEnrollments as dbGetUserEnrollments,
+    upsertEnrollment as dbUpsertEnrollment,
+    upsertFlowDefinition as dbUpsertFlowDefinition,
+    getExpansionOpportunities as dbGetExpansionOpportunities,
+    upsertExpansionOpportunity as dbUpsertExpansionOpportunity,
+    addActivityEntry,
+    getActiveEnrollmentsDue as dbGetActiveEnrollmentsDue,
+    getAllSegments,
+    upsertSegmentMembership,
+    removeSegmentMembership,
+} from '@/lib/db/operations';
+import {
+    mapTrackedUserToUser,
+    mapTrackedAccountToAccount,
+    mapFlowDefToUI,
+    mapFlowEnrollToUI,
+} from '@/lib/db/mappers';
 import { detectStateTransition } from './lifecycle';
 import { scoreChurnRisk } from './churn';
 import { detectExpansionSignals, signalsToOpportunities } from './expansion';
@@ -37,6 +61,7 @@ import {
     type TickAction,
 } from './flow';
 import { sendEmail } from './email';
+import { getEmailTemplate } from '@/lib/db/operations';
 import type { StoredEvent } from '@/lib/sdk/types';
 import type { User, LifecycleState, FlowDefinition } from '@/lib/definitions';
 
@@ -92,13 +117,55 @@ export interface PipelineResult {
     errors: string[];
 }
 
+/* ── Internal helpers ───────────────────────────────────────────────── */
+
+/**
+ * Load a tracked user by externalId from DB and map to UI User type.
+ * Returns null if user doesn't exist.
+ */
+async function loadUser(orgId: string, externalUserId: string): Promise<{
+    user: User;
+    internalId: string;
+    accountInternalId: string | null;
+} | null> {
+    const dbUser = await getTrackedUserByExternalId(orgId, externalUserId);
+    if (!dbUser) return null;
+
+    // Resolve account name for the mapper
+    let accountName: string | undefined;
+    if (dbUser.accountId) {
+        const dbAccount = await getTrackedAccount(orgId, dbUser.accountId);
+        accountName = dbAccount?.name ?? undefined;
+    }
+
+    return {
+        user: mapTrackedUserToUser(dbUser, accountName),
+        internalId: dbUser.id,
+        accountInternalId: dbUser.accountId,
+    };
+}
+
+/**
+ * Re-fetch a user from DB after updates. Uses internal UUID.
+ */
+async function reloadUser(orgId: string, internalId: string): Promise<User | null> {
+    const dbUser = await getTrackedUser(orgId, internalId);
+    if (!dbUser) return null;
+    let accountName: string | undefined;
+    if (dbUser.accountId) {
+        const dbAccount = await getTrackedAccount(orgId, dbUser.accountId);
+        accountName = dbAccount?.name ?? undefined;
+    }
+    return mapTrackedUserToUser(dbUser, accountName);
+}
+
 /* ── Pipeline Execution ─────────────────────────────────────────────── */
 
 /**
  * Process a single event through the full pipeline.
  * Called after the event has been stored (dedup already handled).
  */
-export async function processEvent(event: StoredEvent): Promise<PipelineResult> {
+export async function processEvent(event: StoredEvent, orgId: string): Promise<PipelineResult> {
     const start = Date.now();
     const errors: string[] = [];
     const now = new Date().toISOString();
@@ -124,7 +191,7 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                 event: event.event,
                 properties: event.properties,
                 timestamp: event.timestamp,
-            });
+            }, orgId);
             result.webhooks.eventsDispatched = 1;
         } catch (e) {
             errors.push(`webhook_dispatch: ${(e as Error).message}`);
@@ -133,10 +200,9 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
         return result;
     }
 
-    const user = await store.getUser(event.userId);
-    if (!user) {
+    const loaded = await loadUser(orgId, event.userId);
+    if (!loaded) {
         // Event references a user we haven't seen via identify() yet.
-        // Still dispatch the raw event webhook.
         try {
             void dispatchWebhooks('event.tracked', {
                 event: event.event,
@@ -144,7 +210,7 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                 accountId: event.accountId,
                 properties: event.properties,
                 timestamp: event.timestamp,
-            });
+            }, orgId);
             result.webhooks.eventsDispatched = 1;
         } catch (e) {
             errors.push(`webhook_dispatch: ${(e as Error).message}`);
@@ -152,6 +218,8 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
         result.processingTimeMs = Date.now() - start;
         return result;
     }
+
+    const { user, internalId, accountInternalId } = loaded;
 
     /* ── Stage 1: Lifecycle Reclassification ──────────────────────── */
     try {
@@ -165,10 +233,10 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
         };
 
         if (transition.transitioned) {
-            await store.updateUser(user.id, {
+            await updateTrackedUser(orgId, internalId, {
                 lifecycleState: transition.to,
                 previousState: transition.from,
-                stateChangedAt: now,
+                stateChangedAt: new Date(),
             });
         }
     } catch (e) {
@@ -177,11 +245,11 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
 
     /* ── Stage 2: Churn Risk Re-scoring ───────────────────────────── */
     try {
-        const freshUser = await store.getUser(user.id);
+        const freshUser = await reloadUser(orgId, internalId);
         if (freshUser) {
             const previousScore = freshUser.churnRiskScore ?? 0;
             const churnResult = scoreChurnRisk(freshUser);
-            await store.updateUser(user.id, {
+            await updateTrackedUser(orgId, internalId, {
                 churnRiskScore: churnResult.riskScore,
             });
             result.churn = {
@@ -199,7 +267,7 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                     newScore: churnResult.riskScore,
                     tier: churnResult.riskTier,
                     account: user.account,
-                });
+                }, orgId);
                 result.webhooks.eventsDispatched++;
             }
         }
@@ -209,12 +277,11 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
 
     /* ── Stage 3: Expansion Signal Detection ──────────────────────── */
     try {
-        const freshUser = await store.getUser(user.id);
-        if (freshUser) {
-            const account = freshUser.account
-                ? await store.getAccount(freshUser.account.id)
-                : undefined;
-            if (account) {
+        const freshUser = await reloadUser(orgId, internalId);
+        if (freshUser && accountInternalId) {
+            const dbAccount = await getTrackedAccount(orgId, accountInternalId);
+            if (dbAccount) {
+                const account = mapTrackedAccountToAccount(dbAccount);
                 const signals = detectExpansionSignals(freshUser, account);
                 if (signals.length > 0) {
                     const opportunities = signalsToOpportunities(
@@ -225,14 +292,28 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                         account.mrr,
                     );
                     let created = 0;
+                    // Fetch existing expansion opps for de-duplication
+                    const existingOpps = await dbGetExpansionOpportunities(orgId, 'identified');
                     for (const opp of opportunities) {
-                        // Avoid duplicating existing opportunities for same account+signal
-                        const existing = await store.getExpansionOpportunities();
-                        const alreadyExists = existing.some(
-                            (e) => e.accountId === opp.accountId && e.signal === opp.signal && e.status === 'identified',
+                        const alreadyExists = existingOpps.some(
+                            (e) =>
+                                e.accountId === accountInternalId &&
+                                e.signal === opp.signal &&
+                                e.status === 'identified',
                         );
                         if (!alreadyExists) {
-                            await store.upsertExpansionOpportunity(opp);
+                            await dbUpsertExpansionOpportunity(orgId, {
+                                accountId: accountInternalId,
+                                signal: opp.signal as 'seat_usage_high' | 'feature_limit_approaching' | 'api_usage_growing' | 'nps_promoter' | 'usage_spike' | 'plan_downgrade_risk',
+                                signalDescription: opp.signalDescription,
+                                currentPlan: opp.currentPlan,
+                                suggestedPlan: opp.suggestedPlan,
+                                currentMrr: opp.currentMrr,
+                                potentialMrr: opp.potentialMrr,
+                                upliftMrr: opp.upliftMrr,
+                                confidence: opp.confidence,
+                                status: 'identified',
+                            });
                             created++;
 
                             void dispatchWebhooks('account.expansion_signal', {
@@ -242,7 +323,7 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                                 suggestedPlan: opp.suggestedPlan,
                                 upliftMrr: opp.upliftMrr,
                                 confidence: opp.confidence,
-                            });
+                            }, orgId);
                             result.webhooks.eventsDispatched++;
                         }
                     }
@@ -261,27 +342,31 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
 
     /* ── Stage 4: Segment Re-evaluation ───────────────────────────── */
     try {
-        // Re-evaluate segments for this user using the in-memory user data
-        // Segments are evaluated against store users (flattened to records)
-        const freshUser = await store.getUser(user.id);
+        const freshUser = await reloadUser(orgId, internalId);
         if (freshUser) {
             const userRecord = flattenUserForSegment(freshUser);
-            const accountRecord = freshUser.account
-                ? await flattenAccountForSegment(freshUser.account)
-                : null;
 
-            // Get all flow definitions that might have segment-based triggers
-            const allFlows = await store.getAllFlowDefinitions();
+            // Get all active segment definitions from DB
+            const segments = await getAllSegments(orgId, 'active');
             const segmentsEntered: string[] = [];
             const segmentsExited: string[] = [];
 
-            // NOTE: In production, segments would be fetched from the DB.
-            // For now, we evaluate against any segment filters stored in
-            // flow definitions that use segment_entry triggers.
-            // This handles the in-memory store flow scenario.
+            for (const seg of segments) {
+                const filters = (seg.filters as Record<string, unknown>[]) ?? [];
+                if (filters.length === 0) continue;
+
+                const matched = evaluateSegmentFilters(filters, userRecord);
+                if (matched) {
+                    await upsertSegmentMembership(seg.id, internalId);
+                    segmentsEntered.push(seg.name);
+                } else {
+                    await removeSegmentMembership(seg.id, internalId);
+                    segmentsExited.push(seg.name);
+                }
+            }
 
             result.segments = {
-                segmentsEvaluated: 0,
+                segmentsEvaluated: segments.length,
                 entered: segmentsEntered,
                 exited: segmentsExited,
             };
@@ -292,13 +377,14 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
 
     /* ── Stage 5: Flow Enrollment Check ───────────────────────────── */
     try {
-        const freshUser = await store.getUser(user.id);
+        const freshUser = await reloadUser(orgId, internalId);
         if (freshUser) {
-            const activeFlows = await store.getFlowDefinitionsByStatus('active');
+            const activeFlows = await getAllFlowDefinitions(orgId, 'active');
             let enrollmentsCreated = 0;
             let actionsDispatched = 0;
 
-            for (const flow of activeFlows) {
+            for (const dbFlow of activeFlows) {
+                const flow = mapFlowDefToUI(dbFlow);
                 const triggerNode = findTriggerNode(flow);
                 if (!triggerNode || !triggerNode.data.triggerConfig) continue;
 
@@ -309,8 +395,8 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                 // Check if this flow's trigger matches
                 if (!matchesTrigger(triggerNode.data.triggerConfig, triggerEvent)) continue;
 
-                // Check if user is already enrolled in this flow
-                const existingEnrollments = await store.getUserEnrollments(freshUser.id);
+                // Check if user is already enrolled in this flow (by internal UUID)
+                const existingEnrollments = await dbGetUserEnrollments(orgId, internalId);
                 const alreadyEnrolled = existingEnrollments.some(
                     (e) => e.flowId === flow.id && (e.status === 'active' || e.status === 'paused'),
                 );
@@ -335,7 +421,22 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                 );
                 if (!enrollment) continue;
 
-                await store.upsertEnrollment(enrollment);
+                // Persist enrollment to DB (map to DB fields)
+                await dbUpsertEnrollment({
+                    id: enrollment.id,
+                    organizationId: orgId,
+                    flowId: enrollment.flowId,
+                    trackedUserId: internalId,
+                    accountId: accountInternalId ?? undefined,
+                    flowVersion: enrollment.flowVersion ?? 1,
+                    status: enrollment.status,
+                    currentNodeId: enrollment.currentNodeId,
+                    variables: enrollment.variables,
+                    enrolledAt: new Date(enrollment.enrolledAt),
+                    lastProcessedAt: enrollment.lastProcessedAt ? new Date(enrollment.lastProcessedAt) : undefined,
+                    nextProcessAt: enrollment.nextProcessAt ? new Date(enrollment.nextProcessAt) : undefined,
+                    history: enrollment.history,
+                });
                 enrollmentsCreated++;
 
                 // Update flow metrics
@@ -349,7 +450,17 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                 };
                 metrics.totalEnrolled++;
                 metrics.currentlyActive++;
-                await store.upsertFlowDefinition({ ...flow, metrics });
+                await dbUpsertFlowDefinition(orgId, {
+                    id: dbFlow.id,
+                    name: dbFlow.name,
+                    description: dbFlow.description,
+                    status: dbFlow.status,
+                    nodes: dbFlow.nodes,
+                    edges: dbFlow.edges,
+                    variables: dbFlow.variables,
+                    settings: dbFlow.settings,
+                    metrics: metrics as Record<string, unknown>,
+                });
 
                 // Process the enrollment through the trigger node → next nodes
                 const processResult = processEnrollment({
@@ -359,10 +470,31 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                 });
 
                 // Save updated enrollment
-                await store.upsertEnrollment(processResult.enrollment);
+                await dbUpsertEnrollment({
+                    id: processResult.enrollment.id,
+                    organizationId: orgId,
+                    flowId: processResult.enrollment.flowId,
+                    trackedUserId: internalId,
+                    accountId: accountInternalId ?? undefined,
+                    flowVersion: processResult.enrollment.flowVersion ?? 1,
+                    status: processResult.enrollment.status,
+                    currentNodeId: processResult.enrollment.currentNodeId,
+                    variables: processResult.enrollment.variables,
+                    enrolledAt: new Date(processResult.enrollment.enrolledAt),
+                    lastProcessedAt: processResult.enrollment.lastProcessedAt
+                        ? new Date(processResult.enrollment.lastProcessedAt)
+                        : undefined,
+                    completedAt: processResult.enrollment.completedAt
+                        ? new Date(processResult.enrollment.completedAt)
+                        : undefined,
+                    nextProcessAt: processResult.enrollment.nextProcessAt
+                        ? new Date(processResult.enrollment.nextProcessAt)
+                        : undefined,
+                    history: processResult.enrollment.history,
+                });
 
                 // Dispatch actions produced by the flow
-                const dispatched = await dispatchFlowActions(processResult.actions, freshUser);
+                const dispatched = await dispatchFlowActions(processResult.actions, freshUser, orgId);
                 actionsDispatched += dispatched;
 
                 // Dispatch flow.triggered webhook
@@ -372,14 +504,24 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                     userId: freshUser.id,
                     userName: freshUser.name,
                     enrollmentId: enrollment.id,
-                });
+                }, orgId);
                 result.webhooks.eventsDispatched++;
 
                 // Check if flow completed immediately
                 if (processResult.enrollment.status === 'completed') {
                     metrics.currentlyActive = Math.max(0, metrics.currentlyActive - 1);
                     metrics.completed++;
-                    await store.upsertFlowDefinition({ ...flow, metrics });
+                    await dbUpsertFlowDefinition(orgId, {
+                        id: dbFlow.id,
+                        name: dbFlow.name,
+                        description: dbFlow.description,
+                        status: dbFlow.status,
+                        nodes: dbFlow.nodes,
+                        edges: dbFlow.edges,
+                        variables: dbFlow.variables,
+                        settings: dbFlow.settings,
+                        metrics: metrics as Record<string, unknown>,
+                    });
 
                     void dispatchWebhooks('flow.completed', {
                         flowId: flow.id,
@@ -387,7 +529,7 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                         userId: freshUser.id,
                         enrollmentId: enrollment.id,
                         status: 'completed',
-                    });
+                    }, orgId);
                     result.webhooks.eventsDispatched++;
                 }
             }
@@ -406,21 +548,22 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
     /* ── Stage 6: Advance Waiting Flow Enrollments ────────────────── */
     try {
         if (event.userId) {
-            const userEnrollments = await store.getUserEnrollments(event.userId);
+            const userEnrollments = await dbGetUserEnrollments(orgId, internalId);
             const waitingForEvent = userEnrollments.filter(
                 (e) => e.status === 'active' && e.nextProcessAt,
             );
 
             let advanced = 0;
-            for (const enrollment of waitingForEvent) {
-                const flow = await store.getFlowDefinition(enrollment.flowId);
-                if (!flow) continue;
+            for (const dbEnrollment of waitingForEvent) {
+                const dbFlow = await dbGetFlowDefinition(orgId, dbEnrollment.flowId);
+                if (!dbFlow) continue;
 
-                const freshUser = await store.getUser(event.userId);
+                const freshUser = await reloadUser(orgId, internalId);
                 if (!freshUser) continue;
 
-                // Check if this event satisfies a "wait for event" delay
-                // by processing the enrollment - if the delay has elapsed, it will advance
+                const flow = mapFlowDefToUI(dbFlow);
+                const enrollment = mapFlowEnrollToUI(dbEnrollment);
+
                 const processResult = processEnrollment({
                     flow,
                     enrollment,
@@ -428,8 +571,29 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                 });
 
                 if (processResult.enrollment.currentNodeId !== enrollment.currentNodeId) {
-                    await store.upsertEnrollment(processResult.enrollment);
-                    await dispatchFlowActions(processResult.actions, freshUser);
+                    await dbUpsertEnrollment({
+                        id: processResult.enrollment.id,
+                        organizationId: orgId,
+                        flowId: processResult.enrollment.flowId,
+                        trackedUserId: internalId,
+                        accountId: accountInternalId ?? undefined,
+                        flowVersion: processResult.enrollment.flowVersion ?? 1,
+                        status: processResult.enrollment.status,
+                        currentNodeId: processResult.enrollment.currentNodeId,
+                        variables: processResult.enrollment.variables,
+                        enrolledAt: new Date(processResult.enrollment.enrolledAt),
+                        lastProcessedAt: processResult.enrollment.lastProcessedAt
+                            ? new Date(processResult.enrollment.lastProcessedAt)
+                            : undefined,
+                        completedAt: processResult.enrollment.completedAt
+                            ? new Date(processResult.enrollment.completedAt)
+                            : undefined,
+                        nextProcessAt: processResult.enrollment.nextProcessAt
+                            ? new Date(processResult.enrollment.nextProcessAt)
+                            : undefined,
+                        history: processResult.enrollment.history,
+                    });
+                    await dispatchFlowActions(processResult.actions, freshUser, orgId);
                     advanced++;
                 }
             }
@@ -445,7 +609,7 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
     /* ── Stage 7: Lifecycle Change Webhook ────────────────────────── */
     try {
         if (result.lifecycle?.transitioned) {
-            const freshUser = await store.getUser(user.id);
+            const freshUser = await reloadUser(orgId, internalId);
             void dispatchWebhooks('user.lifecycle_changed', {
                 userId: user.id,
                 userName: freshUser?.name ?? user.name,
@@ -453,7 +617,7 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
                 newState: result.lifecycle.to,
                 account: freshUser?.account ?? user.account,
                 confidence: result.lifecycle.confidence,
-            });
+            }, orgId);
             result.webhooks.eventsDispatched++;
         }
     } catch (e) {
@@ -468,7 +632,7 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
             accountId: event.accountId,
             properties: event.properties,
             timestamp: event.timestamp,
-        });
+        }, orgId);
         result.webhooks.eventsDispatched++;
     } catch (e) {
         errors.push(`event_webhook: ${(e as Error).message}`);
@@ -478,40 +642,34 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
     try {
         // Log lifecycle transitions
         if (result.lifecycle?.transitioned) {
-            await store.addActivity({
-                id: `act_${Date.now().toString(36)}_${crypto.randomUUID().substring(0, 6)}`,
+            await addActivityEntry(orgId, {
                 type: 'lifecycle_change',
                 title: 'Lifecycle State Change',
                 description: `${user.name} moved from ${result.lifecycle.from} → ${result.lifecycle.to}`,
-                timestamp: now,
-                userId: user.id,
-                accountId: user.account?.id,
+                trackedUserId: internalId,
+                accountId: accountInternalId ?? undefined,
             });
         }
 
         // Log flow enrollments
         if (result.flows && result.flows.enrollmentsCreated > 0) {
-            await store.addActivity({
-                id: `act_${Date.now().toString(36)}_${crypto.randomUUID().substring(0, 6)}`,
+            await addActivityEntry(orgId, {
                 type: 'flow_triggered',
                 title: 'Flow Enrollment',
                 description: `${user.name} enrolled in ${result.flows.enrollmentsCreated} flow(s)`,
-                timestamp: now,
-                userId: user.id,
-                accountId: user.account?.id,
+                trackedUserId: internalId,
+                accountId: accountInternalId ?? undefined,
             });
         }
 
         // Log expansion signals
         if (result.expansion && result.expansion.opportunitiesCreated > 0) {
-            await store.addActivity({
-                id: `act_${Date.now().toString(36)}_${crypto.randomUUID().substring(0, 6)}`,
+            await addActivityEntry(orgId, {
                 type: 'expansion_signal',
                 title: 'Expansion Opportunity',
                 description: `${result.expansion.signalsDetected} expansion signal(s) detected for ${user.account?.name ?? user.name}`,
-                timestamp: now,
-                userId: user.id,
-                accountId: user.account?.id,
+                trackedUserId: internalId,
+                accountId: accountInternalId ?? undefined,
             });
         }
     } catch (e) {
@@ -529,10 +687,10 @@ export async function processEvent(event: StoredEvent): Promise<PipelineResult> 
  * Events are processed sequentially to maintain causal ordering
  * (e.g., identify before track for the same user).
  */
-export async function processEventBatch(events: StoredEvent[]): Promise<PipelineResult[]> {
+export async function processEventBatch(events: StoredEvent[], orgId: string): Promise<PipelineResult[]> {
     const results: PipelineResult[] = [];
     for (const event of events) {
-        results.push(await processEvent(event));
+        results.push(await processEvent(event, orgId));
     }
     return results;
 }
@@ -592,45 +750,39 @@ function flattenUserForSegment(user: User): Record<string, unknown> {
     };
 }
 
-async function flattenAccountForSegment(accountRef: User['account']): Promise<Record<string, unknown>> {
-    // Look up full Account from store if needed
-    const full = accountRef ? await store.getAccount(accountRef.id) : undefined;
-    if (full) {
-        return {
-            id: full.id,
-            name: full.name,
-            domain: full.domain,
-            industry: full.industry,
-            plan: full.plan,
-            mrr: full.mrr,
-            arr: full.arr,
-            userCount: full.userCount,
-            health: full.health,
-            churnRiskScore: full.churnRiskScore,
-            expansionScore: full.expansionScore,
-            tags: full.tags ?? [],
-        };
-    }
-    return { id: accountRef?.id, name: accountRef?.name };
-}
-
 /* ── Helper: Dispatch Flow Actions ──────────────────────────────────── */
 
 /**
  * Execute the side-effect actions produced by flow node execution.
  * Returns the count of successfully dispatched actions.
  */
-async function dispatchFlowActions(actions: TickAction[], user: User): Promise<number> {
+async function dispatchFlowActions(actions: TickAction[], user: User, orgId: string): Promise<number> {
     let dispatched = 0;
 
     for (const action of actions) {
         try {
             switch (action.type) {
                 case 'send_email': {
+                    let subject = action.subject;
+                    let html = action.body;
+
+                    // If a pre-built template is referenced, fetch from DB
+                    if (action.templateId) {
+                        try {
+                            const tpl = await getEmailTemplate(orgId, action.templateId);
+                            if (tpl) {
+                                subject = subject || tpl.subject;
+                                html = (tpl.bodyHtml as string) ?? html;
+                            }
+                        } catch {
+                            // Fallback to inline subject/body if template fetch fails
+                        }
+                    }
+
                     await sendEmail({
                         to: action.to || user.email,
-                        subject: action.subject,
-                        html: action.body,
+                        subject,
+                        html,
                         fromName: action.fromName,
                         replyTo: action.replyTo,
                     });
@@ -653,44 +805,44 @@ async function dispatchFlowActions(actions: TickAction[], user: User): Promise<n
                 }
 
                 case 'update_user': {
-                    await store.updateUser(action.userId, action.properties as Partial<User>);
-                    dispatched++;
-                    break;
-                }
-
-                case 'add_tag': {
-                    const u = await store.getUser(action.userId);
-                    if (u) {
-                        // Tags are managed at the account level in this system
-                        // Store the tag action as an activity
-                        await store.addActivity({
-                            id: `act_tag_${Date.now().toString(36)}`,
-                            type: 'system',
-                            title: `Tag added: ${action.tag}`,
-                            description: `Tag "${action.tag}" added to user ${action.userId}`,
-                            timestamp: new Date().toISOString(),
-                            userId: action.userId,
+                    // Update the tracked user in DB via externalId
+                    const dbUser = await getTrackedUserByExternalId(orgId, action.userId);
+                    if (dbUser) {
+                        const props = action.properties as Record<string, unknown>;
+                        await updateTrackedUser(orgId, dbUser.id, {
+                            ...(props.lifecycleState ? { lifecycleState: props.lifecycleState as string } : {}),
+                            ...(props.churnRiskScore !== undefined ? { churnRiskScore: props.churnRiskScore as number } : {}),
+                            ...(props.expansionScore !== undefined ? { expansionScore: props.expansionScore as number } : {}),
+                            ...(props.plan ? { plan: props.plan as string } : {}),
+                            ...(props.tags ? { tags: props.tags as string[] } : {}),
                         });
                     }
                     dispatched++;
                     break;
                 }
 
+                case 'add_tag': {
+                    await addActivityEntry(orgId, {
+                        type: 'system',
+                        title: `Tag added: ${action.tag}`,
+                        description: `Tag "${action.tag}" added to user ${action.userId}`,
+                        trackedUserId: undefined,
+                    });
+                    dispatched++;
+                    break;
+                }
+
                 case 'remove_tag': {
-                    await store.addActivity({
-                        id: `act_untag_${Date.now().toString(36)}`,
+                    await addActivityEntry(orgId, {
                         type: 'system',
                         title: `Tag removed: ${action.tag}`,
                         description: `Tag "${action.tag}" removed from user ${action.userId}`,
-                        timestamp: new Date().toISOString(),
-                        userId: action.userId,
                     });
                     dispatched++;
                     break;
                 }
 
                 case 'set_variable': {
-                    // Variables are set on the enrollment, not dispatched externally
                     dispatched++;
                     break;
                 }
@@ -710,27 +862,20 @@ async function dispatchFlowActions(actions: TickAction[], user: User): Promise<n
                 }
 
                 case 'send_notification': {
-                    // In-app notifications would go to a notification store
-                    // For now, log it as an activity
-                    await store.addActivity({
-                        id: `act_notif_${Date.now().toString(36)}`,
+                    await addActivityEntry(orgId, {
                         type: 'system',
                         title: action.title,
                         description: action.body,
-                        timestamp: new Date().toISOString(),
-                        userId: action.userId,
                     });
                     dispatched++;
                     break;
                 }
 
                 case 'create_task': {
-                    await store.addActivity({
-                        id: `act_task_${Date.now().toString(36)}`,
+                    await addActivityEntry(orgId, {
                         type: 'system',
                         title: `Task: ${action.title}`,
                         description: `Assigned to ${action.assignee ?? 'unassigned'} (${action.priority ?? 'normal'})`,
-                        timestamp: new Date().toISOString(),
                     });
                     dispatched++;
                     break;
@@ -750,6 +895,9 @@ async function dispatchFlowActions(actions: TickAction[], user: User): Promise<n
  * Process all flow enrollments whose nextProcessAt has elapsed.
  * This is called by the scheduler endpoint (cron) or can be called
  * manually.
+ *
+ * Note: getActiveEnrollmentsDue() is cross-org. Each enrollment
+ * carries its orgId so we can operate in the correct tenant context.
  */
 export async function processScheduledEnrollments(): Promise<{
     processed: number;
@@ -757,46 +905,82 @@ export async function processScheduledEnrollments(): Promise<{
     errors: number;
     actionsDispatched: number;
 }> {
-    const dueEnrollments = await store.getActiveEnrollmentsDue();
+    const dueEnrollments = await dbGetActiveEnrollmentsDue();
     let processed = 0;
     let completed = 0;
     let errored = 0;
     let totalActions = 0;
 
-    for (const enrollment of dueEnrollments) {
+    for (const dbEnrollment of dueEnrollments) {
         try {
-            const flow = await store.getFlowDefinition(enrollment.flowId);
-            if (!flow || flow.status !== 'active') {
-                // Flow was deactivated — mark enrollment as exited
-                await store.upsertEnrollment({
-                    ...enrollment,
+            const enrollmentOrgId = dbEnrollment.organizationId;
+
+            const dbFlow = await dbGetFlowDefinition(enrollmentOrgId, dbEnrollment.flowId);
+            if (!dbFlow || dbFlow.status !== 'active') {
+                await dbUpsertEnrollment({
+                    ...dbEnrollment,
                     status: 'exited',
-                    completedAt: new Date().toISOString(),
-                    lastProcessedAt: new Date().toISOString(),
+                    completedAt: new Date(),
+                    lastProcessedAt: new Date(),
                 });
                 continue;
             }
 
-            const user = await store.getUser(enrollment.userId);
+            const flow = mapFlowDefToUI(dbFlow);
+            const enrollment = mapFlowEnrollToUI(dbEnrollment);
 
-            const result = processEnrollment({
+            // Resolve the user for this enrollment
+            const dbUser = await getTrackedUser(enrollmentOrgId, dbEnrollment.trackedUserId);
+            let user: User | undefined;
+            if (dbUser) {
+                let accountName: string | undefined;
+                if (dbUser.accountId) {
+                    const acct = await getTrackedAccount(enrollmentOrgId, dbUser.accountId);
+                    accountName = acct?.name ?? undefined;
+                }
+                user = mapTrackedUserToUser(dbUser, accountName);
+            }
+
+            const processResult = processEnrollment({
                 flow,
                 enrollment: { ...enrollment, nextProcessAt: undefined },
-                user: user ?? undefined,
+                user,
             });
 
-            await store.upsertEnrollment(result.enrollment);
+            // Persist updated enrollment
+            await dbUpsertEnrollment({
+                id: processResult.enrollment.id,
+                organizationId: enrollmentOrgId,
+                flowId: processResult.enrollment.flowId,
+                trackedUserId: dbEnrollment.trackedUserId,
+                accountId: dbEnrollment.accountId ?? undefined,
+                flowVersion: processResult.enrollment.flowVersion ?? 1,
+                status: processResult.enrollment.status,
+                currentNodeId: processResult.enrollment.currentNodeId,
+                variables: processResult.enrollment.variables,
+                enrolledAt: new Date(processResult.enrollment.enrolledAt),
+                lastProcessedAt: processResult.enrollment.lastProcessedAt
+                    ? new Date(processResult.enrollment.lastProcessedAt)
+                    : undefined,
+                completedAt: processResult.enrollment.completedAt
+                    ? new Date(processResult.enrollment.completedAt)
+                    : undefined,
+                nextProcessAt: processResult.enrollment.nextProcessAt
+                    ? new Date(processResult.enrollment.nextProcessAt)
+                    : undefined,
+                history: processResult.enrollment.history,
+            });
 
             // Dispatch actions
-            if (user && result.actions.length > 0) {
-                const dispatched = await dispatchFlowActions(result.actions, user);
+            if (user && processResult.actions.length > 0) {
+                const dispatched = await dispatchFlowActions(processResult.actions, user, enrollmentOrgId);
                 totalActions += dispatched;
             }
 
             processed++;
 
             // Update flow metrics
-            if (result.enrollment.status === 'completed' || result.enrollment.status === 'exited') {
+            if (processResult.enrollment.status === 'completed' || processResult.enrollment.status === 'exited') {
                 completed++;
                 const metrics = flow.metrics ?? {
                     totalEnrolled: 0,
@@ -807,23 +991,33 @@ export async function processScheduledEnrollments(): Promise<{
                     errorCount: 0,
                 };
                 metrics.currentlyActive = Math.max(0, metrics.currentlyActive - 1);
-                if (result.enrollment.status === 'completed') {
+                if (processResult.enrollment.status === 'completed') {
                     metrics.completed++;
                 } else {
                     metrics.exitedEarly++;
                 }
-                await store.upsertFlowDefinition({ ...flow, metrics });
+                await dbUpsertFlowDefinition(enrollmentOrgId, {
+                    id: dbFlow.id,
+                    name: dbFlow.name,
+                    description: dbFlow.description,
+                    status: dbFlow.status,
+                    nodes: dbFlow.nodes,
+                    edges: dbFlow.edges,
+                    variables: dbFlow.variables,
+                    settings: dbFlow.settings,
+                    metrics: metrics as Record<string, unknown>,
+                });
 
                 void dispatchWebhooks('flow.completed', {
                     flowId: flow.id,
                     flowName: flow.name,
-                    userId: enrollment.userId,
-                    enrollmentId: enrollment.id,
-                    status: result.enrollment.status,
-                });
+                    userId: dbEnrollment.trackedUserId,
+                    enrollmentId: dbEnrollment.id,
+                    status: processResult.enrollment.status,
+                }, enrollmentOrgId);
             }
 
-            if (result.enrollment.status === 'error') {
+            if (processResult.enrollment.status === 'error') {
                 errored++;
                 const metrics = flow.metrics ?? {
                     totalEnrolled: 0,
@@ -834,11 +1028,21 @@ export async function processScheduledEnrollments(): Promise<{
                     errorCount: 0,
                 };
                 metrics.errorCount++;
-                await store.upsertFlowDefinition({ ...flow, metrics });
+                await dbUpsertFlowDefinition(enrollmentOrgId, {
+                    id: dbFlow.id,
+                    name: dbFlow.name,
+                    description: dbFlow.description,
+                    status: dbFlow.status,
+                    nodes: dbFlow.nodes,
+                    edges: dbFlow.edges,
+                    variables: dbFlow.variables,
+                    settings: dbFlow.settings,
+                    metrics: metrics as Record<string, unknown>,
+                });
             }
         } catch (e) {
             errored++;
-            console.error(`[scheduler] Error processing enrollment ${enrollment.id}:`, (e as Error).message);
+            console.error(`[scheduler] Error processing enrollment ${dbEnrollment.id}:`, (e as Error).message);
         }
     }
 

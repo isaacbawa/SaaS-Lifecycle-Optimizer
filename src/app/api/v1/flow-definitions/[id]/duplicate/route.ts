@@ -5,7 +5,9 @@
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { store } from '@/lib/store';
+import { resolveOrgId } from '@/lib/auth/resolve-org';
+import { duplicateFlowDefinition } from '@/lib/db/operations';
+import { mapFlowDefToUI } from '@/lib/db/mappers';
 
 function jsonSuccess<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -21,8 +23,9 @@ function jsonError(code: string, message: string, status = 400) {
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(_request: NextRequest, ctx: RouteContext) {
+  const orgId = await resolveOrgId();
   const { id } = await ctx.params;
-  const copy = await store.duplicateFlowDefinition(id);
+  const copy = await duplicateFlowDefinition(orgId, id);
   if (!copy) return jsonError('NOT_FOUND', `Flow definition '${id}' not found.`, 404);
-  return jsonSuccess(copy, 201);
+  return jsonSuccess(mapFlowDefToUI(copy), 201);
 }

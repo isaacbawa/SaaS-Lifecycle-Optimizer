@@ -5,7 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { ChurnAnalysisClient } from '@/components/retention/churn-analysis-client';
-import { store } from '@/lib/store';
+import { resolveOrgId } from '@/lib/auth/resolve-org';
+import { getAllTrackedUsers } from '@/lib/db/operations';
+import { mapTrackedUserToUser, computeRetentionCohorts } from '@/lib/db/mappers';
 import {
   Shield, AlertTriangle, TrendingDown, Users, Heart, BarChart3,
 } from 'lucide-react';
@@ -14,10 +16,10 @@ import { cn } from '@/lib/utils';
 /* ── Component ──────────────────────────────────────────────────────── */
 
 export default async function RetentionPage() {
-  const [users, retentionCohorts] = await Promise.all([
-    store.getAllUsers(),
-    store.getRetentionCohorts(),
-  ]);
+  const orgId = await resolveOrgId();
+  const dbUsers = await getAllTrackedUsers(orgId);
+  const users = dbUsers.map(mapTrackedUserToUser);
+  const retentionCohorts = computeRetentionCohorts(dbUsers);
 
   /* ── Computed Metrics ─────────────────────────────────────────── */
   const activeUsers = users.filter((u) => !['Churned', 'Lead'].includes(u.lifecycleState));

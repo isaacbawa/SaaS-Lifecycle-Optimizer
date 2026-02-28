@@ -69,7 +69,10 @@ function getNodeSummary(data: FlowNodeData): string {
             const cfg = data.actionConfig;
             if (!cfg) return 'Configure action';
             switch (cfg.kind) {
-                case 'send_email': return cfg.emailSubject ? truncate(cfg.emailSubject, 40) : 'Configure email';
+                case 'send_email': {
+                    if (cfg.emailTemplateId) return `📄 Template selected`;
+                    return cfg.emailSubject ? truncate(cfg.emailSubject, 40) : 'Configure email';
+                }
                 case 'send_webhook': return cfg.webhookUrl ? truncate(cfg.webhookUrl, 40) : 'Configure webhook';
                 case 'add_tag': return `Add: ${cfg.tag ?? '—'}`;
                 case 'remove_tag': return `Remove: ${cfg.tag ?? '—'}`;
@@ -120,9 +123,15 @@ function truncate(s: string, max: number): string {
 }
 
 function formatDuration(minutes: number): string {
-    if (minutes < 60) return `${minutes}m`;
-    if (minutes < 1440) return `${(minutes / 60).toFixed(0)}h`;
-    return `${(minutes / 1440).toFixed(0)}d`;
+    if (minutes <= 0) return '0m';
+    const d = Math.floor(minutes / 1440);
+    const h = Math.floor((minutes % 1440) / 60);
+    const m = minutes % 60;
+    const parts: string[] = [];
+    if (d > 0) parts.push(`${d}d`);
+    if (h > 0) parts.push(`${h}h`);
+    if (m > 0) parts.push(`${m}m`);
+    return parts.join(' ') || '0m';
 }
 
 /* ── Metric Badge ────────────────────────────────────────────────────── */

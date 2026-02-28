@@ -7,7 +7,11 @@
 
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess, apiError } from '@/lib/api/auth';
-import { store } from '@/lib/store';
+import {
+  getTrackedUserByExternalId, updateTrackedUserByExternalId,
+  getTrackedAccount, getTrackedAccountByExternalId,
+} from '@/lib/db/operations';
+import { mapTrackedUserToUser, mapTrackedAccountToAccount } from '@/lib/db/mappers';
 import { scoreChurnRisk } from '@/lib/engine/churn';
 import { detectExpansionSignals, computeExpansionScore } from '@/lib/engine/expansion';
 import { classifyLifecycleState } from '@/lib/engine/lifecycle';
@@ -23,11 +27,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!auth.success) return auth.response;
 
   const { id } = await context.params;
-  const user = await store.getUser(id);
+  const dbUser = await getTrackedUserByExternalId(auth.orgId, id);
 
-  if (!user) {
+  if (!dbUser) {
     return apiError('NOT_FOUND', `User "${id}" not found.`, 404);
   }
+
+  let accountName: string | undefined;
+  if (dbUser.accountId) {
+    const acc = await getTrackedAccount(auth.orgId, dbUser.accountId);
+    accountName = acc?.name ?? undefined;
+  }
+  const user = mapTrackedUserToUser(dbUser, accountName);
 
   // Parse options
   let options: { includeRecommendations?: boolean } = {};
@@ -42,18 +53,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const lifecycle = classifyLifecycleState(user);
 
   // Update stored scores
-  await store.updateUser(id, {
+  await updateTrackedUserByExternalId(auth.orgId, id, {
     churnRiskScore: churnResult.riskScore,
   });
 
   // ── Expansion Analysis ────────────────────────────────────────
   let expansionData = null;
-  const account = await store.getAccount(user.account.id);
+  const dbAccount = user.account.id
+    ? await getTrackedAccountByExternalId(auth.orgId, user.account.id)
+    : null;
 
-  if (account) {
+  if (dbAccount) {
+    const account = mapTrackedAccountToAccount(dbAccount);
     const signals = detectExpansionSignals(user, account);
     const expansionScore = computeExpansionScore(signals);
-    await store.updateUser(id, { expansionScore });
+    await updateTrackedUserByExternalId(auth.orgId, id, { expansionScore });
 
     expansionData = {
       score: expansionScore,
@@ -75,7 +89,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       newScore: churnResult.riskScore,
       riskTier: churnResult.riskTier,
       account: user.account,
-    });
+    }, auth.orgId);
   }
 
   // ── Build Response ────────────────────────────────────────────

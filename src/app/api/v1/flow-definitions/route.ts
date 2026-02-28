@@ -10,8 +10,10 @@
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { store } from '@/lib/store';
-import type { FlowDefinition, FlowBuilderStatus, FlowNodeDef, FlowEdgeDef } from '@/lib/definitions';
+import { resolveOrgId } from '@/lib/auth/resolve-org';
+import { getAllFlowDefinitions, upsertFlowDefinition } from '@/lib/db/operations';
+import { mapFlowDefToUI } from '@/lib/db/mappers';
+import type { FlowBuilderStatus, FlowNodeDef, FlowEdgeDef } from '@/lib/definitions';
 
 function jsonSuccess<T>(data: T, status = 200) {
     return NextResponse.json({ success: true, data }, { status });
@@ -30,9 +32,9 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const status = url.searchParams.get('status') as FlowBuilderStatus | null;
 
-    const flows = status
-        ? await store.getFlowDefinitionsByStatus(status)
-        : await store.getAllFlowDefinitions();
+    const orgId = await resolveOrgId();
+    const dbFlows = await getAllFlowDefinitions(orgId, status ?? undefined);
+    const flows = dbFlows.map(mapFlowDefToUI);
 
     // Sort by updatedAt desc
     flows.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
         return jsonError('VALIDATION_ERROR', 'Flow name is required.', 422);
     }
 
+    const orgId = await resolveOrgId();
     const now = new Date().toISOString();
     const id = `fdef_${Date.now().toString(36)}_${crypto.randomUUID().substring(0, 8)}`;
 
@@ -95,8 +98,7 @@ export async function POST(request: NextRequest) {
         target: exitNode.id,
     };
 
-    const flow: FlowDefinition = {
-        id,
+    const dbFlow = await upsertFlowDefinition(orgId, {
         name,
         description,
         trigger: '',
@@ -124,10 +126,8 @@ export async function POST(request: NextRequest) {
             openRate: 0,
             clickRate: 0,
         },
-        createdAt: now,
-        updatedAt: now,
-    };
+    });
 
-    const saved = await store.upsertFlowDefinition(flow);
+    const saved = mapFlowDefToUI(dbFlow);
     return jsonSuccess(saved, 201);
 }

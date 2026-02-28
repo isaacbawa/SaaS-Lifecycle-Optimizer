@@ -199,6 +199,28 @@ function validateFlow(nodes: Node[], edges: Edge[]): ValidationIssue[] {
         if (node.type !== 'exit' && !hasOut) {
             issues.push({ severity: 'warning', nodeId: node.id, message: `"${data.label}" has no outgoing connections` });
         }
+
+        // Validate action node configurations
+        if (data.nodeType === 'action' && data.actionConfig) {
+            const cfg = data.actionConfig;
+            if (cfg.kind === 'send_email' && !cfg.emailTemplateId && !cfg.emailSubject) {
+                issues.push({ severity: 'error', nodeId: node.id, message: `"${data.label}" needs an email template or subject line` });
+            }
+            if (cfg.kind === 'send_webhook' && !cfg.webhookUrl) {
+                issues.push({ severity: 'warning', nodeId: node.id, message: `"${data.label}" has no webhook URL configured` });
+            }
+        }
+
+        // Validate delay node configurations
+        if (data.nodeType === 'delay' && data.delayConfig) {
+            const cfg = data.delayConfig;
+            if (cfg.kind === 'fixed_duration' && (!cfg.durationMinutes || cfg.durationMinutes <= 0)) {
+                issues.push({ severity: 'warning', nodeId: node.id, message: `"${data.label}" has zero delay duration` });
+            }
+            if (cfg.kind === 'until_event' && !cfg.waitForEvent) {
+                issues.push({ severity: 'warning', nodeId: node.id, message: `"${data.label}" has no event name configured` });
+            }
+        }
     }
 
     return issues;
@@ -536,59 +558,59 @@ export function FlowBuilderCanvas({ flow, onSave, onBack }: FlowBuilderCanvasPro
                 {/* React Flow Canvas */}
                 <div ref={canvasRef} className="flex-1">
                     <IntegrationWarningsProvider value={integrationWarningsMap}>
-                    <ReactFlow
-                        nodes={nodes}
-                        edges={edges}
-                        onNodesChange={onNodesChange}
-                        onEdgesChange={onEdgesChange}
-                        onConnect={onConnect}
-                        onNodeClick={onNodeClick}
-                        onPaneClick={onPaneClick}
-                        onInit={(inst) => { rfInstance.current = inst; }}
-                        onDragOver={onDragOver}
-                        onDrop={onDrop}
-                        nodeTypes={flowNodeTypes}
-                        connectionMode={ConnectionMode.Loose}
-                        defaultEdgeOptions={{
-                            type: 'smoothstep',
-                            markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-                            style: { strokeWidth: 2 },
-                        }}
-                        proOptions={{ hideAttribution: true }}
-                        fitView
-                        fitViewOptions={{ padding: 0.2 }}
-                        snapToGrid
-                        snapGrid={[20, 20]}
-                        deleteKeyCode="Delete"
-                        className="bg-dots-pattern"
-                    >
-                        <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-                        <Controls showInteractive={false} />
-                        <MiniMap
-                            nodeColor={minimapNodeColor}
-                            maskColor="rgba(0,0,0,0.08)"
-                            className="!bg-card !border"
-                            pannable
-                            zoomable
-                        />
+                        <ReactFlow
+                            nodes={nodes}
+                            edges={edges}
+                            onNodesChange={onNodesChange}
+                            onEdgesChange={onEdgesChange}
+                            onConnect={onConnect}
+                            onNodeClick={onNodeClick}
+                            onPaneClick={onPaneClick}
+                            onInit={(inst) => { rfInstance.current = inst; }}
+                            onDragOver={onDragOver}
+                            onDrop={onDrop}
+                            nodeTypes={flowNodeTypes}
+                            connectionMode={ConnectionMode.Loose}
+                            defaultEdgeOptions={{
+                                type: 'smoothstep',
+                                markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+                                style: { strokeWidth: 2 },
+                            }}
+                            proOptions={{ hideAttribution: true }}
+                            fitView
+                            fitViewOptions={{ padding: 0.2 }}
+                            snapToGrid
+                            snapGrid={[20, 20]}
+                            deleteKeyCode="Delete"
+                            className="bg-dots-pattern"
+                        >
+                            <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
+                            <Controls showInteractive={false} />
+                            <MiniMap
+                                nodeColor={minimapNodeColor}
+                                maskColor="rgba(0,0,0,0.08)"
+                                className="!bg-card !border"
+                                pannable
+                                zoomable
+                            />
 
-                        {/* Stats Panel */}
-                        <Panel position="bottom-left" className="!m-3">
-                            <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-card border text-xs text-muted-foreground shadow-sm">
-                                <span>{nodes.length} nodes</span>
-                                <span>·</span>
-                                <span>{edges.length} edges</span>
-                                {flow.metrics.totalEnrolled > 0 && (
-                                    <>
-                                        <span>·</span>
-                                        <span>{flow.metrics.totalEnrolled.toLocaleString()} enrolled</span>
-                                        <span>·</span>
-                                        <span>{flow.metrics.currentlyActive.toLocaleString()} active</span>
-                                    </>
-                                )}
-                            </div>
-                        </Panel>
-                    </ReactFlow>
+                            {/* Stats Panel */}
+                            <Panel position="bottom-left" className="!m-3">
+                                <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-card border text-xs text-muted-foreground shadow-sm">
+                                    <span>{nodes.length} nodes</span>
+                                    <span>·</span>
+                                    <span>{edges.length} edges</span>
+                                    {flow.metrics.totalEnrolled > 0 && (
+                                        <>
+                                            <span>·</span>
+                                            <span>{flow.metrics.totalEnrolled.toLocaleString()} enrolled</span>
+                                            <span>·</span>
+                                            <span>{flow.metrics.currentlyActive.toLocaleString()} active</span>
+                                        </>
+                                    )}
+                                </div>
+                            </Panel>
+                        </ReactFlow>
                     </IntegrationWarningsProvider>
                 </div>
             </div>

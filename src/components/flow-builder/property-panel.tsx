@@ -7,7 +7,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type {
     FlowNodeData,
     FlowNodeType,
@@ -38,7 +38,7 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, Trash2, X, FileText, Pencil, Loader2, ExternalLink } from 'lucide-react';
 
 /* ── Types ───────────────────────────────────────────────────────────── */
 
@@ -281,14 +281,63 @@ function TriggerConfig({ config, onChange }: { config: TriggerNodeConfig; onChan
             </div>
 
             {config.allowReEntry && (
-                <div>
-                    <Label className="text-xs">Cooldown (minutes)</Label>
-                    <Input
-                        type="number"
-                        value={config.reEntryCooldownMinutes ?? 0}
-                        onChange={(e) => onChange({ ...config, reEntryCooldownMinutes: Number(e.target.value) })}
-                        className="h-8 text-sm"
-                    />
+                <div className="space-y-2">
+                    <Label className="text-xs">Re-entry Cooldown</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                        <div>
+                            <Input
+                                type="number"
+                                min={0}
+                                value={Math.floor((config.reEntryCooldownMinutes ?? 0) / 1440)}
+                                onChange={(e) => {
+                                    const days = Number(e.target.value) || 0;
+                                    const total = config.reEntryCooldownMinutes ?? 0;
+                                    const hours = Math.floor((total % 1440) / 60);
+                                    const minutes = total % 60;
+                                    onChange({ ...config, reEntryCooldownMinutes: (days * 1440) + (hours * 60) + minutes });
+                                }}
+                                className="h-8 text-sm"
+                            />
+                            <p className="text-[10px] text-muted-foreground mt-0.5">days</p>
+                        </div>
+                        <div>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={23}
+                                value={Math.floor(((config.reEntryCooldownMinutes ?? 0) % 1440) / 60)}
+                                onChange={(e) => {
+                                    const hours = Math.min(Number(e.target.value) || 0, 23);
+                                    const total = config.reEntryCooldownMinutes ?? 0;
+                                    const days = Math.floor(total / 1440);
+                                    const minutes = total % 60;
+                                    onChange({ ...config, reEntryCooldownMinutes: (days * 1440) + (hours * 60) + minutes });
+                                }}
+                                className="h-8 text-sm"
+                            />
+                            <p className="text-[10px] text-muted-foreground mt-0.5">hours</p>
+                        </div>
+                        <div>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={59}
+                                value={(config.reEntryCooldownMinutes ?? 0) % 60}
+                                onChange={(e) => {
+                                    const minutes = Math.min(Number(e.target.value) || 0, 59);
+                                    const total = config.reEntryCooldownMinutes ?? 0;
+                                    const days = Math.floor(total / 1440);
+                                    const hours = Math.floor((total % 1440) / 60);
+                                    onChange({ ...config, reEntryCooldownMinutes: (days * 1440) + (hours * 60) + minutes });
+                                }}
+                                className="h-8 text-sm"
+                            />
+                            <p className="text-[10px] text-muted-foreground mt-0.5">mins</p>
+                        </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                        = {formatDuration(config.reEntryCooldownMinutes ?? 0)}
+                    </p>
                 </div>
             )}
         </div>
@@ -297,7 +346,35 @@ function TriggerConfig({ config, onChange }: { config: TriggerNodeConfig; onChan
 
 /* ── Action ──────────────────────────────────────────────────────────── */
 
+interface EmailTemplateOption {
+    id: string;
+    name: string;
+    subject: string;
+    status: string;
+    category: string | null;
+}
+
 function ActionConfig({ config, onChange }: { config: ActionNodeConfig; onChange: (c: ActionNodeConfig) => void }) {
+    const [emailMode, setEmailMode] = useState<'template' | 'custom'>(
+        config.emailTemplateId ? 'template' : 'custom'
+    );
+    const [templates, setTemplates] = useState<EmailTemplateOption[]>([]);
+    const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+    // Fetch templates when mode is 'template' and kind is 'send_email'
+    useEffect(() => {
+        if (config.kind === 'send_email' && emailMode === 'template' && templates.length === 0) {
+            setLoadingTemplates(true);
+            fetch('/api/v1/email-templates')
+                .then(r => r.ok ? r.json() : { data: [] })
+                .then(j => setTemplates(j.data ?? []))
+                .catch(() => { })
+                .finally(() => setLoadingTemplates(false));
+        }
+    }, [config.kind, emailMode, templates.length]);
+
+    const selectedTemplate = templates.find(t => t.id === config.emailTemplateId);
+
     const kinds: { value: ActionKind; label: string }[] = [
         { value: 'send_email', label: 'Send Email' },
         { value: 'send_webhook', label: 'Send Webhook' },
@@ -324,25 +401,130 @@ function ActionConfig({ config, onChange }: { config: ActionNodeConfig; onChange
 
             {config.kind === 'send_email' && (
                 <>
-                    <div>
-                        <Label className="text-xs">Subject</Label>
-                        <Input
-                            value={config.emailSubject ?? ''}
-                            onChange={(e) => onChange({ ...config, emailSubject: e.target.value })}
-                            placeholder="Email subject line"
-                            className="h-8 text-sm"
-                        />
+                    {/* Mode Toggle: Template vs Custom */}
+                    <div className="space-y-2">
+                        <Label className="text-xs">Email Source</Label>
+                        <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg border bg-muted/30">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setEmailMode('template');
+                                    if (templates.length === 0) {
+                                        setLoadingTemplates(true);
+                                        fetch('/api/v1/email-templates')
+                                            .then(r => r.ok ? r.json() : { data: [] })
+                                            .then(j => setTemplates(j.data ?? []))
+                                            .catch(() => { })
+                                            .finally(() => setLoadingTemplates(false));
+                                    }
+                                }}
+                                className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-all ${emailMode === 'template'
+                                        ? 'bg-background shadow-sm text-foreground'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                            >
+                                <FileText className="h-3 w-3" />
+                                Use Template
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setEmailMode('custom');
+                                    // Clear template selection when switching to custom
+                                    if (config.emailTemplateId) {
+                                        onChange({ ...config, emailTemplateId: undefined });
+                                    }
+                                }}
+                                className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-all ${emailMode === 'custom'
+                                        ? 'bg-background shadow-sm text-foreground'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                            >
+                                <Pencil className="h-3 w-3" />
+                                Custom Email
+                            </button>
+                        </div>
                     </div>
-                    <div>
-                        <Label className="text-xs">Body</Label>
-                        <Textarea
-                            value={config.emailBody ?? ''}
-                            onChange={(e) => onChange({ ...config, emailBody: e.target.value })}
-                            placeholder="Email body (supports {{variables}})"
-                            className="text-sm min-h-[80px]"
-                            rows={4}
-                        />
-                    </div>
+
+                    {emailMode === 'template' && (
+                        <div className="space-y-2">
+                            <Label className="text-xs">Select Template</Label>
+                            {loadingTemplates ? (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading templates...
+                                </div>
+                            ) : templates.length === 0 ? (
+                                <div className="text-xs text-muted-foreground py-2 space-y-1">
+                                    <p>No email templates found.</p>
+                                    <a href="/email-builder" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                                        Create one <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                </div>
+                            ) : (
+                                <>
+                                    <Select
+                                        value={config.emailTemplateId ?? ''}
+                                        onValueChange={(v) => {
+                                            const tpl = templates.find(t => t.id === v);
+                                            onChange({
+                                                ...config,
+                                                emailTemplateId: v,
+                                                emailSubject: tpl?.subject ?? config.emailSubject,
+                                            });
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-8 text-sm">
+                                            <SelectValue placeholder="Choose an email template" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {templates.map((t) => (
+                                                <SelectItem key={t.id} value={t.id}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{t.name}</span>
+                                                        {t.category && (
+                                                            <span className="text-[9px] text-muted-foreground capitalize">({t.category})</span>
+                                                        )}
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {selectedTemplate && (
+                                        <div className="rounded-md border p-2 bg-muted/30 space-y-1">
+                                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Selected Template</p>
+                                            <p className="text-xs font-medium">{selectedTemplate.name}</p>
+                                            <p className="text-[10px] text-muted-foreground truncate">{selectedTemplate.subject}</p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {emailMode === 'custom' && (
+                        <>
+                            <div>
+                                <Label className="text-xs">Subject</Label>
+                                <Input
+                                    value={config.emailSubject ?? ''}
+                                    onChange={(e) => onChange({ ...config, emailSubject: e.target.value })}
+                                    placeholder="Email subject line"
+                                    className="h-8 text-sm"
+                                />
+                            </div>
+                            <div>
+                                <Label className="text-xs">Body</Label>
+                                <Textarea
+                                    value={config.emailBody ?? ''}
+                                    onChange={(e) => onChange({ ...config, emailBody: e.target.value })}
+                                    placeholder={'Email body (supports {{variables}})'}
+                                    className="text-sm min-h-[80px]"
+                                    rows={4}
+                                />
+                            </div>
+                        </>
+                    )}
+
                     <div className="grid grid-cols-2 gap-2">
                         <div>
                             <Label className="text-xs">From Name</Label>
@@ -664,16 +846,61 @@ function DelayConfig({ config, onChange }: { config: DelayNodeConfig; onChange: 
             </div>
 
             {config.kind === 'fixed_duration' && (
-                <div>
-                    <Label className="text-xs">Duration (minutes)</Label>
-                    <Input
-                        type="number"
-                        value={config.durationMinutes ?? 60}
-                        onChange={(e) => onChange({ ...config, durationMinutes: Number(e.target.value) })}
-                        className="h-8 text-sm"
-                    />
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                        = {formatDuration(config.durationMinutes ?? 60)}
+                <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2">
+                        <div>
+                            <Label className="text-xs">Days</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                value={Math.floor((config.durationMinutes ?? 0) / 1440)}
+                                onChange={(e) => {
+                                    const days = Number(e.target.value) || 0;
+                                    const totalCurrent = config.durationMinutes ?? 0;
+                                    const hours = Math.floor((totalCurrent % 1440) / 60);
+                                    const minutes = totalCurrent % 60;
+                                    onChange({ ...config, durationMinutes: (days * 1440) + (hours * 60) + minutes });
+                                }}
+                                className="h-8 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-xs">Hours</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={23}
+                                value={Math.floor(((config.durationMinutes ?? 0) % 1440) / 60)}
+                                onChange={(e) => {
+                                    const hours = Math.min(Number(e.target.value) || 0, 23);
+                                    const totalCurrent = config.durationMinutes ?? 0;
+                                    const days = Math.floor(totalCurrent / 1440);
+                                    const minutes = totalCurrent % 60;
+                                    onChange({ ...config, durationMinutes: (days * 1440) + (hours * 60) + minutes });
+                                }}
+                                className="h-8 text-sm"
+                            />
+                        </div>
+                        <div>
+                            <Label className="text-xs">Minutes</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                max={59}
+                                value={(config.durationMinutes ?? 0) % 60}
+                                onChange={(e) => {
+                                    const minutes = Math.min(Number(e.target.value) || 0, 59);
+                                    const totalCurrent = config.durationMinutes ?? 0;
+                                    const days = Math.floor(totalCurrent / 1440);
+                                    const hours = Math.floor((totalCurrent % 1440) / 60);
+                                    onChange({ ...config, durationMinutes: (days * 1440) + (hours * 60) + minutes });
+                                }}
+                                className="h-8 text-sm"
+                            />
+                        </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                        = {formatDuration(config.durationMinutes ?? 0)}
                     </p>
                 </div>
             )}
@@ -690,13 +917,43 @@ function DelayConfig({ config, onChange }: { config: DelayNodeConfig; onChange: 
                         />
                     </div>
                     <div>
-                        <Label className="text-xs">Timeout (minutes)</Label>
-                        <Input
-                            type="number"
-                            value={config.waitTimeoutMinutes ?? 1440}
-                            onChange={(e) => onChange({ ...config, waitTimeoutMinutes: Number(e.target.value) })}
-                            className="h-8 text-sm"
-                        />
+                        <Label className="text-xs">Timeout</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    value={Math.floor((config.waitTimeoutMinutes ?? 1440) / 1440)}
+                                    onChange={(e) => {
+                                        const days = Number(e.target.value) || 0;
+                                        const totalCurrent = config.waitTimeoutMinutes ?? 1440;
+                                        const remainderHours = Math.floor((totalCurrent % 1440) / 60);
+                                        onChange({ ...config, waitTimeoutMinutes: (days * 1440) + (remainderHours * 60) });
+                                    }}
+                                    className="h-8 text-sm"
+                                />
+                                <p className="text-[10px] text-muted-foreground mt-0.5">days</p>
+                            </div>
+                            <div>
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    max={23}
+                                    value={Math.floor(((config.waitTimeoutMinutes ?? 1440) % 1440) / 60)}
+                                    onChange={(e) => {
+                                        const hours = Math.min(Number(e.target.value) || 0, 23);
+                                        const totalCurrent = config.waitTimeoutMinutes ?? 1440;
+                                        const days = Math.floor(totalCurrent / 1440);
+                                        onChange({ ...config, waitTimeoutMinutes: (days * 1440) + (hours * 60) });
+                                    }}
+                                    className="h-8 text-sm"
+                                />
+                                <p className="text-[10px] text-muted-foreground mt-0.5">hours</p>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            = {formatDuration(config.waitTimeoutMinutes ?? 1440)}
+                        </p>
                     </div>
                 </>
             )}
@@ -749,9 +1006,15 @@ function DelayConfig({ config, onChange }: { config: DelayNodeConfig; onChange: 
 }
 
 function formatDuration(minutes: number): string {
-    if (minutes < 60) return `${minutes} minutes`;
-    if (minutes < 1440) return `${(minutes / 60).toFixed(1)} hours`;
-    return `${(minutes / 1440).toFixed(1)} days`;
+    if (minutes <= 0) return '0 minutes';
+    const d = Math.floor(minutes / 1440);
+    const h = Math.floor((minutes % 1440) / 60);
+    const m = minutes % 60;
+    const parts: string[] = [];
+    if (d > 0) parts.push(`${d} day${d !== 1 ? 's' : ''}`);
+    if (h > 0) parts.push(`${h} hour${h !== 1 ? 's' : ''}`);
+    if (m > 0) parts.push(`${m} minute${m !== 1 ? 's' : ''}`);
+    return parts.join(', ') || '0 minutes';
 }
 
 /* ── Split ───────────────────────────────────────────────────────────── */

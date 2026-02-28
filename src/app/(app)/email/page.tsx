@@ -1,15 +1,13 @@
 'use client';
 
 /* ==========================================================================
- * Email Dashboard — Campaigns & Templates Overview
+ * Email Dashboard — Templates, Analytics & Email Management
  *
- * Revenue-first KPI cards, campaign table with status/segment/revenue,
- * and template table with send/open metrics.
+ * Focused on email templates/designs with performance metrics.
+ * "Create Email" button opens the email builder (/email-builder).
+ * Editing a template navigates to /email-builder?id=xxx.
  *
- * Campaign creation → navigates to /campaigns/new (full-page builder)
- * Template creation → navigates to /email-builder (dual-mode editor)
- * Template editing → navigates to /email-builder?id=xxx
- * Campaign editing → navigates to /campaigns/new?id=xxx
+ * Campaigns have their own dedicated page at /campaigns.
  * ========================================================================== */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -34,16 +32,12 @@ import {
     Dialog, DialogContent, DialogDescription,
     DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import {
-    Tabs, TabsContent, TabsList, TabsTrigger,
-} from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import {
     PlusCircle, MoreHorizontal, Mail, Send, Eye,
-    Pencil, Trash2, Play, FileText, DollarSign,
-    MousePointerClick, TrendingUp, ExternalLink,
+    Pencil, Trash2, FileText, MousePointerClick, Copy,
 } from 'lucide-react';
 
 /* ── Types ──────────────────────────────────────────────────────────── */
@@ -64,104 +58,69 @@ interface EmailTemplate {
     updatedAt: string;
 }
 
-interface EmailCampaign {
-    id: string;
-    name: string;
-    status: string;
-    type: string;
-    templateId: string | null;
-    segmentId: string | null;
-    totalSent: number;
-    totalDelivered: number;
-    totalOpened: number;
-    totalClicked: number;
-    totalBounced: number;
-    totalUnsubscribed: number;
-    totalRevenue: number;
-    sentAt: string | null;
-    completedAt: string | null;
-    createdAt: string;
-    updatedAt: string;
-}
-
-interface Segment {
-    id: string;
-    name: string;
-}
-
 /* ── Constants ──────────────────────────────────────────────────────── */
 
 const statusStyles: Record<string, string> = {
     active: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
     draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
     paused: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    sent: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    completed: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-    scheduled: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
     archived: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
-    failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    sending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
 };
 
 /* ── Component ───────────────────────────────────────────────────────── */
 
 export default function EmailPage() {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState('campaigns');
-    const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
-    const [segments, setSegments] = useState<Segment[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('all');
+    const [categoryFilter, setCategoryFilter] = useState('all');
 
     // Preview dialog
     const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
     const [previewHtml, setPreviewHtml] = useState('');
     const [previewSubject, setPreviewSubject] = useState('');
 
-    // Send state
-    const [sending, setSending] = useState<string | null>(null);
-
     /* ── Fetch ──────────────────────────────────────── */
-    const fetchAll = useCallback(async () => {
+    const fetchTemplates = useCallback(async () => {
         try {
-            const [cRes, tRes, sRes] = await Promise.all([
-                fetch('/api/v1/email-campaigns'),
-                fetch('/api/v1/email-templates'),
-                fetch('/api/v1/segments'),
-            ]);
-            if (cRes.ok) { const j = await cRes.json(); setCampaigns(j.data ?? []); }
-            if (tRes.ok) { const j = await tRes.json(); setTemplates(j.data ?? []); }
-            if (sRes.ok) { const j = await sRes.json(); setSegments(j.data ?? []); }
+            const res = await fetch('/api/v1/email-templates');
+            if (res.ok) {
+                const j = await res.json();
+                setTemplates(j.data ?? []);
+            }
         } catch { /* ignore */ } finally {
             setLoading(false);
         }
     }, []);
 
-    useEffect(() => { fetchAll(); }, [fetchAll]);
-
-    /* ── Campaign Actions ────────────────────────────── */
-    const sendCampaign = async (id: string) => {
-        setSending(id);
-        try {
-            await fetch('/api/v1/email-campaigns', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'send', id }),
-            });
-            await fetchAll();
-        } finally { setSending(null); }
-    };
-
-    const deleteCampaign = async (id: string) => {
-        await fetch(`/api/v1/email-campaigns/${id}`, { method: 'DELETE' });
-        fetchAll();
-    };
+    useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
     /* ── Template Actions ────────────────────────────── */
     const deleteTemplate = async (id: string) => {
         await fetch(`/api/v1/email-templates/${id}`, { method: 'DELETE' });
-        fetchAll();
+        fetchTemplates();
+    };
+
+    const duplicateTemplate = async (id: string) => {
+        const original = templates.find(t => t.id === id);
+        if (!original) return;
+        try {
+            await fetch('/api/v1/email-templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: `${original.name} (Copy)`,
+                    subject: original.subject,
+                    previewText: original.previewText,
+                    bodyHtml: original.bodyHtml,
+                    variables: original.variables,
+                    category: original.category,
+                    status: 'draft',
+                }),
+            });
+            fetchTemplates();
+        } catch { /* ignore */ }
     };
 
     const previewTemplate = async (id: string) => {
@@ -175,33 +134,57 @@ export default function EmailPage() {
     };
 
     /* ── Computed ───────────────────────────────────── */
-    const filteredCampaigns = statusFilter === 'all'
-        ? campaigns
-        : campaigns.filter(c => c.status === statusFilter);
+    const categories = Array.from(
+        new Set(templates.map(t => t.category).filter(Boolean))
+    ) as string[];
 
-    const totalSent = campaigns.reduce((s, c) => s + (c.totalSent ?? 0), 0);
-    const totalOpened = campaigns.reduce((s, c) => s + (c.totalOpened ?? 0), 0);
-    const totalClicked = campaigns.reduce((s, c) => s + (c.totalClicked ?? 0), 0);
-    const totalRevenue = campaigns.reduce((s, c) => s + (c.totalRevenue ?? 0), 0);
-    const openRate = totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(1) : '0.0';
-    const clickRate = totalSent > 0 ? ((totalClicked / totalSent) * 100).toFixed(1) : '0.0';
-    const revenuePerEmail = totalSent > 0 ? (totalRevenue / totalSent) : 0;
+    const filtered = templates.filter(t => {
+        if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+        if (categoryFilter !== 'all' && (t.category ?? 'uncategorized') !== categoryFilter) return false;
+        return true;
+    });
 
-    /* ── Render ────────────────────────────────────────── */
+    const totalTemplates = templates.length;
+    const activeTemplates = templates.filter(t => t.status === 'active').length;
+    const totalSent = templates.reduce((s, t) => s + (t.sendCount ?? 0), 0);
+    const totalOpened = templates.reduce((s, t) => s + (t.openCount ?? 0), 0);
+    const totalClicked = templates.reduce((s, t) => s + (t.clickCount ?? 0), 0);
+    const avgOpenRate = totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(1) : '0.0';
+    const avgClickRate = totalSent > 0 ? ((totalClicked / totalSent) * 100).toFixed(1) : '0.0';
+
+    /* ── Render ──────────────────────────────────────── */
     return (
         <div className="grid gap-6">
-            {/* KPI Cards */}
+            {/* ═══ Page Header ═══════════════════════════════════════════ */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Email</h1>
+                    <p className="text-sm text-muted-foreground">
+                        Create, manage, and track your email templates and designs.
+                    </p>
+                </div>
+                <Button asChild size="default">
+                    <Link href="/email-builder">
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Create Email
+                    </Link>
+                </Button>
+            </div>
+
+            {/* ═══ KPI Cards ════════════════════════════════════════════ */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="border-emerald-200 dark:border-emerald-800">
+                <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Email Revenue</CardTitle>
-                        <DollarSign className="h-4 w-4 text-emerald-600" />
+                        <CardTitle className="text-sm font-medium">Total Templates</CardTitle>
+                        <FileText className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        {loading ? <Skeleton className="h-8 w-24" /> : (
+                        {loading ? <Skeleton className="h-8 w-16" /> : (
                             <>
-                                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">${totalRevenue.toLocaleString()}</div>
-                                <p className="text-xs text-muted-foreground">${revenuePerEmail.toFixed(2)} per email sent</p>
+                                <div className="text-2xl font-bold">{totalTemplates}</div>
+                                <p className="text-xs text-muted-foreground">
+                                    {activeTemplates} active
+                                </p>
                             </>
                         )}
                     </CardContent>
@@ -209,14 +192,16 @@ export default function EmailPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Emails Sent</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Sent</CardTitle>
                         <Send className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        {loading ? <Skeleton className="h-8 w-24" /> : (
+                        {loading ? <Skeleton className="h-8 w-20" /> : (
                             <>
                                 <div className="text-2xl font-bold">{totalSent.toLocaleString()}</div>
-                                <p className="text-xs text-muted-foreground">{campaigns.length} campaign(s)</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Across all templates
+                                </p>
                             </>
                         )}
                     </CardContent>
@@ -224,14 +209,16 @@ export default function EmailPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Open Rate</CardTitle>
+                        <CardTitle className="text-sm font-medium">Avg Open Rate</CardTitle>
                         <Mail className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         {loading ? <Skeleton className="h-8 w-16" /> : (
                             <>
-                                <div className="text-2xl font-bold">{openRate}%</div>
-                                <p className="text-xs text-muted-foreground">{totalOpened.toLocaleString()} opens</p>
+                                <div className="text-2xl font-bold">{avgOpenRate}%</div>
+                                <p className="text-xs text-muted-foreground">
+                                    {totalOpened.toLocaleString()} opens
+                                </p>
                             </>
                         )}
                     </CardContent>
@@ -239,287 +226,195 @@ export default function EmailPage() {
 
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Click Rate</CardTitle>
+                        <CardTitle className="text-sm font-medium">Avg Click Rate</CardTitle>
                         <MousePointerClick className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         {loading ? <Skeleton className="h-8 w-16" /> : (
                             <>
-                                <div className="text-2xl font-bold">{clickRate}%</div>
-                                <p className="text-xs text-muted-foreground">{totalClicked.toLocaleString()} clicks</p>
+                                <div className="text-2xl font-bold">{avgClickRate}%</div>
+                                <p className="text-xs text-muted-foreground">
+                                    {totalClicked.toLocaleString()} clicks
+                                </p>
                             </>
                         )}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Tabs: Campaigns & Templates */}
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
-                    <TabsTrigger value="templates">Email Templates</TabsTrigger>
-                </TabsList>
-
-                {/* ── Campaigns Tab ─────────────────────────────── */}
-                <TabsContent value="campaigns">
-                    <Card>
-                        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <CardTitle>Email Campaigns</CardTitle>
-                                <CardDescription className="mt-1">
-                                    Send targeted emails to user segments. Each campaign references an email template.
-                                </CardDescription>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="w-32">
-                                        <SelectValue placeholder="Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All</SelectItem>
-                                        <SelectItem value="draft">Draft</SelectItem>
-                                        <SelectItem value="scheduled">Scheduled</SelectItem>
-                                        <SelectItem value="sent">Sent</SelectItem>
-                                        <SelectItem value="completed">Completed</SelectItem>
-                                        <SelectItem value="paused">Paused</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Button asChild>
-                                    <Link href="/campaigns/new">
-                                        <PlusCircle className="mr-2 h-4 w-4" />
-                                        Create Campaign
-                                    </Link>
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {loading ? (
-                                <div className="space-y-3">
-                                    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
-                                </div>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Campaign</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Type</TableHead>
-                                            <TableHead>Segment</TableHead>
-                                            <TableHead className="text-right">Sent</TableHead>
-                                            <TableHead className="text-right">Open %</TableHead>
-                                            <TableHead className="text-right">Click %</TableHead>
-                                            <TableHead className="text-right">Revenue</TableHead>
-                                            <TableHead><span className="sr-only">Actions</span></TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredCampaigns.map((c) => {
-                                            const or = c.totalSent > 0 ? ((c.totalOpened / c.totalSent) * 100).toFixed(1) : '—';
-                                            const cr = c.totalSent > 0 ? ((c.totalClicked / c.totalSent) * 100).toFixed(1) : '—';
-                                            const seg = segments.find(s => s.id === c.segmentId);
-                                            const rev = c.totalRevenue ?? 0;
-                                            return (
-                                                <TableRow key={c.id}>
-                                                    <TableCell>
-                                                        <p className="font-medium">{c.name}</p>
-                                                        {c.sentAt && (
-                                                            <p className="text-xs text-muted-foreground">
-                                                                Sent {new Date(c.sentAt).toLocaleDateString()}
-                                                            </p>
+            {/* ═══ Email Templates Table ═════════════════════════════════ */}
+            <Card>
+                <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <CardTitle>Email Templates</CardTitle>
+                        <CardDescription className="mt-1">
+                            Reusable email designs with {'{{variable}}'} personalization. Used by campaigns and flows.
+                        </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-28">
+                                <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All</SelectItem>
+                                <SelectItem value="active">Active</SelectItem>
+                                <SelectItem value="draft">Draft</SelectItem>
+                                <SelectItem value="archived">Archived</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        {categories.length > 0 && (
+                            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                                <SelectTrigger className="w-32">
+                                    <SelectValue placeholder="Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Categories</SelectItem>
+                                    {categories.map(c => (
+                                        <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {loading ? (
+                        <div className="space-y-3">
+                            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+                        </div>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Template</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Subject</TableHead>
+                                    <TableHead>Variables</TableHead>
+                                    <TableHead className="text-right">Sent</TableHead>
+                                    <TableHead className="text-right">Open %</TableHead>
+                                    <TableHead className="text-right">Click %</TableHead>
+                                    <TableHead><span className="sr-only">Actions</span></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filtered.map((t) => {
+                                    const or = (t.sendCount ?? 0) > 0
+                                        ? (((t.openCount ?? 0) / t.sendCount) * 100).toFixed(1)
+                                        : '—';
+                                    const cr = (t.sendCount ?? 0) > 0
+                                        ? (((t.clickCount ?? 0) / t.sendCount) * 100).toFixed(1)
+                                        : '—';
+                                    return (
+                                        <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/email-builder?id=${t.id}`)}>
+                                            <TableCell>
+                                                <div>
+                                                    <p className="font-medium">{t.name}</p>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        {t.category && (
+                                                            <Badge variant="outline" className="text-[10px] capitalize py-0">{t.category}</Badge>
                                                         )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge className={cn('border-transparent', statusStyles[c.status] ?? statusStyles.draft)}>
-                                                            {c.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className="capitalize text-xs">
-                                                            {c.type.replace('_', ' ')}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-xs">{seg?.name ?? 'All users'}</TableCell>
-                                                    <TableCell className="tabular-nums text-right">{(c.totalSent ?? 0).toLocaleString()}</TableCell>
-                                                    <TableCell className="tabular-nums text-right">{or}{or !== '—' ? '%' : ''}</TableCell>
-                                                    <TableCell className="tabular-nums text-right">{cr}{cr !== '—' ? '%' : ''}</TableCell>
-                                                    <TableCell className="tabular-nums text-right font-medium text-emerald-600 dark:text-emerald-400">
-                                                        {rev > 0 ? `$${rev.toLocaleString()}` : '—'}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem onClick={() => router.push(`/campaigns/new?id=${c.id}`)}>
-                                                                    <Pencil className="h-3.5 w-3.5 mr-2" />
-                                                                    Edit
-                                                                </DropdownMenuItem>
-                                                                {c.status === 'draft' && (
-                                                                    <DropdownMenuItem
-                                                                        onClick={() => sendCampaign(c.id)}
-                                                                        disabled={sending === c.id || !c.templateId}
-                                                                    >
-                                                                        <Play className="h-3.5 w-3.5 mr-2" />
-                                                                        {sending === c.id ? 'Sending...' : 'Send Now'}
-                                                                    </DropdownMenuItem>
-                                                                )}
-                                                                <DropdownMenuSeparator />
-                                                                <DropdownMenuItem className="text-destructive" onClick={() => deleteCampaign(c.id)}>
-                                                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                                                    Delete
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                        {filteredCampaigns.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
-                                                    {campaigns.length === 0
-                                                        ? 'No campaigns yet. Create your first email campaign.'
-                                                        : 'No campaigns match this filter.'}
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-
-                {/* ── Email Templates Tab ───────────────────────── */}
-                <TabsContent value="templates">
-                    <Card>
-                        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <CardTitle>Email Templates</CardTitle>
-                                <CardDescription className="mt-1">
-                                    Reusable email designs with {'{{variable}}'} personalization. Build in the email builder.
-                                </CardDescription>
-                            </div>
-                            <Button asChild>
-                                <Link href="/email-builder">
-                                    <PlusCircle className="mr-2 h-4 w-4" />
-                                    Create Email
-                                </Link>
-                            </Button>
-                        </CardHeader>
-                        <CardContent>
-                            {loading ? (
-                                <div className="space-y-3">
-                                    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
-                                </div>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Template</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Subject</TableHead>
-                                            <TableHead>Variables</TableHead>
-                                            <TableHead className="text-right">Sent</TableHead>
-                                            <TableHead className="text-right">Open %</TableHead>
-                                            <TableHead><span className="sr-only">Actions</span></TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {templates.map((t) => {
-                                            const or = (t.sendCount ?? 0) > 0 ? (((t.openCount ?? 0) / t.sendCount) * 100).toFixed(1) : '—';
-                                            return (
-                                                <TableRow key={t.id}>
-                                                    <TableCell>
-                                                        <div>
-                                                            <p className="font-medium">{t.name}</p>
-                                                            {t.category && (
-                                                                <Badge variant="outline" className="text-xs mt-0.5 capitalize">{t.category}</Badge>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge className={cn('border-transparent', statusStyles[t.status] ?? statusStyles.draft)}>
-                                                            {t.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-xs max-w-[200px] truncate">
-                                                        {t.subject}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-wrap gap-1 max-w-[200px]">
-                                                            {(t.variables ?? []).slice(0, 3).map((v) => (
-                                                                <Badge key={v.key} variant="secondary" className="text-[9px] font-mono py-0">
-                                                                    {`{{${v.key}}}`}
-                                                                </Badge>
-                                                            ))}
-                                                            {(t.variables?.length ?? 0) > 3 && (
-                                                                <Badge variant="secondary" className="text-[9px] py-0">
-                                                                    +{(t.variables?.length ?? 0) - 3}
-                                                                </Badge>
-                                                            )}
-                                                            {(t.variables ?? []).length === 0 && (
-                                                                <span className="text-xs text-muted-foreground">—</span>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="tabular-nums text-right">{(t.sendCount ?? 0).toLocaleString()}</TableCell>
-                                                    <TableCell className="tabular-nums text-right">{or}{or !== '—' ? '%' : ''}</TableCell>
-                                                    <TableCell className="text-right">
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem onClick={() => router.push(`/email-builder?id=${t.id}`)}>
-                                                                    <Pencil className="h-3.5 w-3.5 mr-2" />
-                                                                    Edit in Builder
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => previewTemplate(t.id)}>
-                                                                    <Eye className="h-3.5 w-3.5 mr-2" />
-                                                                    Preview
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuSeparator />
-                                                                <DropdownMenuItem className="text-destructive" onClick={() => deleteTemplate(t.id)}>
-                                                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                                                    Delete
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                        {templates.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                                                    <div className="space-y-2">
-                                                        <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto" />
-                                                        <p>No email templates yet.</p>
-                                                        <Button variant="outline" size="sm" asChild>
-                                                            <Link href="/email-builder">
-                                                                <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                                                                Open Email Builder
-                                                            </Link>
-                                                        </Button>
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            {new Date(t.createdAt).toLocaleDateString()}
+                                                        </span>
                                                     </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge className={cn('border-transparent text-xs', statusStyles[t.status] ?? statusStyles.draft)}>
+                                                    {t.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-xs max-w-[200px] truncate">
+                                                {t.subject}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                                    {(t.variables ?? []).slice(0, 3).map((v) => (
+                                                        <Badge key={v.key} variant="secondary" className="text-[9px] font-mono py-0">
+                                                            {`{{${v.key}}}`}
+                                                        </Badge>
+                                                    ))}
+                                                    {(t.variables?.length ?? 0) > 3 && (
+                                                        <Badge variant="secondary" className="text-[9px] py-0">
+                                                            +{(t.variables?.length ?? 0) - 3}
+                                                        </Badge>
+                                                    )}
+                                                    {(t.variables ?? []).length === 0 && (
+                                                        <span className="text-xs text-muted-foreground">—</span>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="tabular-nums text-right">{(t.sendCount ?? 0).toLocaleString()}</TableCell>
+                                            <TableCell className="tabular-nums text-right">{or}{or !== '—' ? '%' : ''}</TableCell>
+                                            <TableCell className="tabular-nums text-right">{cr}{cr !== '—' ? '%' : ''}</TableCell>
+                                            <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => router.push(`/email-builder?id=${t.id}`)}>
+                                                            <Pencil className="h-3.5 w-3.5 mr-2" />
+                                                            Edit
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => previewTemplate(t.id)}>
+                                                            <Eye className="h-3.5 w-3.5 mr-2" />
+                                                            Preview
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => duplicateTemplate(t.id)}>
+                                                            <Copy className="h-3.5 w-3.5 mr-2" />
+                                                            Duplicate
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem className="text-destructive" onClick={() => deleteTemplate(t.id)}>
+                                                            <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                                            Delete
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                                {filtered.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={8} className="py-16 text-center text-muted-foreground">
+                                            <div className="space-y-3">
+                                                <FileText className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+                                                <div>
+                                                    <p className="font-medium">
+                                                        {templates.length === 0
+                                                            ? 'No email templates yet'
+                                                            : 'No templates match your filters'}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {templates.length === 0
+                                                            ? 'Create your first email template with the visual builder.'
+                                                            : 'Try adjusting your status or category filters.'}
+                                                    </p>
+                                                </div>
+                                                {templates.length === 0 && (
+                                                    <Button size="sm" asChild>
+                                                        <Link href="/email-builder">
+                                                            <PlusCircle className="h-3.5 w-3.5 mr-1.5" />
+                                                            Create Your First Email
+                                                        </Link>
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    )}
+                </CardContent>
+            </Card>
 
-            {/* ── Preview Dialog ──────────────────────────────── */}
+            {/* ═══ Preview Dialog ════════════════════════════════════════ */}
             <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
                 <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>

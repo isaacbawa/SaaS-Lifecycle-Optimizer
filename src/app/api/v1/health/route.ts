@@ -7,21 +7,31 @@
  * ========================================================================== */
 
 import { NextResponse } from 'next/server';
-import { store } from '@/lib/store';
+import { resolveOrgId } from '@/lib/auth/resolve-org';
+import {
+    getTrackedUserCount, getTrackedAccountCount, getEventCount,
+    getAllFlowDefinitions, getWebhooks, getApiKeysByOrg,
+} from '@/lib/db/operations';
 
 const startedAt = Date.now();
 
 export async function GET() {
-    const [users, accounts, flows, webhooks, events, keys] = await Promise.all([
-        store.getAllUsers(),
-        store.getAllAccounts(),
-        store.getAllFlows(),
-        store.getWebhooks(),
-        store.getEvents({ limit: 1 }),     // just to check store is alive
-        store.getApiKeys(),
+    let orgId: string;
+    try {
+        orgId = await resolveOrgId();
+    } catch {
+        orgId = '';
+    }
+
+    const [userCount, accountCount, eventCount, flows, webhooks, keys] = await Promise.all([
+        orgId ? getTrackedUserCount(orgId).catch(() => 0) : Promise.resolve(0),
+        orgId ? getTrackedAccountCount(orgId).catch(() => 0) : Promise.resolve(0),
+        orgId ? getEventCount(orgId).catch(() => 0) : Promise.resolve(0),
+        orgId ? getAllFlowDefinitions(orgId).catch(() => []) : Promise.resolve([]),
+        orgId ? getWebhooks(orgId).catch(() => []) : Promise.resolve([]),
+        orgId ? getApiKeysByOrg(orgId).catch(() => []) : Promise.resolve([]),
     ]);
 
-    const totalEvents = await store.getEvents({});
     const uptimeMs = Date.now() - startedAt;
 
     return NextResponse.json(
@@ -33,28 +43,18 @@ export async function GET() {
                 human: formatUptime(uptimeMs),
             },
             data: {
-                usersTracked: users.length,
-                accountsTracked: accounts.length,
-                eventsStored: totalEvents.length,
+                usersTracked: userCount,
+                accountsTracked: accountCount,
+                eventsStored: eventCount,
                 flowsCount: flows.length,
                 webhooksCount: webhooks.length,
                 apiKeysCount: keys.length,
-                lastEventAt: totalEvents.length > 0 ? totalEvents[0].timestamp : null,
-            },
-            store: {
-                users: users.length,
-                accounts: accounts.length,
-                flows: flows.length,
-                webhooks: webhooks.length,
-                apiKeys: keys.length,
             },
             timestamp: new Date().toISOString(),
         },
         {
             status: 200,
-            headers: {
-                'Cache-Control': 'no-store',
-            },
+            headers: { 'Cache-Control': 'no-store' },
         },
     );
 }

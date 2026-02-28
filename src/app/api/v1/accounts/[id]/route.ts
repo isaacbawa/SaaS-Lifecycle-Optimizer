@@ -6,7 +6,11 @@
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess, apiError, apiValidationError } from '@/lib/api/auth';
 import { validateAccountUpdate } from '@/lib/api/validation';
-import { store } from '@/lib/store';
+import {
+  getTrackedAccountByExternalId, upsertTrackedAccount,
+  getAllTrackedUsers, getActivityLog,
+} from '@/lib/db/operations';
+import { mapTrackedAccountToAccount, mapTrackedUserToUser, mapActivityLogToEntry } from '@/lib/db/mappers';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -17,31 +21,40 @@ export async function GET(request: NextRequest, context: RouteContext) {
   if (!auth.success) return auth.response;
 
   const { id } = await context.params;
-  const account = await store.getAccount(id);
+  const dbAccount = await getTrackedAccountByExternalId(auth.orgId, id);
 
-  if (!account) {
+  if (!dbAccount) {
     return apiError('NOT_FOUND', `Account "${id}" not found.`, 404);
   }
 
-  const accountUsers = await store.getAccountUsers(id);
-  const recentActivity = (await store.getActivityFeed(100))
-    .filter((a) => a.accountId === id)
-    .slice(0, 10);
+  const account = mapTrackedAccountToAccount(dbAccount);
+
+  // Get users belonging to this account (filter by internal account ID)
+  const allUsers = await getAllTrackedUsers(auth.orgId);
+  const accountUsers = allUsers
+    .filter((u) => u.accountId === dbAccount.id)
+    .map((u) => {
+      const mapped = mapTrackedUserToUser(u, dbAccount.name);
+      return {
+        id: mapped.id,
+        name: mapped.name,
+        email: mapped.email,
+        lifecycleState: mapped.lifecycleState,
+        churnRiskScore: mapped.churnRiskScore,
+        expansionScore: mapped.expansionScore,
+        lastLoginDaysAgo: mapped.lastLoginDaysAgo,
+      };
+    });
+
+  // Recent activity for this account
+  const dbActivity = await getActivityLog(auth.orgId, 100);
+  const recentActivity = dbActivity
+    .filter((a) => a.accountId === dbAccount.id)
+    .slice(0, 10)
+    .map(mapActivityLogToEntry);
 
   return apiSuccess(
-    {
-      account,
-      users: accountUsers.map((u) => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        lifecycleState: u.lifecycleState,
-        churnRiskScore: u.churnRiskScore,
-        expansionScore: u.expansionScore,
-        lastLoginDaysAgo: u.lastLoginDaysAgo,
-      })),
-      recentActivity,
-    },
+    { account, users: accountUsers, recentActivity },
     200,
     auth.startTime,
     auth.requestId,
@@ -68,10 +81,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return apiValidationError(validation.errors);
   }
 
-  const account = await store.updateAccount(id, validation.data);
-  if (!account) {
+  const existing = await getTrackedAccountByExternalId(auth.orgId, id);
+  if (!existing) {
     return apiError('NOT_FOUND', `Account "${id}" not found.`, 404);
   }
+
+  const updated = await upsertTrackedAccount(auth.orgId, {
+    ...existing,
+    ...(validation.data as Record<string, unknown>),
+    externalId: id,
+    name: (validation.data as Record<string, unknown>).name as string ?? existing.name,
+  });
+
+  const account = mapTrackedAccountToAccount(updated);
 
   return apiSuccess(
     { account },
