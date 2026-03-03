@@ -130,7 +130,7 @@ function computeDashboardKPIs(
 export default async function DashboardPage() {
   const orgId = await resolveOrgId();
 
-  const [dbUsers, dbAccounts, dbRevenueRecords, dbExpansionOpps, dbFlows, dbActivityLog] =
+  const [dbUsers, dbAccounts, dbRevenueRecords, dbExpansionOpps, dbFlowsResult, dbActivityLog] =
     await Promise.all([
       getAllTrackedUsers(orgId),
       getAllTrackedAccounts(orgId),
@@ -139,6 +139,8 @@ export default async function DashboardPage() {
       getAllFlowDefinitions(orgId),
       getActivityLog(orgId, 30),
     ]);
+
+  const dbFlows = dbFlowsResult.items;
 
   // Map DB types to UI types
   // Build account name lookup for user mapping

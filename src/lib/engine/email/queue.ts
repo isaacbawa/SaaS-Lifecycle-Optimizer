@@ -1,17 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Email Queue — Rate-Limited, Prioritized Email Delivery Queue
+ * Email Queue — DB-Backed, Rate-Limited, Prioritized Email Delivery Queue
  *
- * Production email queue with:
- *   • Priority levels (critical, high, normal, low, bulk)
- *   • Per-second rate limiting (configurable, default 10/s)
- *   • Exponential backoff retry (3 attempts)
- *   • Dead-letter queue for permanent failures
- *   • Send logging with delivery status tracking
- *   • Metrics: sent, failed, retried, queued counts
- *
- * The queue processes continuously via a tick-based loop.
- * Call startQueue() to begin processing, stopQueue() to halt.
+ * Queue items are persisted in PostgreSQL (emailQueue table) so nothing
+ * is lost on cold-start.  The tick-based processing loop and token-
+ * bucket rate limiter run in-memory as runtime concerns.
  * ═══════════════════════════════════════════════════════════════════════ */
+
+import { db } from '@/lib/db';
+import * as schema from '@/lib/db/schema';
+import { eq, and, lte, sql, ne, asc, desc } from 'drizzle-orm';
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -32,7 +29,7 @@ export interface QueuedEmail {
     priority: EmailPriority;
     attempts: number;
     maxAttempts: number;
-    nextAttemptAt: number; // epoch ms
+    nextAttemptAt: number;
     createdAt: string;
     lastError?: string;
     tags?: Record<string, string>;
@@ -42,7 +39,7 @@ export type SendStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'bounced';
 
 export interface SendRecord {
     id: string;
-    messageId?: string; // From SMTP response
+    messageId?: string;
     to: string;
     subject: string;
     campaignId?: string;
@@ -67,77 +64,55 @@ export interface QueueMetrics {
 
 /* ── Constants ──────────────────────────────────────────────────────── */
 
-const PRIORITY_ORDER: Record<EmailPriority, number> = {
-    critical: 0,
-    high: 1,
-    normal: 2,
-    low: 3,
-    bulk: 4,
-};
-
 const DEFAULT_MAX_ATTEMPTS = 3;
-const DEFAULT_RATE_LIMIT = 10; // emails per second
-const TICK_INTERVAL_MS = 200; // Process queue every 200ms
-const MAX_SEND_LOG_SIZE = 10_000;
-const MAX_DLQ_SIZE = 5_000;
+const DEFAULT_RATE_LIMIT = 10;
+const TICK_INTERVAL_MS = 200;
 
-/* ── Queue Store (Singleton) ────────────────────────────────────────── */
+/* ── Runtime State (in-memory, not persisted) ──────────────────────── */
 
-const globalKey = '__lifecycleos_email_queue__';
+const runtimeKey = '__lifecycleos_email_queue_runtime__';
 
-interface QueueStore {
-    pending: QueuedEmail[];
-    dlq: QueuedEmail[];
-    sendLog: SendRecord[];
-    metrics: {
-        sent: number;
-        failed: number;
-        retried: number;
-    };
+interface RuntimeState {
     rateLimit: number;
-    tokenBucket: {
-        tokens: number;
-        lastRefill: number;
-    };
+    tokenBucket: { tokens: number; lastRefill: number };
     isRunning: boolean;
     tickTimer: ReturnType<typeof setInterval> | null;
     onSend: ((email: QueuedEmail) => Promise<{ success: boolean; messageId?: string; error?: string }>) | null;
+    metricsCache: { retried: number };
 }
 
-function getStore(): QueueStore {
-    const g = globalThis as unknown as Record<string, QueueStore>;
-    if (!g[globalKey]) {
-        g[globalKey] = {
-            pending: [],
-            dlq: [],
-            sendLog: [],
-            metrics: { sent: 0, failed: 0, retried: 0 },
+function getRuntime(): RuntimeState {
+    const g = globalThis as unknown as Record<string, RuntimeState>;
+    if (!g[runtimeKey]) {
+        g[runtimeKey] = {
             rateLimit: DEFAULT_RATE_LIMIT,
             tokenBucket: { tokens: DEFAULT_RATE_LIMIT, lastRefill: Date.now() },
             isRunning: false,
             tickTimer: null,
             onSend: null,
+            metricsCache: { retried: 0 },
         };
     }
-    return g[globalKey];
+    return g[runtimeKey];
+}
+
+async function getOrgId(providedOrgId?: string): Promise<string> {
+    if (providedOrgId) return providedOrgId;
+    // Fallback for background processing where orgId isn't passed through
+    const envOrgId = process.env.DEMO_ORG_ID;
+    if (envOrgId) return envOrgId;
+    return '';
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Queue Management
+ * Queue Management — DB-backed
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /**
- * Generate a unique email ID.
+ * Enqueue an email for delivery. Persists to the DB immediately.
+ * Returns the DB-generated UUID for tracking.
  */
-function generateId(): string {
-    return `em_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/**
- * Enqueue an email for delivery.
- * Returns the queued email ID for tracking.
- */
-export function enqueue(email: {
+export async function enqueue(email: {
     to: string;
     subject: string;
     html: string;
@@ -151,172 +126,177 @@ export function enqueue(email: {
     priority?: EmailPriority;
     maxAttempts?: number;
     tags?: Record<string, string>;
-}): string {
-    const store = getStore();
-    const id = generateId();
+}): Promise<string> {
+    const orgId = await getOrgId();
+    const priority = email.priority ?? 'normal';
+    const maxAttempts = email.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
 
-    const queued: QueuedEmail = {
-        id,
+    const [row] = await db.insert(schema.emailQueue).values({
+        organizationId: orgId,
         to: email.to,
         subject: email.subject,
         html: email.html,
-        text: email.text,
-        fromName: email.fromName,
-        fromEmail: email.fromEmail,
-        replyTo: email.replyTo,
-        headers: email.headers,
-        campaignId: email.campaignId,
-        userId: email.userId,
-        priority: email.priority ?? 'normal',
-        attempts: 0,
-        maxAttempts: email.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
-        nextAttemptAt: Date.now(),
-        createdAt: new Date().toISOString(),
-        tags: email.tags,
-    };
-
-    // Insert in priority order
-    const insertIdx = store.pending.findIndex(
-        (e) => PRIORITY_ORDER[e.priority] > PRIORITY_ORDER[queued.priority],
-    );
-
-    if (insertIdx === -1) {
-        store.pending.push(queued);
-    } else {
-        store.pending.splice(insertIdx, 0, queued);
-    }
-
-    // Record in send log
-    addSendRecord({
-        id,
-        to: email.to,
-        subject: email.subject,
-        campaignId: email.campaignId,
-        userId: email.userId,
+        text: email.text ?? null,
+        fromName: email.fromName ?? null,
+        fromEmail: email.fromEmail ?? null,
+        replyTo: email.replyTo ?? null,
+        headers: email.headers ?? null,
+        campaignId: email.campaignId ?? null,
+        userId: email.userId ?? null,
+        priority,
         status: 'queued',
-        provider: 'smtp',
         attempts: 0,
-    });
+        maxAttempts,
+        nextAttemptAt: new Date(),
+        tags: email.tags ?? null,
+    }).returning({ id: schema.emailQueue.id });
 
-    return id;
+    return row.id;
 }
 
 /**
  * Enqueue a batch of emails.
  */
-export function enqueueBatch(
+export async function enqueueBatch(
     emails: Array<Parameters<typeof enqueue>[0]>,
-): string[] {
-    return emails.map(enqueue);
+): Promise<string[]> {
+    const ids: string[] = [];
+    for (const email of emails) {
+        ids.push(await enqueue(email));
+    }
+    return ids;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Token Bucket Rate Limiter
+ * Token Bucket Rate Limiter (in-memory)
  * ═══════════════════════════════════════════════════════════════════════ */
 
 function tryAcquireToken(): boolean {
-    const store = getStore();
+    const rt = getRuntime();
     const now = Date.now();
-    const elapsed = now - store.tokenBucket.lastRefill;
+    const elapsed = now - rt.tokenBucket.lastRefill;
 
-    // Refill tokens based on elapsed time
     if (elapsed >= 1000) {
         const refills = Math.floor(elapsed / 1000);
-        store.tokenBucket.tokens = Math.min(
-            store.rateLimit,
-            store.tokenBucket.tokens + refills * store.rateLimit,
+        rt.tokenBucket.tokens = Math.min(
+            rt.rateLimit,
+            rt.tokenBucket.tokens + refills * rt.rateLimit,
         );
-        store.tokenBucket.lastRefill = now - (elapsed % 1000);
+        rt.tokenBucket.lastRefill = now - (elapsed % 1000);
     }
 
-    if (store.tokenBucket.tokens > 0) {
-        store.tokenBucket.tokens--;
+    if (rt.tokenBucket.tokens > 0) {
+        rt.tokenBucket.tokens--;
         return true;
     }
-
     return false;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Queue Processing Loop
+ * Processing Loop — polls DB for pending items
  * ═══════════════════════════════════════════════════════════════════════ */
 
-/**
- * Process one tick of the queue. Called periodically.
- */
+function dbRowToQueuedEmail(row: typeof schema.emailQueue.$inferSelect): QueuedEmail {
+    return {
+        id: row.id,
+        to: row.to,
+        subject: row.subject,
+        html: row.html,
+        text: row.text ?? undefined,
+        fromName: row.fromName ?? undefined,
+        fromEmail: row.fromEmail ?? undefined,
+        replyTo: row.replyTo ?? undefined,
+        headers: row.headers ?? undefined,
+        campaignId: row.campaignId ?? undefined,
+        userId: row.userId ?? undefined,
+        priority: row.priority as EmailPriority,
+        attempts: row.attempts,
+        maxAttempts: row.maxAttempts,
+        nextAttemptAt: row.nextAttemptAt?.getTime() ?? Date.now(),
+        createdAt: row.createdAt.toISOString(),
+        lastError: row.lastError ?? undefined,
+        tags: row.tags ?? undefined,
+    };
+}
+
 async function tick(): Promise<void> {
-    const store = getStore();
-    if (!store.onSend) return;
+    const rt = getRuntime();
+    if (!rt.onSend) return;
 
-    const now = Date.now();
+    const orgId = await getOrgId();
+    if (!orgId) return;
+
+    const now = new Date();
+
+    // Fetch eligible queued items ordered by priority
+    const rows = await db.select().from(schema.emailQueue)
+        .where(
+            and(
+                eq(schema.emailQueue.organizationId, orgId),
+                eq(schema.emailQueue.status, 'queued'),
+                lte(schema.emailQueue.nextAttemptAt, now),
+            ),
+        )
+        .orderBy(asc(schema.emailQueue.priority), asc(schema.emailQueue.nextAttemptAt))
+        .limit(rt.rateLimit);
+
     const batch: QueuedEmail[] = [];
-
-    // Collect eligible emails (up to rate limit)
-    let i = 0;
-    while (i < store.pending.length && batch.length < store.rateLimit) {
-        const email = store.pending[i];
-        if (email.nextAttemptAt <= now && tryAcquireToken()) {
-            batch.push(email);
-            store.pending.splice(i, 1);
-        } else {
-            i++;
-        }
+    for (const row of rows) {
+        if (!tryAcquireToken()) break;
+        batch.push(dbRowToQueuedEmail(row));
+        // Mark as sending in DB
+        await db.update(schema.emailQueue)
+            .set({ status: 'sending' })
+            .where(eq(schema.emailQueue.id, row.id));
     }
 
-    // Send batch concurrently
     const results = await Promise.allSettled(
         batch.map(async (email) => {
-            email.attempts++;
-            updateSendRecord(email.id, { status: 'sending', attempts: email.attempts });
+            const newAttempts = email.attempts + 1;
 
             try {
-                const result = await store.onSend!(email);
-
+                const result = await rt.onSend!(email);
                 if (result.success) {
-                    store.metrics.sent++;
-                    updateSendRecord(email.id, {
-                        status: 'sent',
-                        messageId: result.messageId,
-                        sentAt: new Date().toISOString(),
-                    });
+                    await db.update(schema.emailQueue)
+                        .set({
+                            status: 'sent',
+                            attempts: newAttempts,
+                            sentAt: new Date(),
+                            providerMessageId: result.messageId ?? null,
+                            lastError: null,
+                        })
+                        .where(eq(schema.emailQueue.id, email.id));
                 } else {
                     throw new Error(result.error ?? 'Send failed');
                 }
             } catch (err) {
                 const error = (err as Error).message;
-                email.lastError = error;
-
-                if (email.attempts < email.maxAttempts) {
+                if (newAttempts < email.maxAttempts) {
                     // Retry with exponential backoff
-                    const delay = Math.min(
-                        60_000,
-                        1000 * Math.pow(2, email.attempts - 1) +
-                        Math.random() * 1000,
-                    );
-                    email.nextAttemptAt = Date.now() + delay;
-                    store.pending.push(email);
-                    store.metrics.retried++;
-                    updateSendRecord(email.id, {
-                        status: 'queued',
-                        error: `Retry ${email.attempts}/${email.maxAttempts}: ${error}`,
-                    });
+                    const delay = Math.min(60_000, 1000 * Math.pow(2, newAttempts - 1) + Math.random() * 1000);
+                    rt.metricsCache.retried++;
+                    await db.update(schema.emailQueue)
+                        .set({
+                            status: 'queued',
+                            attempts: newAttempts,
+                            nextAttemptAt: new Date(Date.now() + delay),
+                            lastError: `Retry ${newAttempts}/${email.maxAttempts}: ${error}`,
+                        })
+                        .where(eq(schema.emailQueue.id, email.id));
                 } else {
-                    // Move to DLQ
-                    store.metrics.failed++;
-                    if (store.dlq.length >= MAX_DLQ_SIZE) {
-                        store.dlq.shift(); // Evict oldest
-                    }
-                    store.dlq.push(email);
-                    updateSendRecord(email.id, {
-                        status: 'failed',
-                        error: `Exhausted ${email.maxAttempts} attempts: ${error}`,
-                    });
+                    // Move to DLQ status
+                    await db.update(schema.emailQueue)
+                        .set({
+                            status: 'dlq',
+                            attempts: newAttempts,
+                            lastError: `Exhausted ${email.maxAttempts} attempts: ${error}`,
+                        })
+                        .where(eq(schema.emailQueue.id, email.id));
                 }
             }
         }),
     );
 
-    // Log any unexpected rejections
     for (const r of results) {
         if (r.status === 'rejected') {
             console.error('[email-queue] Unexpected error in send loop:', r.reason);
@@ -324,158 +304,152 @@ async function tick(): Promise<void> {
     }
 }
 
-/* ── Send Record Management ─────────────────────────────────────────── */
-
-function addSendRecord(record: SendRecord): void {
-    const store = getStore();
-    if (store.sendLog.length >= MAX_SEND_LOG_SIZE) {
-        store.sendLog.splice(0, Math.floor(MAX_SEND_LOG_SIZE * 0.1));
-    }
-    store.sendLog.push(record);
-}
-
-function updateSendRecord(
-    id: string,
-    update: Partial<SendRecord>,
-): void {
-    const store = getStore();
-    const record = store.sendLog.find((r) => r.id === id);
-    if (record) {
-        Object.assign(record, update);
-    }
-}
-
 /* ═══════════════════════════════════════════════════════════════════════
  * Queue Control
  * ═══════════════════════════════════════════════════════════════════════ */
 
-/**
- * Register the send function. Must be called before starting the queue.
- */
 export function setSendHandler(
-    handler: (email: QueuedEmail) => Promise<{
-        success: boolean;
-        messageId?: string;
-        error?: string;
-    }>,
+    handler: (email: QueuedEmail) => Promise<{ success: boolean; messageId?: string; error?: string }>,
 ): void {
-    getStore().onSend = handler;
+    getRuntime().onSend = handler;
 }
 
-/**
- * Start the queue processing loop.
- */
 export function startQueue(rateLimit?: number): void {
-    const store = getStore();
-
-    if (store.isRunning) return;
+    const rt = getRuntime();
+    if (rt.isRunning) return;
 
     if (rateLimit) {
-        store.rateLimit = rateLimit;
-        store.tokenBucket.tokens = rateLimit;
+        rt.rateLimit = rateLimit;
+        rt.tokenBucket.tokens = rateLimit;
     }
 
-    store.isRunning = true;
-    store.tickTimer = setInterval(() => {
+    rt.isRunning = true;
+    rt.tickTimer = setInterval(() => {
         tick().catch((err) => {
             console.error('[email-queue] Tick error:', err);
         });
     }, TICK_INTERVAL_MS);
 
-    console.log(
-        `[email-queue] Started (rate: ${store.rateLimit}/s, tick: ${TICK_INTERVAL_MS}ms)`,
-    );
+    console.log(`[email-queue] Started (rate: ${rt.rateLimit}/s, tick: ${TICK_INTERVAL_MS}ms)`);
 }
 
-/**
- * Stop the queue processing loop.
- * In-flight sends will complete, but no new sends will start.
- */
 export function stopQueue(): void {
-    const store = getStore();
-    if (store.tickTimer) {
-        clearInterval(store.tickTimer);
-        store.tickTimer = null;
+    const rt = getRuntime();
+    if (rt.tickTimer) {
+        clearInterval(rt.tickTimer);
+        rt.tickTimer = null;
     }
-    store.isRunning = false;
+    rt.isRunning = false;
     console.log('[email-queue] Stopped');
 }
 
-/**
- * Get queue metrics.
- */
-export function getQueueMetrics(): QueueMetrics {
-    const store = getStore();
+export async function getQueueMetrics(): Promise<QueueMetrics> {
+    const rt = getRuntime();
+    const orgId = await getOrgId();
+
+    const [counts] = await db.select({
+        queued: sql<number>`count(*) filter (where ${schema.emailQueue.status} = 'queued')::int`,
+        sending: sql<number>`count(*) filter (where ${schema.emailQueue.status} = 'sending')::int`,
+        sent: sql<number>`count(*) filter (where ${schema.emailQueue.status} = 'sent')::int`,
+        failed: sql<number>`count(*) filter (where ${schema.emailQueue.status} = 'failed')::int`,
+        dlq: sql<number>`count(*) filter (where ${schema.emailQueue.status} = 'dlq')::int`,
+    }).from(schema.emailQueue)
+        .where(eq(schema.emailQueue.organizationId, orgId));
+
     return {
-        queued: store.pending.length,
-        sending: store.sendLog.filter((r) => r.status === 'sending').length,
-        sent: store.metrics.sent,
-        failed: store.metrics.failed,
-        retried: store.metrics.retried,
-        dlq: store.dlq.length,
-        ratePerSecond: store.rateLimit,
-        isRunning: store.isRunning,
+        queued: counts?.queued ?? 0,
+        sending: counts?.sending ?? 0,
+        sent: counts?.sent ?? 0,
+        failed: counts?.failed ?? 0,
+        retried: rt.metricsCache.retried,
+        dlq: counts?.dlq ?? 0,
+        ratePerSecond: rt.rateLimit,
+        isRunning: rt.isRunning,
     };
 }
 
-/**
- * Get send log entries.
- */
-export function getSendLog(limit = 100, offset = 0): SendRecord[] {
-    const store = getStore();
-    const start = Math.max(0, store.sendLog.length - limit - offset);
-    const end = store.sendLog.length - offset;
-    return store.sendLog.slice(start, end);
+export async function getSendLog(limit = 100, offset = 0): Promise<SendRecord[]> {
+    const orgId = await getOrgId();
+
+    const rows = await db.select().from(schema.emailQueue)
+        .where(
+            and(
+                eq(schema.emailQueue.organizationId, orgId),
+                ne(schema.emailQueue.status, 'queued'),
+            ),
+        )
+        .orderBy(desc(schema.emailQueue.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+    return rows.map((r): SendRecord => ({
+        id: r.id,
+        messageId: r.providerMessageId ?? undefined,
+        to: r.to,
+        subject: r.subject,
+        campaignId: r.campaignId ?? undefined,
+        userId: r.userId ?? undefined,
+        status: r.status === 'dlq' ? 'failed' : r.status as SendStatus,
+        provider: 'smtp',
+        sentAt: r.sentAt?.toISOString(),
+        error: r.lastError ?? undefined,
+        attempts: r.attempts,
+    }));
 }
 
-/**
- * Get dead-letter queue entries.
- */
-export function getDLQ(): QueuedEmail[] {
-    return [...getStore().dlq];
+export async function getDLQ(): Promise<QueuedEmail[]> {
+    const orgId = await getOrgId();
+    const rows = await db.select().from(schema.emailQueue)
+        .where(and(eq(schema.emailQueue.organizationId, orgId), eq(schema.emailQueue.status, 'dlq')))
+        .orderBy(desc(schema.emailQueue.createdAt));
+
+    return rows.map(dbRowToQueuedEmail);
 }
 
-/**
- * Retry a specific DLQ entry by moving it back to the pending queue.
- */
-export function retryDLQEntry(id: string): boolean {
-    const store = getStore();
-    const idx = store.dlq.findIndex((e) => e.id === id);
-    if (idx === -1) return false;
+export async function retryDLQEntry(id: string): Promise<boolean> {
+    const [row] = await db.select().from(schema.emailQueue)
+        .where(and(eq(schema.emailQueue.id, id), eq(schema.emailQueue.status, 'dlq')));
 
-    const email = store.dlq.splice(idx, 1)[0];
-    email.attempts = 0;
-    email.nextAttemptAt = Date.now();
-    email.lastError = undefined;
-    store.pending.push(email);
+    if (!row) return false;
 
-    updateSendRecord(email.id, { status: 'queued', error: 'Retried from DLQ' });
+    await db.update(schema.emailQueue)
+        .set({ status: 'queued', attempts: 0, nextAttemptAt: new Date(), lastError: 'Retried from DLQ' })
+        .where(eq(schema.emailQueue.id, id));
+
     return true;
 }
 
-/**
- * Remove a DLQ entry permanently.
- */
-export function removeDLQEntry(id: string): boolean {
-    const store = getStore();
-    const idx = store.dlq.findIndex((e) => e.id === id);
-    if (idx === -1) return false;
-    store.dlq.splice(idx, 1);
+export async function removeDLQEntry(id: string): Promise<boolean> {
+    const [row] = await db.select().from(schema.emailQueue)
+        .where(and(eq(schema.emailQueue.id, id), eq(schema.emailQueue.status, 'dlq')));
+
+    if (!row) return false;
+
+    await db.delete(schema.emailQueue).where(eq(schema.emailQueue.id, id));
     return true;
 }
 
-/**
- * Get send record by ID.
- */
-export function getSendRecord(id: string): SendRecord | undefined {
-    return getStore().sendLog.find((r) => r.id === id);
+export async function getSendRecord(id: string): Promise<SendRecord | undefined> {
+    const [row] = await db.select().from(schema.emailQueue).where(eq(schema.emailQueue.id, id));
+    if (!row) return undefined;
+
+    return {
+        id: row.id,
+        messageId: row.providerMessageId ?? undefined,
+        to: row.to,
+        subject: row.subject,
+        campaignId: row.campaignId ?? undefined,
+        userId: row.userId ?? undefined,
+        status: row.status === 'dlq' ? 'failed' : row.status as SendStatus,
+        provider: 'smtp',
+        sentAt: row.sentAt?.toISOString(),
+        error: row.lastError ?? undefined,
+        attempts: row.attempts,
+    };
 }
 
-/**
- * Set the rate limit (emails per second).
- */
 export function setRateLimit(rate: number): void {
-    const store = getStore();
-    store.rateLimit = Math.max(1, Math.min(100, rate));
-    console.log(`[email-queue] Rate limit set to ${store.rateLimit}/s`);
+    const rt = getRuntime();
+    rt.rateLimit = Math.max(1, Math.min(100, rate));
+    console.log(`[email-queue] Rate limit set to ${rt.rateLimit}/s`);
 }

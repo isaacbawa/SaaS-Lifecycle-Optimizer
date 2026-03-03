@@ -1,18 +1,40 @@
 /* ==========================================================================
  * GET  /api/v1/keys — List API keys (secrets partially masked)
  * POST /api/v1/keys — Create a new API key
+ *
+ * Supports BOTH:
+ *  - Bearer token (API key) auth for external SDK/API access
+ *  - Clerk session auth for dashboard (same-origin) access
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
 import { authenticate, apiSuccess, apiError, apiValidationError } from '@/lib/api/auth';
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 import { validateKeyCreate } from '@/lib/api/validation';
 import { getApiKeysByOrg, createApiKey } from '@/lib/db/operations';
 
-export async function GET(request: NextRequest) {
-  const auth = await authenticate(request, ['read'], 'keys');
-  if (!auth.success) return auth.response;
+/**
+ * Try Bearer token auth first; fall back to Clerk session.
+ * Returns { orgId, isApi, auth? } on success.
+ */
+async function dualAuth(request: NextRequest, scopes: Parameters<typeof authenticate>[1], tier?: Parameters<typeof authenticate>[2]) {
+  // If Authorization header is present, use Bearer token auth
+  if (request.headers.get('authorization')) {
+    const auth = await authenticate(request, scopes, tier);
+    if (auth.success) return { orgId: auth.orgId, isApi: true as const, auth };
+    return { error: auth.response };
+  }
+  // Otherwise try Clerk session (dashboard)
+  const dash = await requireDashboardAuth();
+  if (dash.success) return { orgId: dash.orgId, isApi: false as const };
+  return { error: dash.response };
+}
 
-  const keys = await getApiKeysByOrg(auth.orgId);
+export async function GET(request: NextRequest) {
+  const result = await dualAuth(request, ['read'], 'keys');
+  if ('error' in result) return result.error;
+
+  const keys = await getApiKeysByOrg(result.orgId);
 
   // Mask key: show prefix + masked middle + last 4 of prefix
   const masked = keys.map((k) => ({
@@ -26,18 +48,23 @@ export async function GET(request: NextRequest) {
     revokedAt: k.revokedAt,
   }));
 
-  return apiSuccess(
-    { keys: masked },
-    200,
-    auth.startTime,
-    auth.requestId,
-    auth.rateLimit,
-  );
+  if (result.isApi && result.auth) {
+    return apiSuccess(
+      { keys: masked },
+      200,
+      result.auth.startTime,
+      result.auth.requestId,
+      result.auth.rateLimit,
+    );
+  }
+  // Dashboard response (simpler format)
+  const { NextResponse } = await import('next/server');
+  return NextResponse.json({ success: true, data: { keys: masked } });
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authenticate(request, ['write'], 'keys');
-  if (!auth.success) return auth.response;
+  const result = await dualAuth(request, ['write'], 'keys');
+  if ('error' in result) return result.error;
 
   let raw: unknown;
   try {
@@ -60,7 +87,7 @@ export async function POST(request: NextRequest) {
   const keyHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 
   const dbKey = await createApiKey({
-    organizationId: auth.orgId,
+    organizationId: result.orgId,
     name,
     environment: environment as 'development' | 'staging' | 'production',
     keyHash,
@@ -68,21 +95,20 @@ export async function POST(request: NextRequest) {
     scopes: scopes ?? ['identify', 'track', 'group', 'read'],
   });
 
-  // Return the full raw key ONCE — after this it's only available as prefix
-  return apiSuccess(
-    {
-      key: {
-        id: dbKey.id,
-        key: rawKey,
-        name: dbKey.name,
-        environment: dbKey.environment,
-        scopes: dbKey.scopes,
-        createdAt: dbKey.createdAt,
-      },
+  const keyPayload = {
+    key: {
+      id: dbKey.id,
+      key: rawKey,
+      name: dbKey.name,
+      environment: dbKey.environment,
+      scopes: dbKey.scopes,
+      createdAt: dbKey.createdAt,
     },
-    201,
-    auth.startTime,
-    auth.requestId,
-    auth.rateLimit,
-  );
+  };
+
+  if (result.isApi && result.auth) {
+    return apiSuccess(keyPayload, 201, result.auth.startTime, result.auth.requestId, result.auth.rateLimit);
+  }
+  const { NextResponse } = await import('next/server');
+  return NextResponse.json({ success: true, data: keyPayload }, { status: 201 });
 }

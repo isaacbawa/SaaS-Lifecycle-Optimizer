@@ -25,7 +25,10 @@ export type BlockType =
   | 'spacer'
   | 'columns'
   | 'social'
-  | 'footer';
+  | 'footer'
+  | 'video'
+  | 'quote'
+  | 'list';
 
 /* ── Per-block Content Models ────────────────────────────────────────── */
 
@@ -116,14 +119,19 @@ export interface SocialLink {
   label: string;
 }
 
+export type SocialVariant = 'icons-only' | 'icons-with-labels' | 'colored-icons' | 'pill-buttons' | 'rounded-square';
+
 export interface SocialBlockContent {
   links: SocialLink[];
   iconSize: number;
   align: Align;
   color: string;
+  variant: SocialVariant;
   padding: Padding;
   backgroundColor: string;
 }
+
+export type FooterVariant = 'minimal' | 'centered' | 'detailed' | 'dark' | 'branded';
 
 export interface FooterBlockContent {
   html: string;
@@ -132,6 +140,49 @@ export interface FooterBlockContent {
   color: string;
   showUnsubscribe: boolean;
   unsubscribeText: string;
+  variant: FooterVariant;
+  padding: Padding;
+  backgroundColor: string;
+}
+
+/* ── New Block Content Models ────────────────────────────────────────── */
+
+export interface VideoBlockContent {
+  thumbnailUrl: string;
+  alt: string;
+  href: string;
+  overlayColor: string;
+  padding: Padding;
+  backgroundColor: string;
+  borderRadius: number;
+}
+
+export interface QuoteBlockContent {
+  text: string;
+  attribution: string;
+  attributionTitle: string;
+  textAlign: Align;
+  fontSize: number;
+  color: string;
+  fontFamily: string;
+  accentColor: string;
+  style: 'border-left' | 'large-quote' | 'card';
+  padding: Padding;
+  backgroundColor: string;
+}
+
+export interface ListItem {
+  text: string;
+}
+
+export interface ListBlockContent {
+  items: ListItem[];
+  style: 'bullet' | 'numbered' | 'check' | 'arrow' | 'star';
+  color: string;
+  fontSize: number;
+  fontFamily: string;
+  iconColor: string;
+  spacing: number;
   padding: Padding;
   backgroundColor: string;
 }
@@ -147,7 +198,10 @@ export type EmailBlock =
   | { id: string; type: 'spacer'; content: SpacerBlockContent }
   | { id: string; type: 'columns'; content: ColumnsBlockContent }
   | { id: string; type: 'social'; content: SocialBlockContent }
-  | { id: string; type: 'footer'; content: FooterBlockContent };
+  | { id: string; type: 'footer'; content: FooterBlockContent }
+  | { id: string; type: 'video'; content: VideoBlockContent }
+  | { id: string; type: 'quote'; content: QuoteBlockContent }
+  | { id: string; type: 'list'; content: ListBlockContent };
 
 /* ── Global Style Settings ───────────────────────────────────────────── */
 
@@ -159,6 +213,38 @@ export interface GlobalStyles {
   borderRadius: number;
 }
 
+/* ── Template Categories ──────────────────────────────────────────────── */
+
+export type TemplateCategory =
+  | 'onboarding'
+  | 'activation'
+  | 'engagement'
+  | 'retention'
+  | 'expansion'
+  | 'revenue'
+  | 'feedback'
+  | 'growth'
+  | 'utility';
+
+export interface TemplateCategoryMeta {
+  id: TemplateCategory;
+  label: string;
+  description: string;
+  color: string;
+}
+
+export const TEMPLATE_CATEGORIES: TemplateCategoryMeta[] = [
+  { id: 'onboarding', label: 'Onboarding', description: 'Welcome and guide new users through first steps', color: '#2563eb' },
+  { id: 'activation', label: 'Activation', description: 'Drive setup completion and first value moments', color: '#7c3aed' },
+  { id: 'engagement', label: 'Engagement', description: 'Keep users active with updates, tips, and insights', color: '#0891b2' },
+  { id: 'retention', label: 'Retention', description: 'Prevent churn and re-engage at-risk or lapsed users', color: '#dc2626' },
+  { id: 'expansion', label: 'Expansion', description: 'Drive upgrades, upsells, and plan tier growth', color: '#059669' },
+  { id: 'revenue', label: 'Revenue', description: 'Billing, payments, invoices, and renewal management', color: '#d97706' },
+  { id: 'feedback', label: 'Feedback', description: 'Collect NPS, CSAT, and close the loop on requests', color: '#ec4899' },
+  { id: 'growth', label: 'Growth', description: 'Referrals, advocacy, and milestone celebrations', color: '#8b5cf6' },
+  { id: 'utility', label: 'Utility', description: 'Blank and general-purpose starting templates', color: '#6b7280' },
+];
+
 /* ── Email Template ──────────────────────────────────────────────────── */
 
 export interface EmailTemplate {
@@ -166,6 +252,7 @@ export interface EmailTemplate {
   name: string;
   subject: string;
   preheaderText: string;
+  category: TemplateCategory;
   blocks: EmailBlock[];
   globalStyles: GlobalStyles;
 }
@@ -359,6 +446,7 @@ export const BLOCK_DEFAULTS: Record<BlockType, () => EmailBlock> = {
       iconSize: 24,
       align: 'center',
       color: '#6b7280',
+      variant: 'icons-only' as SocialVariant,
       padding: { top: 16, right: 32, bottom: 16, left: 32 },
       backgroundColor: 'transparent',
     },
@@ -373,8 +461,58 @@ export const BLOCK_DEFAULTS: Record<BlockType, () => EmailBlock> = {
       color: '#9ca3af',
       showUnsubscribe: true,
       unsubscribeText: 'Unsubscribe from these emails',
+      variant: 'centered' as FooterVariant,
       padding: { top: 24, right: 32, bottom: 24, left: 32 },
       backgroundColor: '#f9fafb',
+    },
+  }),
+  video: () => ({
+    id: uid(),
+    type: 'video',
+    content: {
+      thumbnailUrl: '',
+      alt: 'Watch the video',
+      href: 'https://',
+      overlayColor: 'rgba(0,0,0,0.35)',
+      padding: { top: 16, right: 32, bottom: 16, left: 32 },
+      backgroundColor: 'transparent',
+      borderRadius: 8,
+    },
+  }),
+  quote: () => ({
+    id: uid(),
+    type: 'quote',
+    content: {
+      text: 'This product completely transformed how we handle customer retention.',
+      attribution: 'Jane Cooper',
+      attributionTitle: 'VP of Success, Acme Inc.',
+      textAlign: 'left' as Align,
+      fontSize: 18,
+      color: '#374151',
+      fontFamily: FONT_FAMILY,
+      accentColor: '#2563eb',
+      style: 'border-left' as const,
+      padding: { top: 24, right: 32, bottom: 24, left: 32 },
+      backgroundColor: 'transparent',
+    },
+  }),
+  list: () => ({
+    id: uid(),
+    type: 'list',
+    content: {
+      items: [
+        { text: 'First item in your list' },
+        { text: 'Second item in your list' },
+        { text: 'Third item in your list' },
+      ],
+      style: 'check' as const,
+      color: '#374151',
+      fontSize: 16,
+      fontFamily: FONT_FAMILY,
+      iconColor: '#2563eb',
+      spacing: 10,
+      padding: { top: 16, right: 32, bottom: 16, left: 32 },
+      backgroundColor: 'transparent',
     },
   }),
 };
@@ -393,6 +531,9 @@ export const PALETTE_ITEMS: BlockPaletteItem[] = [
   { type: 'text', label: 'Text', description: 'Paragraph with formatting', category: 'content' },
   { type: 'image', label: 'Image', description: 'Full-width or inline image', category: 'content' },
   { type: 'button', label: 'Button', description: 'Call-to-action button', category: 'content' },
+  { type: 'video', label: 'Video', description: 'Video thumbnail with play', category: 'content' },
+  { type: 'quote', label: 'Quote', description: 'Testimonial or blockquote', category: 'content' },
+  { type: 'list', label: 'List', description: 'Checklist or bullet list', category: 'content' },
   { type: 'columns', label: 'Columns', description: '2 or 3 column layout', category: 'layout' },
   { type: 'divider', label: 'Divider', description: 'Horizontal separator line', category: 'layout' },
   { type: 'spacer', label: 'Spacer', description: 'Vertical whitespace', category: 'layout' },

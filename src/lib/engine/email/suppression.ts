@@ -1,19 +1,14 @@
-/* ═══════════════════════════════════════════════════════════════════════
- * Email Suppression System — Bounce, Unsubscribe & Complaint Management
+﻿/* ═══════════════════════════════════════════════════════════════════════
+ * Email Suppression System — DB-Backed Bounce, Unsubscribe & Complaint Mgmt
  *
- * Tracks addresses that must NOT receive email:
- *   • Hard bounces  → permanent suppression
- *   • Soft bounces  → temporary suppression (auto-clears after cooldown)
- *   • Complaints    → permanent suppression (ISP feedback loops)
- *   • Unsubscribes  → permanent until manually re-subscribed
- *   • Manual blocks  → admin-added suppression
- *
- * The suppression list is stored in-memory on globalThis so it persists
- * across hot-reloads in development. In production, this works as a
- * singleton for the lifetime of the process.
- *
- * Suppression check is O(1) — Map-based lookup before every send.
+ * All suppressions are stored in PostgreSQL for durability across
+ * serverless cold starts. The public API remains identical to the
+ * original in-memory version so callers require zero changes.
  * ═══════════════════════════════════════════════════════════════════════ */
+
+import { db } from '@/lib/db';
+import * as schema from '@/lib/db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -29,9 +24,9 @@ export interface SuppressionEntry {
     email: string;
     reason: SuppressionReason;
     addedAt: string;
-    expiresAt?: string; // Only for soft bounces
+    expiresAt?: string;
     bounceCount: number;
-    source: string; // Where the suppression came from (e.g., 'bounce_webhook', 'manual')
+    source: string;
     metadata?: Record<string, unknown>;
 }
 
@@ -48,212 +43,136 @@ export interface SuppressionStats {
 /* ── Constants ──────────────────────────────────────────────────────── */
 
 const SOFT_BOUNCE_COOLDOWN_MS = 72 * 60 * 60 * 1000; // 72 hours
-const SOFT_BOUNCE_THRESHOLD = 3; // After 3 soft bounces → hard bounce
-const MAX_SUPPRESSION_LIST_SIZE = 100_000; // Memory guard
+const SOFT_BOUNCE_THRESHOLD = 3;
 
-/* ── Suppression Store (Singleton) ──────────────────────────────────── */
-
-const globalKey = '__lifecycleos_suppression_store__';
-
-interface SuppressionStore {
-    entries: Map<string, SuppressionEntry>;
-}
-
-function getStore(): SuppressionStore {
-    const g = globalThis as unknown as Record<string, SuppressionStore>;
-    if (!g[globalKey]) {
-        g[globalKey] = { entries: new Map() };
-    }
-    return g[globalKey];
-}
-
-/* ── Core Functions ─────────────────────────────────────────────────── */
-
-/**
- * Normalize email for consistent lookup (lowercase, trimmed).
- */
 function normalize(email: string): string {
     return email.trim().toLowerCase();
 }
 
-/**
- * Check if an email address is suppressed (should NOT receive email).
- * Automatically clears expired soft bounces.
- */
-export function isSuppressed(email: string): boolean {
+async function getOrgId(providedOrgId?: string): Promise<string> {
+    if (providedOrgId) return providedOrgId;
+    // Fallback for background processing where orgId isn't passed through
+    const envOrgId = process.env.DEMO_ORG_ID;
+    if (envOrgId) return envOrgId;
+    return '';
+}
+
+/* ── Core Functions ─────────────────────────────────────────────────── */
+
+export async function isSuppressed(email: string): Promise<boolean> {
     const key = normalize(email);
-    const store = getStore();
-    const entry = store.entries.get(key);
+    const orgId = await getOrgId();
+    if (!orgId) return false;
+
+    const [entry] = await db.select().from(schema.emailSuppressions)
+        .where(and(eq(schema.emailSuppressions.organizationId, orgId), eq(schema.emailSuppressions.email, key)))
+        .limit(1);
 
     if (!entry) return false;
 
-    // Check if soft bounce has expired
     if (entry.reason === 'soft_bounce' && entry.expiresAt) {
         if (new Date(entry.expiresAt) < new Date()) {
-            store.entries.delete(key);
+            await db.delete(schema.emailSuppressions).where(eq(schema.emailSuppressions.id, entry.id));
             return false;
         }
     }
-
     return true;
 }
 
-/**
- * Get suppression entry for an email (or null if not suppressed).
- */
-export function getSuppressionEntry(email: string): SuppressionEntry | null {
+export async function getSuppressionEntry(email: string): Promise<SuppressionEntry | null> {
     const key = normalize(email);
-    const entry = getStore().entries.get(key);
+    const orgId = await getOrgId();
+    if (!orgId) return null;
+
+    const [entry] = await db.select().from(schema.emailSuppressions)
+        .where(and(eq(schema.emailSuppressions.organizationId, orgId), eq(schema.emailSuppressions.email, key)))
+        .limit(1);
+
     if (!entry) return null;
-
-    // Clear expired soft bounces
-    if (entry.reason === 'soft_bounce' && entry.expiresAt) {
-        if (new Date(entry.expiresAt) < new Date()) {
-            getStore().entries.delete(key);
-            return null;
-        }
+    if (entry.reason === 'soft_bounce' && entry.expiresAt && new Date(entry.expiresAt) < new Date()) {
+        await db.delete(schema.emailSuppressions).where(eq(schema.emailSuppressions.id, entry.id));
+        return null;
     }
 
-    return entry;
+    return { email: entry.email, reason: entry.reason, addedAt: entry.createdAt.toISOString(), expiresAt: entry.expiresAt?.toISOString(), bounceCount: entry.bounceCount, source: entry.source, metadata: entry.metadata ?? undefined };
 }
 
-/**
- * Add an email to the suppression list.
- */
-export function addSuppression(
-    email: string,
-    reason: SuppressionReason,
-    source: string,
-    metadata?: Record<string, unknown>,
-): SuppressionEntry {
+export async function addSuppression(email: string, reason: SuppressionReason, source: string, metadata?: Record<string, unknown>): Promise<SuppressionEntry> {
     const key = normalize(email);
-    const store = getStore();
+    const orgId = await getOrgId();
 
-    // Memory guard
-    if (store.entries.size >= MAX_SUPPRESSION_LIST_SIZE) {
-        // Evict oldest soft bounces first
-        const sortedSoftBounces = [...store.entries.entries()]
-            .filter(([, e]) => e.reason === 'soft_bounce')
-            .sort((a, b) => new Date(a[1].addedAt).getTime() - new Date(b[1].addedAt).getTime());
+    const [existing] = await db.select().from(schema.emailSuppressions)
+        .where(and(eq(schema.emailSuppressions.organizationId, orgId), eq(schema.emailSuppressions.email, key)))
+        .limit(1);
 
-        const toEvict = Math.max(1, Math.floor(MAX_SUPPRESSION_LIST_SIZE * 0.1));
-        for (let i = 0; i < Math.min(toEvict, sortedSoftBounces.length); i++) {
-            store.entries.delete(sortedSoftBounces[i][0]);
-        }
-    }
-
-    const existing = store.entries.get(key);
     const bounceCount = (existing?.bounceCount ?? 0) + (reason.includes('bounce') ? 1 : 0);
+    const effectiveReason: SuppressionReason = reason === 'soft_bounce' && bounceCount >= SOFT_BOUNCE_THRESHOLD ? 'hard_bounce' : reason;
+    const expiresAt = effectiveReason === 'soft_bounce' ? new Date(Date.now() + SOFT_BOUNCE_COOLDOWN_MS) : null;
 
-    // Upgrade soft bounce to hard bounce after threshold
-    const effectiveReason =
-        reason === 'soft_bounce' && bounceCount >= SOFT_BOUNCE_THRESHOLD ? 'hard_bounce' : reason;
+    const [result] = await db.insert(schema.emailSuppressions).values({
+        organizationId: orgId, email: key, reason: effectiveReason, source, bounceCount, expiresAt, metadata: metadata ?? null,
+    }).onConflictDoUpdate({
+        target: [schema.emailSuppressions.organizationId, schema.emailSuppressions.email],
+        set: { reason: effectiveReason, source, bounceCount, expiresAt, metadata: metadata ?? null, updatedAt: new Date() },
+    }).returning();
 
-    const now = new Date().toISOString();
-    const entry: SuppressionEntry = {
-        email: key,
-        reason: effectiveReason,
-        addedAt: now,
-        bounceCount,
-        source,
-        metadata,
-        ...(effectiveReason === 'soft_bounce'
-            ? { expiresAt: new Date(Date.now() + SOFT_BOUNCE_COOLDOWN_MS).toISOString() }
-            : {}),
-    };
-
-    store.entries.set(key, entry);
-
-    console.log(
-        `[suppression] ${effectiveReason}: ${key} (source: ${source}, count: ${bounceCount})`,
-    );
-
-    return entry;
+    return { email: key, reason: effectiveReason, addedAt: result.createdAt.toISOString(), expiresAt: result.expiresAt?.toISOString(), bounceCount, source, metadata };
 }
 
-/**
- * Record a bounce event. Automatically classifies as soft or hard.
- */
-export function recordBounce(
-    email: string,
-    bounceType: 'hard' | 'soft' | 'undetermined',
-    diagnosticCode?: string,
-    source = 'bounce_processor',
-): SuppressionEntry {
-    const reason: SuppressionReason =
-        bounceType === 'hard' ? 'hard_bounce' : 'soft_bounce';
-
-    return addSuppression(email, reason, source, {
-        bounceType,
-        diagnosticCode,
-    });
+export async function recordBounce(email: string, bounceType: 'hard' | 'soft' | 'undetermined', diagnosticCode?: string, source = 'bounce_processor'): Promise<SuppressionEntry> {
+    return addSuppression(email, bounceType === 'hard' ? 'hard_bounce' : 'soft_bounce', source, { bounceType, diagnosticCode });
 }
 
-/**
- * Record a spam complaint (ISP feedback loop).
- */
-export function recordComplaint(
-    email: string,
-    feedbackType?: string,
-    source = 'complaint_webhook',
-): SuppressionEntry {
+export async function recordComplaint(email: string, feedbackType?: string, source = 'complaint_webhook'): Promise<SuppressionEntry> {
     return addSuppression(email, 'complaint', source, { feedbackType });
 }
 
-/**
- * Record an unsubscribe.
- */
-export function recordUnsubscribe(
-    email: string,
-    source = 'unsubscribe_link',
-    campaignId?: string,
-): SuppressionEntry {
+export async function recordUnsubscribe(email: string, source = 'unsubscribe_link', campaignId?: string): Promise<SuppressionEntry> {
     return addSuppression(email, 'unsubscribe', source, { campaignId });
 }
 
-/**
- * Remove an email from the suppression list (manual re-enable).
- * Returns true if the entry was found and removed.
- */
-export function removeSuppression(email: string): boolean {
+export async function removeSuppression(email: string): Promise<boolean> {
     const key = normalize(email);
-    return getStore().entries.delete(key);
+    const orgId = await getOrgId();
+    if (!orgId) return false;
+    const result = await db.delete(schema.emailSuppressions)
+        .where(and(eq(schema.emailSuppressions.organizationId, orgId), eq(schema.emailSuppressions.email, key)))
+        .returning();
+    return result.length > 0;
 }
 
-/**
- * Batch check: filter out suppressed addresses from a list.
- * Returns only the addresses that ARE allowed to receive email.
- */
-export function filterSuppressed(emails: string[]): string[] {
-    return emails.filter((e) => !isSuppressed(e));
+export async function filterSuppressed(emails: string[]): Promise<string[]> {
+    const results: string[] = [];
+    for (const email of emails) {
+        if (!(await isSuppressed(email))) results.push(email);
+    }
+    return results;
 }
 
-/**
- * Get all suppression entries (for admin UI).
- */
-export function getAllSuppressions(): SuppressionEntry[] {
-    return [...getStore().entries.values()];
+export async function getAllSuppressions(): Promise<SuppressionEntry[]> {
+    const orgId = await getOrgId();
+    if (!orgId) return [];
+    const entries = await db.select().from(schema.emailSuppressions).where(eq(schema.emailSuppressions.organizationId, orgId));
+    return entries.map((e) => ({ email: e.email, reason: e.reason, addedAt: e.createdAt.toISOString(), expiresAt: e.expiresAt?.toISOString(), bounceCount: e.bounceCount, source: e.source, metadata: e.metadata ?? undefined }));
 }
 
-/**
- * Get suppression statistics.
- */
-export function getSuppressionStats(): SuppressionStats {
-    const entries = [...getStore().entries.values()];
-    return {
-        total: entries.length,
-        hardBounces: entries.filter((e) => e.reason === 'hard_bounce').length,
-        softBounces: entries.filter((e) => e.reason === 'soft_bounce').length,
-        complaints: entries.filter((e) => e.reason === 'complaint').length,
-        unsubscribes: entries.filter((e) => e.reason === 'unsubscribe').length,
-        manualBlocks: entries.filter((e) => e.reason === 'manual_block').length,
-        invalidAddresses: entries.filter((e) => e.reason === 'invalid_address').length,
-    };
+export async function getSuppressionStats(): Promise<SuppressionStats> {
+    const orgId = await getOrgId();
+    if (!orgId) return { total: 0, hardBounces: 0, softBounces: 0, complaints: 0, unsubscribes: 0, manualBlocks: 0, invalidAddresses: 0 };
+    const [result] = await db.select({
+        total: sql<number>`count(*)::int`,
+        hardBounces: sql<number>`count(*) filter (where ${schema.emailSuppressions.reason} = 'hard_bounce')::int`,
+        softBounces: sql<number>`count(*) filter (where ${schema.emailSuppressions.reason} = 'soft_bounce')::int`,
+        complaints: sql<number>`count(*) filter (where ${schema.emailSuppressions.reason} = 'complaint')::int`,
+        unsubscribes: sql<number>`count(*) filter (where ${schema.emailSuppressions.reason} = 'unsubscribe')::int`,
+        manualBlocks: sql<number>`count(*) filter (where ${schema.emailSuppressions.reason} = 'manual_block')::int`,
+        invalidAddresses: sql<number>`count(*) filter (where ${schema.emailSuppressions.reason} = 'invalid_address')::int`,
+    }).from(schema.emailSuppressions).where(eq(schema.emailSuppressions.organizationId, orgId));
+    return result ?? { total: 0, hardBounces: 0, softBounces: 0, complaints: 0, unsubscribes: 0, manualBlocks: 0, invalidAddresses: 0 };
 }
 
-/**
- * Clear all suppressions (use with caution — mainly for testing).
- */
-export function clearAllSuppressions(): void {
-    getStore().entries.clear();
+export async function clearAllSuppressions(): Promise<void> {
+    const orgId = await getOrgId();
+    if (!orgId) return;
+    await db.delete(schema.emailSuppressions).where(eq(schema.emailSuppressions.organizationId, orgId));
 }

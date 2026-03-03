@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from '@/hooks/use-toast';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -128,6 +130,9 @@ export default function SegmentsPage() {
     // Evaluate state
     const [evaluating, setEvaluating] = useState<string | null>(null);
 
+    // Delete confirmation
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
     /* ── Fetch ──────────────────────────────────────── */
     const fetchSegments = useCallback(async () => {
         try {
@@ -186,13 +191,21 @@ export default function SegmentsPage() {
             if (res.ok) {
                 setDialogOpen(false);
                 fetchSegments();
+                toast({ title: editing ? 'Segment updated' : 'Segment created', description: `"${formName}" has been ${editing ? 'updated' : 'created'} successfully.` });
+            } else {
+                toast({ title: 'Error', description: 'Failed to save segment. Please try again.', variant: 'destructive' });
             }
         } finally { setSaving(false); }
     };
 
     const deleteSegment = async (id: string) => {
         const res = await fetch(`/api/v1/segments/${id}`, { method: 'DELETE' });
-        if (res.ok) fetchSegments();
+        if (res.ok) {
+            fetchSegments();
+            toast({ title: 'Segment deleted', description: 'The segment has been removed.' });
+        } else {
+            toast({ title: 'Error', description: 'Failed to delete segment.', variant: 'destructive' });
+        }
     };
 
     const evaluateSegment = async (id: string) => {
@@ -421,7 +434,7 @@ export default function SegmentsPage() {
                                                         Preview Users
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem className="text-destructive" onClick={() => deleteSegment(seg.id)}>
+                                                    <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(seg.id)}>
                                                         <Trash2 className="h-3.5 w-3.5 mr-2" />
                                                         Delete
                                                     </DropdownMenuItem>
@@ -632,6 +645,15 @@ export default function SegmentsPage() {
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Confirmation */}
+            <ConfirmDialog
+                open={!!deleteId}
+                onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+                title="Delete segment?"
+                description="This will permanently remove this segment and its membership data. This cannot be undone."
+                onConfirm={() => { if (deleteId) deleteSegment(deleteId); }}
+            />
         </div>
     );
 }

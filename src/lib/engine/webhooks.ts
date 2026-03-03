@@ -15,9 +15,19 @@
  *
  * Webhook verification (Node.js receiver):
  *   const crypto = require('crypto');
+ *   const timestamp = req.headers['x-lifecycle-timestamp'];
+ *   const signature = req.headers['x-lifecycle-signature'];
+ *
+ *   // 1. Reject stale deliveries (> 5 min)
+ *   if (Math.abs(Date.now() - new Date(timestamp).getTime()) > 5 * 60 * 1000) {
+ *     return res.status(403).json({ error: 'Timestamp too old' });
+ *   }
+ *
+ *   // 2. Verify HMAC (timestamp is part of the signed content)
+ *   const signedPayload = `${timestamp}.${rawBody}`;
  *   const expected = 'sha256=' + crypto
  *     .createHmac('sha256', webhookSecret)
- *     .update(rawBody)
+ *     .update(signedPayload)
  *     .digest('hex');
  *   const valid = crypto.timingSafeEqual(
  *     Buffer.from(signature), Buffer.from(expected));
@@ -135,12 +145,18 @@ export function getCircuitState(webhookId: string): CircuitState | undefined {
  * HMAC-SHA256 Signature
  * ═══════════════════════════════════════════════════════════════════════ */
 
-async function computeSignature(payload: string, secret: string): Promise<string> {
+/**
+ * Compute HMAC-SHA256 over `timestamp.body` so receivers can verify
+ * both payload integrity AND freshness in a single check.
+ */
+async function computeSignature(timestamp: string, payload: string, secret: string): Promise<string> {
+  const signedContent = `${timestamp}.${payload}`;
+
   // Prefer Node.js crypto (server-side)
   if (typeof globalThis.process !== 'undefined') {
     try {
       const { createHmac } = await import('crypto');
-      return 'sha256=' + createHmac('sha256', secret).update(payload).digest('hex');
+      return 'sha256=' + createHmac('sha256', secret).update(signedContent).digest('hex');
     } catch { /* fall through to Web Crypto */ }
   }
   // Web Crypto fallback
@@ -148,7 +164,7 @@ async function computeSignature(payload: string, secret: string): Promise<string
   const key = await crypto.subtle.importKey(
     'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
   );
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(signedContent));
   const hex = Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('');
   return 'sha256=' + hex;
 }
@@ -212,7 +228,10 @@ async function deliverToEndpoint(
     return { delivered: false, attempts: 0, statusCode: null, error: `Payload exceeds ${MAX_PAYLOAD_BYTES} bytes (${body.length})` };
   }
 
-  const signature = await computeSignature(body, webhook.secret);
+  // Timestamp is included in signature for replay-attack prevention.
+  // Receivers verify: HMAC(timestamp + "." + body) and reject if ts > 5 min old.
+  const deliveryTimestamp = payload.timestamp;
+  const signature = await computeSignature(deliveryTimestamp, body, webhook.secret);
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const start = Date.now();
@@ -228,6 +247,7 @@ async function deliverToEndpoint(
         headers: {
           'Content-Type': 'application/json',
           'X-Lifecycle-Signature': signature,
+          'X-Lifecycle-Timestamp': deliveryTimestamp,
           'X-Lifecycle-Event': payload.event,
           'X-Lifecycle-Delivery': payload.id,
           'X-Idempotency-Key': payload.id, // Receivers can deduplicate

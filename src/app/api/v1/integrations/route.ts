@@ -10,19 +10,13 @@ import {
     updateIntegrationStatus,
     getIntegrationByProvider,
 } from '@/lib/db/operations';
-
-async function resolveOrgId() {
-    if (process.env.DEMO_ORG_ID) return process.env.DEMO_ORG_ID;
-    const { db } = await import('@/lib/db');
-    const { organizations } = await import('@/lib/db/schema');
-    const [org] = await db.select({ id: organizations.id }).from(organizations).limit(1);
-    return org?.id ?? null;
-}
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 
 export async function GET(req: NextRequest) {
     try {
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No org' }, { status: 400 });
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const orgId = authResult.orgId;
 
         const url = new URL(req.url);
         const status = url.searchParams.get('status') ?? undefined;
@@ -43,8 +37,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
     try {
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No org' }, { status: 400 });
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const orgId = authResult.orgId;
 
         const data = await req.json();
         const { action } = data;

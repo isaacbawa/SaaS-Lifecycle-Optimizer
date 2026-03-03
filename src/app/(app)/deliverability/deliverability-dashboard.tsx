@@ -12,6 +12,8 @@
  * ========================================================================== */
 
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from '@/hooks/use-toast';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -134,6 +136,9 @@ export default function DeliverabilityDashboard() {
     // Expanded domain
     const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
 
+    // Delete confirmation
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
     /* ── Fetch ──────────────────────────────────────── */
     const fetchData = useCallback(async () => {
         try {
@@ -165,6 +170,9 @@ export default function DeliverabilityDashboard() {
                 setNewDomain('');
                 setAddDialogOpen(false);
                 await fetchData();
+                toast({ title: 'Domain added', description: `"${newDomain.trim()}" has been added for verification.` });
+            } else {
+                toast({ title: 'Error', description: 'Failed to add domain.', variant: 'destructive' });
             }
         } finally {
             setAdding(false);
@@ -186,7 +194,12 @@ export default function DeliverabilityDashboard() {
                     setVerifyResult(prev => ({ ...prev, [domain]: j.data.verification }));
                 }
                 await fetchData();
+                toast({ title: 'Verification complete', description: `DNS records checked for ${domain}.` });
+            } else {
+                toast({ title: 'Error', description: `Failed to verify ${domain}.`, variant: 'destructive' });
             }
+        } catch {
+            toast({ title: 'Error', description: `Failed to verify ${domain}.`, variant: 'destructive' });
         } finally {
             setVerifying(null);
         }
@@ -194,20 +207,36 @@ export default function DeliverabilityDashboard() {
 
     /* ── Delete Domain ──────────────────────────────── */
     const handleDeleteDomain = async (id: string) => {
-        await fetch(`/api/v1/domains/${id}`, { method: 'DELETE' });
-        await fetchData();
+        try {
+            const res = await fetch(`/api/v1/domains/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                await fetchData();
+                toast({ title: 'Domain removed', description: 'The sending domain has been removed.' });
+            } else {
+                toast({ title: 'Error', description: 'Failed to remove domain.', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to remove domain.', variant: 'destructive' });
+        }
     };
 
     /* ── Verify All ─────────────────────────────────── */
     const handleVerifyAll = async () => {
         setVerifying('__all__');
         try {
-            await fetch('/api/v1/domains', {
+            const res = await fetch('/api/v1/domains', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'verify-all' }),
             });
-            await fetchData();
+            if (res.ok) {
+                await fetchData();
+                toast({ title: 'Verification complete', description: 'All domains have been checked.' });
+            } else {
+                toast({ title: 'Error', description: 'Failed to verify domains.', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to verify domains.', variant: 'destructive' });
         } finally {
             setVerifying(null);
         }
@@ -475,7 +504,7 @@ export default function DeliverabilityDashboard() {
                                                         variant="ghost"
                                                         size="sm"
                                                         className="h-8 text-destructive hover:text-destructive"
-                                                        onClick={() => handleDeleteDomain(d.id)}
+                                                        onClick={() => setDeleteId(d.id)}
                                                     >
                                                         <Trash2 className="h-3 w-3" />
                                                     </Button>
@@ -610,7 +639,7 @@ export default function DeliverabilityDashboard() {
                                                     <Button
                                                         variant="destructive"
                                                         size="sm"
-                                                        onClick={() => handleDeleteDomain(d.id)}
+                                                        onClick={() => setDeleteId(d.id)}
                                                         className="flex-1"
                                                     >
                                                         <Trash2 className="h-3 w-3 mr-1" />
@@ -685,6 +714,16 @@ export default function DeliverabilityDashboard() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Delete Confirmation */}
+            <ConfirmDialog
+                open={!!deleteId}
+                onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+                title="Remove sending domain?"
+                description="This will remove the domain and its DNS verification records. You can re-add it later."
+                confirmLabel="Remove"
+                onConfirm={() => { if (deleteId) handleDeleteDomain(deleteId); }}
+            />
         </div>
     );
 }

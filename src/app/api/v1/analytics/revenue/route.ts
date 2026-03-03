@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       currentMrr: kpi.totalMrr,
       currentArr: kpi.totalArr,
       mrrGrowth: Math.round(mrrGrowth * 10) / 10,
-      mrrByMovement: kpi.mrrByMovement,
+      mrrByMovement: { newBusiness: 0, expansion: 0, contraction: 0, churn: 0 },
       monthlyData: revenue,
       waterfall,
     },

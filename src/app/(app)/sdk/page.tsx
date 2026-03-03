@@ -29,11 +29,13 @@ import {
 
 interface ApiKey {
   id: string;
-  key: string;
+  key?: string;
   name: string;
   environment: string;
+  keyPrefix?: string;
   createdAt: string;
   lastUsedAt?: string;
+  revokedAt?: string | null;
   scopes: string[];
 }
 
@@ -59,7 +61,7 @@ interface TestResult {
  * Constants & Code Samples
  * ═══════════════════════════════════════════════════════════════════════ */
 
-const API_KEY_PROD = 'lcos_live_a1b2c3d4e5f6g7h8i9j0';
+const API_KEY_PLACEHOLDER = 'your-api-key-here';
 
 const installCode = `npm install @lifecycleos/sdk`;
 
@@ -305,29 +307,34 @@ export default function SdkPage() {
 
   /* ── Helpers ────────────────────────────────────────────────────── */
 
-  const authHeaders = useCallback(() => ({
-    Authorization: `Bearer ${API_KEY_PROD}`,
+  // Dashboard calls use Clerk session cookies (auto-sent for same-origin).
+  // No Bearer token needed for /api/v1/keys, /api/v1/webhooks.
+  const dashHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
   }), []);
+
+  // Get the first non-revoked API key for display in code samples
+  const activeApiKey = apiKeys.find(k => !k.revokedAt);
+  const displayApiKey = activeApiKey?.keyPrefix ? `${activeApiKey.keyPrefix}...` : API_KEY_PLACEHOLDER;
 
   /* ── API Keys CRUD ──────────────────────────────────────────────── */
 
   const loadKeys = useCallback(async () => {
     setKeysLoading(true);
     try {
-      const res = await fetch('/api/v1/keys', { headers: authHeaders() });
+      const res = await fetch('/api/v1/keys', { headers: dashHeaders() });
       const json = await res.json();
-      if (json.success) setApiKeys(json.data.keys);
+      if (json.success) setApiKeys(json.data.keys ?? json.data?.keys ?? []);
     } catch { /* silent */ }
     setKeysLoading(false);
-  }, [authHeaders]);
+  }, [dashHeaders]);
 
   const createKey = useCallback(async () => {
     if (!newKeyName.trim()) return;
     try {
       const res = await fetch('/api/v1/keys', {
         method: 'POST',
-        headers: authHeaders(),
+        headers: dashHeaders(),
         body: JSON.stringify({ name: newKeyName, environment: newKeyEnv }),
       });
       const json = await res.json();
@@ -337,36 +344,36 @@ export default function SdkPage() {
         await loadKeys();
       }
     } catch { /* silent */ }
-  }, [newKeyName, newKeyEnv, authHeaders, loadKeys]);
+  }, [newKeyName, newKeyEnv, dashHeaders, loadKeys]);
 
   const revokeKey = useCallback(async (keyId: string) => {
     try {
       await fetch(`/api/v1/keys/${keyId}`, {
         method: 'DELETE',
-        headers: authHeaders(),
+        headers: dashHeaders(),
       });
       await loadKeys();
     } catch { /* silent */ }
-  }, [authHeaders, loadKeys]);
+  }, [dashHeaders, loadKeys]);
 
   /* ── Webhooks CRUD ──────────────────────────────────────────────── */
 
   const loadWebhooks = useCallback(async () => {
     setWebhooksLoading(true);
     try {
-      const res = await fetch('/api/v1/webhooks', { headers: authHeaders() });
+      const res = await fetch('/api/v1/webhooks', { headers: dashHeaders() });
       const json = await res.json();
-      if (json.success) setWebhooks(json.data.webhooks);
+      if (json.success) setWebhooks(json.data.webhooks ?? []);
     } catch { /* silent */ }
     setWebhooksLoading(false);
-  }, [authHeaders]);
+  }, [dashHeaders]);
 
   const createWebhook = useCallback(async () => {
     if (!newWebhookUrl.trim() || newWebhookEvents.length === 0) return;
     try {
       const res = await fetch('/api/v1/webhooks', {
         method: 'POST',
-        headers: authHeaders(),
+        headers: dashHeaders(),
         body: JSON.stringify({ url: newWebhookUrl, events: newWebhookEvents }),
       });
       const json = await res.json();
@@ -376,17 +383,17 @@ export default function SdkPage() {
         await loadWebhooks();
       }
     } catch { /* silent */ }
-  }, [newWebhookUrl, newWebhookEvents, authHeaders, loadWebhooks]);
+  }, [newWebhookUrl, newWebhookEvents, dashHeaders, loadWebhooks]);
 
-  const deleteWebhook = useCallback(async (whId: string) => {
+  const deleteWebhookEntry = useCallback(async (whId: string) => {
     try {
       await fetch(`/api/v1/webhooks/${whId}`, {
         method: 'DELETE',
-        headers: authHeaders(),
+        headers: dashHeaders(),
       });
       await loadWebhooks();
     } catch { /* silent */ }
-  }, [authHeaders, loadWebhooks]);
+  }, [dashHeaders, loadWebhooks]);
 
   /* ── API Test Console ───────────────────────────────────────────── */
 
@@ -395,7 +402,7 @@ export default function SdkPage() {
     setTestResult(null);
     const start = Date.now();
     try {
-      const opts: RequestInit = { method: testMethod, headers: authHeaders() };
+      const opts: RequestInit = { method: testMethod, headers: dashHeaders() };
       if (testMethod !== 'GET' && testBody.trim()) opts.body = testBody;
       const res = await fetch(testEndpoint, opts);
       const json = await res.json();
@@ -404,7 +411,7 @@ export default function SdkPage() {
       setTestResult({ success: false, status: 0, data: { error: (err as Error).message }, time: Date.now() - start });
     }
     setTestRunning(false);
-  }, [testEndpoint, testMethod, testBody, authHeaders]);
+  }, [testEndpoint, testMethod, testBody, dashHeaders]);
 
   /* ── Load data on mount ─────────────────────────────────────────── */
 
@@ -476,15 +483,15 @@ export default function SdkPage() {
                 <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
                   <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">2</span> Initialize
                 </h3>
-                <p className="text-muted-foreground mb-3">Initialize the SDK with your API key. Your production key:</p>
+                <p className="text-muted-foreground mb-3">Initialize the SDK with your API key. {activeApiKey ? 'Your key prefix:' : 'Create an API key above to get started.'}</p>
                 <div className="flex items-center gap-2 mb-3 p-3 bg-muted rounded-lg font-mono text-sm">
                   <Shield className="h-4 w-4 text-primary flex-shrink-0" />
-                  <code className="break-all">{API_KEY_PROD}</code>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 ml-auto flex-shrink-0" onClick={() => navigator.clipboard.writeText(API_KEY_PROD)}>
+                  <code className="break-all">{displayApiKey}</code>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 ml-auto flex-shrink-0" onClick={() => navigator.clipboard.writeText(displayApiKey)}>
                     <Copy className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-                <CodeBlock code={initCode(API_KEY_PROD)} />
+                <CodeBlock code={initCode(displayApiKey)} />
               </div>
               <Separator />
               <div>
@@ -565,7 +572,7 @@ export default function SdkPage() {
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <code className="text-xs bg-muted px-2 py-0.5 rounded font-mono">
-                            {showSecrets[k.id] ? k.key : k.key.substring(0, 10) + '••••••••'}
+                            {showSecrets[k.id] && k.key ? k.key : (k.keyPrefix ?? k.key?.substring(0, 10) ?? '****') + '••••••••'}
                           </code>
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowSecrets((prev) => ({ ...prev, [k.id]: !prev[k.id] }))}>
                             {showSecrets[k.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
@@ -615,8 +622,8 @@ export default function SdkPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-green-800 dark:text-green-300">API key created! Copy it now — it won&apos;t be shown again.</p>
                         <div className="mt-2 flex items-center gap-2">
-                          <code className="text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded font-mono break-all">{newKeyResult.key}</code>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => navigator.clipboard.writeText(newKeyResult.key)}>
+                          <code className="text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded font-mono break-all">{newKeyResult.key ?? ''}</code>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => navigator.clipboard.writeText(newKeyResult.key ?? '')}>
                             <Copy className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -755,7 +762,7 @@ export default function SdkPage() {
               <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20 p-4">
                 <p className="text-sm font-medium text-blue-800 dark:text-blue-300 flex items-center gap-2"><Shield className="h-4 w-4" /> Authentication</p>
                 <p className="text-sm text-blue-700 dark:text-blue-400 mt-1.5">All API requests require a Bearer token in the <code className="text-xs bg-blue-100 dark:bg-blue-900 px-1 rounded">Authorization</code> header. API keys can be managed in the <strong>API Keys</strong> tab.</p>
-                <CodeBlock code={`Authorization: Bearer ${API_KEY_PROD}`} />
+                <CodeBlock code={`Authorization: Bearer ${displayApiKey}`} />
               </div>
             </CardContent>
           </Card>
@@ -875,7 +882,7 @@ export default function SdkPage() {
                         <span className={cn('text-sm font-medium', { 'text-green-600': wh.successRate >= 95, 'text-amber-600': wh.successRate >= 80 && wh.successRate < 95, 'text-red-600': wh.successRate < 80 })}>{wh.successRate}%</span>
                       </TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteWebhook(wh.id)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteWebhookEntry(wh.id)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </TableCell>

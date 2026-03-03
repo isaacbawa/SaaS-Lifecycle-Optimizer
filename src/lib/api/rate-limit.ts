@@ -1,11 +1,15 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Rate Limiter — Sliding-window per-key rate limiting
+ * Rate Limiter — DB-backed fixed-window rate limiting
  *
- * Uses a fixed-window algorithm with sub-second precision.
- * Each API key gets its own bucket. Configurable per-route limits.
+ * Uses the rateLimitBuckets table so limits are shared across
+ * serverless instances and survive cold starts.
+ * Falls back to in-memory if DB is unavailable.
  * ═══════════════════════════════════════════════════════════════════════ */
 
 import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import * as schema from '@/lib/db/schema';
+import { eq, sql, lt } from 'drizzle-orm';
 
 export interface RateLimitConfig {
     /** Maximum requests per window */
@@ -26,12 +30,156 @@ export interface RateLimitResult {
     retryAfterMs: number;
 }
 
+/* ── Rate Limiter Store ──────────────────────────────────────────────── */
+
+// In-memory fallback for when DB is unavailable
 interface WindowEntry {
     count: number;
     windowStart: number;
 }
 
-/* ── Default Tier Limits ─────────────────────────────────────────────── */
+const fallbackKey = '__lifecycleos_rate_limits_fallback__';
+const fallbackRef = globalThis as unknown as Record<string, Map<string, WindowEntry>>;
+if (!fallbackRef[fallbackKey]) {
+    fallbackRef[fallbackKey] = new Map<string, WindowEntry>();
+}
+const fallbackWindows: Map<string, WindowEntry> = fallbackRef[fallbackKey];
+
+/* ── Periodic Cleanup ────────────────────────────────────────────────── */
+
+let lastDbCleanup = Date.now();
+const DB_CLEANUP_INTERVAL = 300_000; // 5 minutes
+
+async function cleanupExpiredBuckets(): Promise<void> {
+    const now = Date.now();
+    if (now - lastDbCleanup < DB_CLEANUP_INTERVAL) return;
+    lastDbCleanup = now;
+
+    try {
+        const cutoff = new Date(now - DB_CLEANUP_INTERVAL * 2);
+        await db.delete(schema.rateLimitBuckets).where(lt(schema.rateLimitBuckets.windowStart, cutoff));
+    } catch {
+        // Non-critical cleanup failure
+    }
+
+    // Also clean fallback
+    for (const [key, entry] of fallbackWindows) {
+        if (now - entry.windowStart > DB_CLEANUP_INTERVAL * 2) {
+            fallbackWindows.delete(key);
+        }
+    }
+}
+
+/* ── Core Rate Check ─────────────────────────────────────────────────── */
+
+/**
+ * Check rate limit for a given key + route tier.
+ * Uses DB for shared state across instances. Falls back to in-memory.
+ */
+export async function checkRateLimit(
+    apiKeyId: string,
+    tier: keyof typeof RATE_LIMITS,
+    config?: RateLimitConfig,
+): Promise<RateLimitResult> {
+    void cleanupExpiredBuckets();
+
+    const limits = config ?? RATE_LIMITS[tier];
+    const bucketKey = `${apiKeyId}:${tier}`;
+    const now = Date.now();
+
+    try {
+        // Try DB-backed rate limiting via upsert
+        const windowStart = new Date(now);
+        const windowEnd = now + limits.windowMs;
+        const resetAt = Math.ceil(windowEnd / 1000);
+
+        // Upsert: increment if window is still active, reset if expired
+        const [result] = await db
+            .insert(schema.rateLimitBuckets)
+            .values({
+                bucketKey,
+                requestCount: 1,
+                windowStart,
+                windowMs: limits.windowMs,
+            })
+            .onConflictDoUpdate({
+                target: schema.rateLimitBuckets.bucketKey,
+                set: {
+                    requestCount: sql`CASE
+                        WHEN ${schema.rateLimitBuckets.windowStart} + (${schema.rateLimitBuckets.windowMs} || ' milliseconds')::interval <= now()
+                        THEN 1
+                        ELSE ${schema.rateLimitBuckets.requestCount} + 1
+                    END`,
+                    windowStart: sql`CASE
+                        WHEN ${schema.rateLimitBuckets.windowStart} + (${schema.rateLimitBuckets.windowMs} || ' milliseconds')::interval <= now()
+                        THEN now()
+                        ELSE ${schema.rateLimitBuckets.windowStart}
+                    END`,
+                },
+            })
+            .returning({
+                requestCount: schema.rateLimitBuckets.requestCount,
+                windowStart: schema.rateLimitBuckets.windowStart,
+            });
+
+        const dbWindowEnd = result.windowStart.getTime() + limits.windowMs;
+        const dbResetAt = Math.ceil(dbWindowEnd / 1000);
+        const retryAfterMs = Math.max(0, dbWindowEnd - Date.now());
+
+        if (result.requestCount > limits.maxRequests) {
+            return {
+                allowed: false,
+                remaining: 0,
+                limit: limits.maxRequests,
+                resetAt: dbResetAt,
+                retryAfterMs,
+            };
+        }
+
+        return {
+            allowed: true,
+            remaining: Math.max(0, limits.maxRequests - result.requestCount),
+            limit: limits.maxRequests,
+            resetAt: dbResetAt,
+            retryAfterMs,
+        };
+    } catch {
+        // Fallback to in-memory if DB fails
+        return checkRateLimitFallback(bucketKey, limits, now);
+    }
+}
+
+/** In-memory fallback when DB is unavailable */
+function checkRateLimitFallback(
+    bucketKey: string,
+    limits: RateLimitConfig,
+    now: number,
+): RateLimitResult {
+    let entry = fallbackWindows.get(bucketKey);
+
+    if (!entry || now - entry.windowStart >= limits.windowMs) {
+        entry = { count: 0, windowStart: now };
+        fallbackWindows.set(bucketKey, entry);
+    }
+
+    const windowEnd = entry.windowStart + limits.windowMs;
+    const resetAt = Math.ceil(windowEnd / 1000);
+    const retryAfterMs = Math.max(0, windowEnd - now);
+
+    entry.count += 1;
+
+    if (entry.count > limits.maxRequests) {
+        return { allowed: false, remaining: 0, limit: limits.maxRequests, resetAt, retryAfterMs };
+    }
+
+    return {
+        allowed: true,
+        remaining: Math.max(0, limits.maxRequests - entry.count),
+        limit: limits.maxRequests,
+        resetAt,
+        retryAfterMs,
+    };
+}
 
 export const RATE_LIMITS = {
     /** Standard API calls (identify, group, users, accounts, flows, analytics) */
@@ -47,88 +195,6 @@ export const RATE_LIMITS = {
     /** Health check (generous) */
     health: { maxRequests: 300, windowMs: 60_000 } as RateLimitConfig,
 } as const;
-
-/* ── Rate Limiter Store ──────────────────────────────────────────────── */
-
-// Persist across HMR in development
-const globalKey = '__lifecycleos_rate_limits__';
-const globalRef = globalThis as unknown as Record<string, Map<string, WindowEntry>>;
-if (!globalRef[globalKey]) {
-    globalRef[globalKey] = new Map<string, WindowEntry>();
-}
-const windows: Map<string, WindowEntry> = globalRef[globalKey];
-
-/* ── Periodic Cleanup ────────────────────────────────────────────────── */
-
-let lastCleanup = Date.now();
-const CLEANUP_INTERVAL = 120_000; // 2 minutes
-
-function cleanupExpired(): void {
-    const now = Date.now();
-    if (now - lastCleanup < CLEANUP_INTERVAL) return;
-    lastCleanup = now;
-
-    for (const [key, entry] of windows) {
-        // Remove entries for windows that expired more than 2 windows ago
-        if (now - entry.windowStart > CLEANUP_INTERVAL * 2) {
-            windows.delete(key);
-        }
-    }
-}
-
-/* ── Core Rate Check ─────────────────────────────────────────────────── */
-
-/**
- * Check rate limit for a given key + route tier.
- *
- * @param apiKeyId  - The authenticated API key ID
- * @param tier      - The rate limit tier name (determines limits)
- * @param config    - Override config (optional)
- * @returns RateLimitResult with allowed status and header values
- */
-export function checkRateLimit(
-    apiKeyId: string,
-    tier: keyof typeof RATE_LIMITS,
-    config?: RateLimitConfig,
-): RateLimitResult {
-    cleanupExpired();
-
-    const limits = config ?? RATE_LIMITS[tier];
-    const bucketKey = `${apiKeyId}:${tier}`;
-    const now = Date.now();
-
-    let entry = windows.get(bucketKey);
-
-    // If no entry or window expired, create a new window
-    if (!entry || now - entry.windowStart >= limits.windowMs) {
-        entry = { count: 0, windowStart: now };
-        windows.set(bucketKey, entry);
-    }
-
-    const windowEnd = entry.windowStart + limits.windowMs;
-    const resetAt = Math.ceil(windowEnd / 1000);
-    const retryAfterMs = Math.max(0, windowEnd - now);
-
-    entry.count += 1;
-
-    if (entry.count > limits.maxRequests) {
-        return {
-            allowed: false,
-            remaining: 0,
-            limit: limits.maxRequests,
-            resetAt,
-            retryAfterMs,
-        };
-    }
-
-    return {
-        allowed: true,
-        remaining: Math.max(0, limits.maxRequests - entry.count),
-        limit: limits.maxRequests,
-        resetAt,
-        retryAfterMs,
-    };
-}
 
 /* ── Response Headers Helper ─────────────────────────────────────────── */
 

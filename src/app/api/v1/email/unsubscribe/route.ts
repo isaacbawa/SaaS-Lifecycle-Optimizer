@@ -34,7 +34,7 @@ export async function GET(request: Request): Promise<Response> {
         return new Response('Invalid or expired unsubscribe link', { status: 400 });
     }
 
-    const alreadySuppressed = isSuppressed(token.email);
+    const alreadySuppressed = await isSuppressed(token.email);
 
     const html = `<!DOCTYPE html>
 <html lang="en">

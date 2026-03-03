@@ -6,21 +6,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getEmailTemplate, upsertEmailTemplate, deleteEmailTemplate } from '@/lib/db/operations';
 import { personalizeEmail } from '@/lib/engine/personalization';
 import { getAllTrackedUsers } from '@/lib/db/operations';
-
-async function resolveOrgId() {
-    const orgId = process.env.DEMO_ORG_ID;
-    if (orgId) return orgId;
-    const { db } = await import('@/lib/db');
-    const { organizations } = await import('@/lib/db/schema');
-    const [org] = await db.select({ id: organizations.id }).from(organizations).limit(1);
-    return org?.id ?? '';
-}
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
         const { id } = await params;
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
 
         // Check if this is a preview request
         const { searchParams } = request.nextUrl;
@@ -58,9 +51,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
         const { id } = await params;
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
 
         const body = await request.json();
         const template = await upsertEmailTemplate(orgId, { ...body, id });
@@ -72,9 +66,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
         const { id } = await params;
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
 
         const ok = await deleteEmailTemplate(orgId, id);
         if (!ok) return NextResponse.json({ success: false, error: 'Template not found' }, { status: 404 });

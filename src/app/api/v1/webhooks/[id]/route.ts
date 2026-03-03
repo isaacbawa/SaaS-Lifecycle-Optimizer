@@ -2,10 +2,13 @@
  * GET    /api/v1/webhooks/[id]    — Get webhook details + delivery log
  * PUT    /api/v1/webhooks/[id]    — Update a webhook
  * DELETE /api/v1/webhooks/[id]    — Delete a webhook
+ *
+ * Supports BOTH Bearer token and Clerk session auth.
  * ========================================================================== */
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { authenticate, apiSuccess, apiError, apiValidationError } from '@/lib/api/auth';
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 import { validateWebhookUpdate } from '@/lib/api/validation';
 import { getWebhook, upsertWebhook, deleteWebhook } from '@/lib/db/operations';
 import { mapWebhookToUI } from '@/lib/db/mappers';
@@ -15,12 +18,23 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+async function dualAuth(request: NextRequest, scopes: Parameters<typeof authenticate>[1]) {
+  if (request.headers.get('authorization')) {
+    const auth = await authenticate(request, scopes, 'webhooks');
+    if (auth.success) return { orgId: auth.orgId, isApi: true as const, auth };
+    return { error: auth.response };
+  }
+  const dash = await requireDashboardAuth();
+  if (dash.success) return { orgId: dash.orgId, isApi: false as const };
+  return { error: dash.response };
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
-  const auth = await authenticate(request, ['read'], 'webhooks');
-  if (!auth.success) return auth.response;
+  const result = await dualAuth(request, ['read']);
+  if ('error' in result) return result.error;
 
   const { id } = await context.params;
-  const dbWebhook = await getWebhook(auth.orgId, id);
+  const dbWebhook = await getWebhook(result.orgId, id);
 
   if (!dbWebhook) {
     return apiError('NOT_FOUND', `Webhook "${id}" not found.`, 404);
@@ -28,22 +42,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const webhook = mapWebhookToUI(dbWebhook);
   const deliveries = getDeliveryLog(id, 20);
+  const payload = { webhook, deliveries };
 
-  return apiSuccess(
-    { webhook, deliveries },
-    200,
-    auth.startTime,
-    auth.requestId,
-    auth.rateLimit,
-  );
+  if (result.isApi && result.auth) {
+    return apiSuccess(payload, 200, result.auth.startTime, result.auth.requestId, result.auth.rateLimit);
+  }
+  return NextResponse.json({ success: true, data: payload });
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
-  const auth = await authenticate(request, ['write'], 'webhooks');
-  if (!auth.success) return auth.response;
+  const result = await dualAuth(request, ['write']);
+  if ('error' in result) return result.error;
 
   const { id } = await context.params;
-  const dbWebhook = await getWebhook(auth.orgId, id);
+  const dbWebhook = await getWebhook(result.orgId, id);
 
   if (!dbWebhook) {
     return apiError('NOT_FOUND', `Webhook "${id}" not found.`, 404);
@@ -62,7 +74,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
 
   const updates = validation.data;
-  const updated = await upsertWebhook(auth.orgId, {
+  const updated = await upsertWebhook(result.orgId, {
     ...dbWebhook,
     ...(updates.url ? { url: updates.url } : {}),
     ...(updates.events ? { events: updates.events } : {}),
@@ -71,32 +83,27 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   });
 
   const webhook = mapWebhookToUI(updated);
+  const payload = { webhook };
 
-  return apiSuccess(
-    { webhook },
-    200,
-    auth.startTime,
-    auth.requestId,
-    auth.rateLimit,
-  );
+  if (result.isApi && result.auth) {
+    return apiSuccess(payload, 200, result.auth.startTime, result.auth.requestId, result.auth.rateLimit);
+  }
+  return NextResponse.json({ success: true, data: payload });
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const auth = await authenticate(request, ['write'], 'webhooks');
-  if (!auth.success) return auth.response;
+  const result = await dualAuth(request, ['write']);
+  if ('error' in result) return result.error;
 
   const { id } = await context.params;
-  const deleted = await deleteWebhook(auth.orgId, id);
+  const deleted = await deleteWebhook(result.orgId, id);
 
   if (!deleted) {
     return apiError('NOT_FOUND', `Webhook "${id}" not found.`, 404);
   }
 
-  return apiSuccess(
-    { deleted: true },
-    200,
-    auth.startTime,
-    auth.requestId,
-    auth.rateLimit,
-  );
+  if (result.isApi && result.auth) {
+    return apiSuccess({ deleted: true }, 200, result.auth.startTime, result.auth.requestId, result.auth.rateLimit);
+  }
+  return NextResponse.json({ success: true, data: { deleted: true } });
 }

@@ -48,7 +48,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
     Save, Play, Pause, RotateCcw, ArrowLeft, Check,
-    Settings2, AlertTriangle,
+    Settings2, AlertTriangle, CloudOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIntegrationStatus } from '@/hooks/use-integration-status';
@@ -251,12 +251,47 @@ export function FlowBuilderCanvas({ flow, onSave, onBack }: FlowBuilderCanvasPro
     const rfInstance = useRef<ReactFlowInstance | null>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
 
+    /* ── Autosave refs ─────────────────────────────────────── */
+    const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isInitialMount = useRef(true);
+    const handleSaveRef = useRef<() => Promise<void>>(null!);
+
     // Mark dirty whenever nodes/edges change
     useEffect(() => {
         setDirty(true);
         const issues = validateFlow(nodes, edges);
         setValidationIssues(issues);
     }, [nodes, edges]);
+
+    /* ── Autosave: debounce 3 s after any change ───────────── */
+    useEffect(() => {
+        // Skip the initial mount — nothing has actually changed yet
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
+        }
+
+        if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+
+        autosaveTimer.current = setTimeout(() => {
+            handleSaveRef.current?.();
+        }, 3_000);
+
+        return () => {
+            if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+        };
+    }, [nodes, edges, flowName, flowDescription, flowStatus, flowSettings]);
+
+    /* ── Warn on unload when dirty ─────────────────────────── */
+    useEffect(() => {
+        const handler = (e: BeforeUnloadEvent) => {
+            if (dirty) {
+                e.preventDefault();
+            }
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [dirty]);
 
     // Compute integration warnings separately (no setNodes — avoids render loops)
     const integrationWarningsMap = useMemo<Map<string, string>>(() => {
@@ -424,6 +459,9 @@ export function FlowBuilderCanvas({ flow, onSave, onBack }: FlowBuilderCanvasPro
         }
     }, [flow, flowName, flowDescription, flowStatus, flowSettings, nodes, edges, onSave]);
 
+    // Keep the ref in sync so the autosave timer always calls the latest version
+    handleSaveRef.current = handleSave;
+
     const toggleStatus = useCallback(() => {
         setFlowStatus((s) => (s === 'active' ? 'paused' : 'active'));
         setDirty(true);
@@ -499,9 +537,20 @@ export function FlowBuilderCanvas({ flow, onSave, onBack }: FlowBuilderCanvasPro
                         <Badge className={cn('border-transparent text-[10px]', statusStyles[flowStatus])}>
                             {flowStatus}
                         </Badge>
-                        {dirty && (
-                            <Badge variant="outline" className="text-[10px] text-amber-600">
+                        {saving ? (
+                            <Badge variant="outline" className="text-[10px] text-blue-600 gap-1">
+                                <RotateCcw className="h-3 w-3 animate-spin" />
+                                Saving…
+                            </Badge>
+                        ) : dirty ? (
+                            <Badge variant="outline" className="text-[10px] text-amber-600 gap-1">
+                                <CloudOff className="h-3 w-3" />
                                 Unsaved
+                            </Badge>
+                        ) : (
+                            <Badge variant="outline" className="text-[10px] text-green-600 gap-1">
+                                <Check className="h-3 w-3" />
+                                Saved
                             </Badge>
                         )}
                     </div>

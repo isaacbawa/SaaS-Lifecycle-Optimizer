@@ -36,10 +36,10 @@ export function MarketingHeader() {
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center space-x-2">
           <Button variant="ghost" asChild>
-            <Link href="/dashboard">Sign in</Link>
+            <Link href="/sign-in">Sign in</Link>
           </Button>
           <Button asChild>
-            <Link href="/dashboard">Start free trial</Link>
+            <Link href="/sign-up">Start free trial</Link>
           </Button>
         </div>
 
@@ -74,10 +74,10 @@ export function MarketingHeader() {
             </Link>
             <div className="flex flex-col gap-2 pt-2 border-t">
               <Button variant="outline" className="w-full" asChild>
-                <Link href="/dashboard">Sign in</Link>
+                <Link href="/sign-in">Sign in</Link>
               </Button>
               <Button className="w-full" asChild>
-                <Link href="/dashboard">Start free trial</Link>
+                <Link href="/sign-up">Start free trial</Link>
               </Button>
             </div>
           </div>

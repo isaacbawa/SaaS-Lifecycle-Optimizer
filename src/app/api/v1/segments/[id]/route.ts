@@ -4,21 +4,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSegment, upsertSegment, deleteSegment, getSegmentMembers } from '@/lib/db/operations';
-
-async function resolveOrgId() {
-    const orgId = process.env.DEMO_ORG_ID;
-    if (orgId) return orgId;
-    const { db } = await import('@/lib/db');
-    const { organizations } = await import('@/lib/db/schema');
-    const [org] = await db.select({ id: organizations.id }).from(organizations).limit(1);
-    return org?.id ?? '';
-}
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
         const { id } = await params;
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
 
         const segment = await getSegment(orgId, id);
         if (!segment) return NextResponse.json({ success: false, error: 'Segment not found' }, { status: 404 });
@@ -47,9 +40,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
         const { id } = await params;
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
 
         const body = await request.json();
         const segment = await upsertSegment(orgId, { ...body, id });
@@ -61,9 +55,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
         const { id } = await params;
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
 
         const ok = await deleteSegment(orgId, id);
         if (!ok) return NextResponse.json({ success: false, error: 'Segment not found' }, { status: 404 });

@@ -1,17 +1,17 @@
-/* ═══════════════════════════════════════════════════════════════════════
- * Event Processing Pipeline — The Central Nervous System
+﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ * Event Processing Pipeline â€” The Central Nervous System
  *
  * When an SDK event arrives, this pipeline orchestrates ALL downstream
  * processing in the correct order:
  *
- *  1. Lifecycle reclassification   → Re-evaluate user's lifecycle state
- *  2. Churn risk re-scoring        → Update risk score if state changed
- *  3. Expansion signal detection   → Detect upsell opportunities
- *  4. Segment re-evaluation        → Update segment memberships
- *  5. Flow enrollment check        → Enroll user in matching flows
- *  6. Active flow advancement      → Process any waiting enrollments
- *  7. Webhook dispatch             → Notify external systems
- *  8. Activity log                 → Record significant events
+ *  1. Lifecycle reclassification   â†’ Re-evaluate user's lifecycle state
+ *  2. Churn risk re-scoring        â†’ Update risk score if state changed
+ *  3. Expansion signal detection   â†’ Detect upsell opportunities
+ *  4. Segment re-evaluation        â†’ Update segment memberships
+ *  5. Flow enrollment check        â†’ Enroll user in matching flows
+ *  6. Active flow advancement      â†’ Process any waiting enrollments
+ *  7. Webhook dispatch             â†’ Notify external systems
+ *  8. Activity log                 â†’ Record significant events
  *
  * The pipeline is idempotent per event (dedup by messageId happens
  * upstream in the ingest layer). Processing is synchronous within a
@@ -20,7 +20,7 @@
  *
  * All data access flows through the DB operations layer with full
  * multi-tenant isolation via orgId.
- * ═══════════════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 import {
     getTrackedUserByExternalId,
@@ -65,7 +65,7 @@ import { getEmailTemplate } from '@/lib/db/operations';
 import type { StoredEvent } from '@/lib/sdk/types';
 import type { User, LifecycleState, FlowDefinition } from '@/lib/definitions';
 
-/* ── Pipeline Result Types ──────────────────────────────────────────── */
+/* â”€â”€ Pipeline Result Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export interface LifecycleResult {
     transitioned: boolean;
@@ -117,7 +117,7 @@ export interface PipelineResult {
     errors: string[];
 }
 
-/* ── Internal helpers ───────────────────────────────────────────────── */
+/* â”€â”€ Internal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /**
  * Load a tracked user by externalId from DB and map to UI User type.
@@ -159,7 +159,7 @@ async function reloadUser(orgId: string, internalId: string): Promise<User | nul
     return mapTrackedUserToUser(dbUser, accountName);
 }
 
-/* ── Pipeline Execution ─────────────────────────────────────────────── */
+/* â”€â”€ Pipeline Execution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /**
  * Process a single event through the full pipeline.
@@ -184,6 +184,26 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
         errors,
     };
 
+    try {
+        return await processEventInner(event, orgId, result, errors, now, start);
+    } catch (e) {
+        // Top-level safety net â€” no event should crash the pipeline
+        errors.push(`pipeline_fatal: ${(e as Error).message}`);
+        console.error(`[event-pipeline] Fatal error processing event ${event.id}:`, e);
+        result.processingTimeMs = Date.now() - start;
+        return result;
+    }
+}
+
+/** Inner pipeline logic â€” separated for the top-level error boundary */
+async function processEventInner(
+    event: StoredEvent,
+    orgId: string,
+    result: PipelineResult,
+    errors: string[],
+    now: string,
+    start: number,
+): Promise<PipelineResult> {
     // No user = only dispatch the raw event webhook
     if (!event.userId) {
         try {
@@ -221,7 +241,7 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
 
     const { user, internalId, accountInternalId } = loaded;
 
-    /* ── Stage 1: Lifecycle Reclassification ──────────────────────── */
+    /* â”€â”€ Stage 1: Lifecycle Reclassification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     try {
         const transition = detectStateTransition(user);
         result.lifecycle = {
@@ -243,7 +263,7 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
         errors.push(`lifecycle: ${(e as Error).message}`);
     }
 
-    /* ── Stage 2: Churn Risk Re-scoring ───────────────────────────── */
+    /* â”€â”€ Stage 2: Churn Risk Re-scoring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     try {
         const freshUser = await reloadUser(orgId, internalId);
         if (freshUser) {
@@ -275,7 +295,7 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
         errors.push(`churn: ${(e as Error).message}`);
     }
 
-    /* ── Stage 3: Expansion Signal Detection ──────────────────────── */
+    /* â”€â”€ Stage 3: Expansion Signal Detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     try {
         const freshUser = await reloadUser(orgId, internalId);
         if (freshUser && accountInternalId) {
@@ -304,7 +324,7 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
                         if (!alreadyExists) {
                             await dbUpsertExpansionOpportunity(orgId, {
                                 accountId: accountInternalId,
-                                signal: opp.signal as 'seat_usage_high' | 'feature_limit_approaching' | 'api_usage_growing' | 'nps_promoter' | 'usage_spike' | 'plan_downgrade_risk',
+                                signal: opp.signal as 'seat_cap' | 'plan_limit' | 'heavy_usage' | 'api_throttle' | 'feature_gate',
                                 signalDescription: opp.signalDescription,
                                 currentPlan: opp.currentPlan,
                                 suggestedPlan: opp.suggestedPlan,
@@ -340,22 +360,23 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
         errors.push(`expansion: ${(e as Error).message}`);
     }
 
-    /* ── Stage 4: Segment Re-evaluation ───────────────────────────── */
+    /* â”€â”€ Stage 4: Segment Re-evaluation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     try {
         const freshUser = await reloadUser(orgId, internalId);
         if (freshUser) {
             const userRecord = flattenUserForSegment(freshUser);
 
             // Get all active segment definitions from DB
-            const segments = await getAllSegments(orgId, 'active');
+            const segments = (await getAllSegments(orgId, 'active')).items;
             const segmentsEntered: string[] = [];
             const segmentsExited: string[] = [];
 
             for (const seg of segments) {
-                const filters = (seg.filters as Record<string, unknown>[]) ?? [];
+                const filters = (seg.filters ?? []) as import('@/lib/db/schema').SegmentFilter[];
                 if (filters.length === 0) continue;
 
-                const matched = evaluateSegmentFilters(filters, userRecord);
+                const filterLogic = ((seg as Record<string, unknown>).filterLogic as string) ?? 'AND';
+                const matched = evaluateSegmentFilters(filters, filterLogic, userRecord);
                 if (matched) {
                     await upsertSegmentMembership(seg.id, internalId);
                     segmentsEntered.push(seg.name);
@@ -375,11 +396,11 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
         errors.push(`segments: ${(e as Error).message}`);
     }
 
-    /* ── Stage 5: Flow Enrollment Check ───────────────────────────── */
+    /* â”€â”€ Stage 5: Flow Enrollment Check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     try {
         const freshUser = await reloadUser(orgId, internalId);
         if (freshUser) {
-            const activeFlows = await getAllFlowDefinitions(orgId, 'active');
+            const activeFlows = (await getAllFlowDefinitions(orgId, 'active')).items;
             let enrollmentsCreated = 0;
             let actionsDispatched = 0;
 
@@ -411,7 +432,7 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
                     if (hasCompleted) continue;
                 }
 
-                // Create enrollment and process through trigger → first action
+                // Create enrollment and process through trigger â†’ first action
                 const enrollment = createEnrollment(
                     flow,
                     freshUser.id,
@@ -459,10 +480,10 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
                     edges: dbFlow.edges,
                     variables: dbFlow.variables,
                     settings: dbFlow.settings,
-                    metrics: metrics as Record<string, unknown>,
+                    metrics: JSON.parse(JSON.stringify(metrics)),
                 });
 
-                // Process the enrollment through the trigger node → next nodes
+                // Process the enrollment through the trigger node â†’ next nodes
                 const processResult = processEnrollment({
                     flow,
                     enrollment,
@@ -520,7 +541,7 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
                         edges: dbFlow.edges,
                         variables: dbFlow.variables,
                         settings: dbFlow.settings,
-                        metrics: metrics as Record<string, unknown>,
+                        metrics: JSON.parse(JSON.stringify(metrics)),
                     });
 
                     void dispatchWebhooks('flow.completed', {
@@ -545,7 +566,7 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
         errors.push(`flows: ${(e as Error).message}`);
     }
 
-    /* ── Stage 6: Advance Waiting Flow Enrollments ────────────────── */
+    /* â”€â”€ Stage 6: Advance Waiting Flow Enrollments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     try {
         if (event.userId) {
             const userEnrollments = await dbGetUserEnrollments(orgId, internalId);
@@ -606,7 +627,7 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
         errors.push(`flow_advance: ${(e as Error).message}`);
     }
 
-    /* ── Stage 7: Lifecycle Change Webhook ────────────────────────── */
+    /* â”€â”€ Stage 7: Lifecycle Change Webhook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     try {
         if (result.lifecycle?.transitioned) {
             const freshUser = await reloadUser(orgId, internalId);
@@ -624,7 +645,7 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
         errors.push(`lifecycle_webhook: ${(e as Error).message}`);
     }
 
-    /* ── Stage 8: Event Tracked Webhook ───────────────────────────── */
+    /* â”€â”€ Stage 8: Event Tracked Webhook â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     try {
         void dispatchWebhooks('event.tracked', {
             event: event.event,
@@ -638,14 +659,14 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
         errors.push(`event_webhook: ${(e as Error).message}`);
     }
 
-    /* ── Stage 9: Activity Log ────────────────────────────────────── */
+    /* â”€â”€ Stage 9: Activity Log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     try {
         // Log lifecycle transitions
         if (result.lifecycle?.transitioned) {
             await addActivityEntry(orgId, {
                 type: 'lifecycle_change',
                 title: 'Lifecycle State Change',
-                description: `${user.name} moved from ${result.lifecycle.from} → ${result.lifecycle.to}`,
+                description: `${user.name} moved from ${result.lifecycle.from} â†’ ${result.lifecycle.to}`,
                 trackedUserId: internalId,
                 accountId: accountInternalId ?? undefined,
             });
@@ -680,7 +701,7 @@ export async function processEvent(event: StoredEvent, orgId: string): Promise<P
     return result;
 }
 
-/* ── Batch Processing ───────────────────────────────────────────────── */
+/* â”€â”€ Batch Processing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /**
  * Process multiple events through the pipeline.
@@ -695,7 +716,7 @@ export async function processEventBatch(events: StoredEvent[], orgId: string): P
     return results;
 }
 
-/* ── Helper: Build TriggerEvent ─────────────────────────────────────── */
+/* â”€â”€ Helper: Build TriggerEvent â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function buildTriggerEvent(
     event: StoredEvent,
@@ -723,7 +744,7 @@ function buildTriggerEvent(
     };
 }
 
-/* ── Helper: Flatten User for Segment Evaluation ────────────────────── */
+/* â”€â”€ Helper: Flatten User for Segment Evaluation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function flattenUserForSegment(user: User): Record<string, unknown> {
     return {
@@ -750,7 +771,7 @@ function flattenUserForSegment(user: User): Record<string, unknown> {
     };
 }
 
-/* ── Helper: Dispatch Flow Actions ──────────────────────────────────── */
+/* â”€â”€ Helper: Dispatch Flow Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /**
  * Execute the side-effect actions produced by flow node execution.
@@ -810,7 +831,7 @@ async function dispatchFlowActions(actions: TickAction[], user: User, orgId: str
                     if (dbUser) {
                         const props = action.properties as Record<string, unknown>;
                         await updateTrackedUser(orgId, dbUser.id, {
-                            ...(props.lifecycleState ? { lifecycleState: props.lifecycleState as string } : {}),
+                            ...(props.lifecycleState ? { lifecycleState: props.lifecycleState as 'Lead' | 'Trial' | 'Activated' | 'PowerUser' | 'ExpansionReady' | 'AtRisk' | 'Churned' | 'Reactivated' } : {}),
                             ...(props.churnRiskScore !== undefined ? { churnRiskScore: props.churnRiskScore as number } : {}),
                             ...(props.expansionScore !== undefined ? { expansionScore: props.expansionScore as number } : {}),
                             ...(props.plan ? { plan: props.plan as string } : {}),
@@ -889,7 +910,7 @@ async function dispatchFlowActions(actions: TickAction[], user: User, orgId: str
     return dispatched;
 }
 
-/* ── Flow Scheduler: Process Due Enrollments ─────────────────────────── */
+/* â”€â”€ Flow Scheduler: Process Due Enrollments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /**
  * Process all flow enrollments whose nextProcessAt has elapsed.
@@ -1005,7 +1026,7 @@ export async function processScheduledEnrollments(): Promise<{
                     edges: dbFlow.edges,
                     variables: dbFlow.variables,
                     settings: dbFlow.settings,
-                    metrics: metrics as Record<string, unknown>,
+                    metrics: JSON.parse(JSON.stringify(metrics)),
                 });
 
                 void dispatchWebhooks('flow.completed', {
@@ -1037,7 +1058,7 @@ export async function processScheduledEnrollments(): Promise<{
                     edges: dbFlow.edges,
                     variables: dbFlow.variables,
                     settings: dbFlow.settings,
-                    metrics: metrics as Record<string, unknown>,
+                    metrics: JSON.parse(JSON.stringify(metrics)),
                 });
             }
         } catch (e) {

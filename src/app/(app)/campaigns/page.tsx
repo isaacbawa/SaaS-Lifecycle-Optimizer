@@ -11,6 +11,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from '@/hooks/use-toast';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -103,6 +105,9 @@ export default function CampaignsPage() {
     // Send state
     const [sending, setSending] = useState<string | null>(null);
 
+    // Delete confirmation
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
     /* ── Fetch ──────────────────────────────────────── */
     const fetchAll = useCallback(async () => {
         try {
@@ -123,18 +128,34 @@ export default function CampaignsPage() {
     const sendCampaign = async (id: string) => {
         setSending(id);
         try {
-            await fetch('/api/v1/email-campaigns', {
+            const res = await fetch('/api/v1/email-campaigns', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'send', id }),
             });
-            await fetchAll();
+            if (res.ok) {
+                await fetchAll();
+                toast({ title: 'Campaign sent', description: 'The campaign is being delivered.' });
+            } else {
+                toast({ title: 'Error', description: 'Failed to send campaign.', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to send campaign.', variant: 'destructive' });
         } finally { setSending(null); }
     };
 
     const deleteCampaign = async (id: string) => {
-        await fetch(`/api/v1/email-campaigns/${id}`, { method: 'DELETE' });
-        fetchAll();
+        try {
+            const res = await fetch(`/api/v1/email-campaigns/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                fetchAll();
+                toast({ title: 'Campaign deleted', description: 'The campaign has been removed.' });
+            } else {
+                toast({ title: 'Error', description: 'Failed to delete campaign.', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to delete campaign.', variant: 'destructive' });
+        }
     };
 
     /* ── Computed ───────────────────────────────────── */
@@ -476,7 +497,7 @@ export default function CampaignsPage() {
                                                             </DropdownMenuItem>
                                                         )}
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="text-destructive" onClick={() => deleteCampaign(c.id)}>
+                                                        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(c.id)}>
                                                             <Trash2 className="h-3.5 w-3.5 mr-2" />
                                                             Delete
                                                         </DropdownMenuItem>
@@ -520,6 +541,15 @@ export default function CampaignsPage() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Delete Confirmation */}
+            <ConfirmDialog
+                open={!!deleteId}
+                onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+                title="Delete campaign?"
+                description="This will permanently remove this campaign and its analytics data. This cannot be undone."
+                onConfirm={() => { if (deleteId) deleteCampaign(deleteId); }}
+            />
         </div>
     );
 }

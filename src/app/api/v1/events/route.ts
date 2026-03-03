@@ -50,6 +50,30 @@ export async function POST(request: NextRequest) {
   const now = new Date();
   const nowIso = now.toISOString();
 
+  // ── Timestamp replay-attack guard ─────────────────────────────
+  // Reject batches with a sentAt timestamp older than 5 minutes or
+  // more than 30 seconds in the future (clock skew tolerance).
+  const MAX_AGE_MS = 5 * 60 * 1_000;
+  const MAX_FUTURE_MS = 30 * 1_000;
+  if (sentAt) {
+    const sentAtDate = new Date(sentAt);
+    const drift = now.getTime() - sentAtDate.getTime();
+    if (drift > MAX_AGE_MS) {
+      return apiError(
+        'TIMESTAMP_TOO_OLD',
+        `sentAt is ${Math.round(drift / 1000)}s in the past. Maximum age is ${MAX_AGE_MS / 1000}s.`,
+        400,
+      );
+    }
+    if (drift < -MAX_FUTURE_MS) {
+      return apiError(
+        'TIMESTAMP_IN_FUTURE',
+        `sentAt is ${Math.round(Math.abs(drift) / 1000)}s in the future. Check your system clock.`,
+        400,
+      );
+    }
+  }
+
   // ── Resolve tracked user/account UUIDs for DB foreign keys ───
   // Build a cache of external → internal IDs for this batch
   const userIdCache = new Map<string, string | null>();

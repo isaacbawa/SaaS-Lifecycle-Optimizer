@@ -1,8 +1,14 @@
 /* ==========================================================================
- * Seed Flow Definitions — Visual Builder Format
+ * Seed Flow Definitions — Visual Builder Format (Demo Data)
  *
- * These are complete FlowDefinition objects with nodes, edges, and
- * variables ready for the flow builder canvas.
+ * These seed flows serve as demo data to populate the dashboard.
+ * They represent sample flows that a SaaS owner would create to
+ * communicate with their end users.
+ *
+ * Perspective:
+ *   {{company.name}}  = The SaaS owner's product
+ *   {{user.name}}     = The end user of that SaaS product
+ *   {{account.name}}  = The end user's organization
  * ========================================================================== */
 
 import type {
@@ -69,9 +75,9 @@ const trialWelcomeNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'Welcome to LifecycleOS — here\'s your 5-min setup',
-                emailBody: 'Hi {{user.name}},\n\nWelcome! Here\'s how to get started in under 5 minutes...',
-                emailFromName: 'LifecycleOS Team',
+                emailSubject: 'Welcome to {{company.name}}, {{user.name}}! Here\'s your quick-start guide',
+                emailBody: 'Hi {{user.name}},\n\nWelcome to {{company.name}}! Your account is ready. Here\'s how to get started in under 5 minutes:\n\n1. Complete your profile\n2. Create your first project\n3. Invite your team\n\nLet\'s go →',
+                emailFromName: '{{company.name}} Team',
             },
             metrics: { entered: 1204, completed: 1200, failed: 4, skipped: 0 },
         },
@@ -113,8 +119,8 @@ const trialWelcomeNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'You\'re 2 steps away from your first lifecycle insight',
-                emailBody: 'Hi {{user.name}},\n\nLooks like you haven\'t finished setup yet. Here\'s what you\'re missing...',
+                emailSubject: '{{user.name}}, you\'re almost set up — just 2 steps left',
+                emailBody: 'Hi {{user.name}},\n\nYou\'re close to getting full value from {{company.name}}. Just finish setting up your profile and you\'re good to go.\n\nComplete setup →',
             },
             metrics: { entered: 340, completed: 338, failed: 2, skipped: 0 },
         },
@@ -129,8 +135,8 @@ const trialWelcomeNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'Here\'s what top teams discover in their first week',
-                emailBody: 'Hi {{user.name}},\n\nGreat job completing setup! Now let\'s get you to your first insight...',
+                emailSubject: '3 things to try first in {{company.name}}',
+                emailBody: 'Hi {{user.name}},\n\nGreat job finishing setup! Here are 3 things our most successful users do in their first week:\n\n1. Set up automations\n2. Explore integrations\n3. Invite teammates\n\nDive in →',
             },
             metrics: { entered: 864, completed: 860, failed: 4, skipped: 0 },
         },
@@ -155,8 +161,8 @@ const trialWelcomeNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'Your trial data shows real results — keep them',
-                emailBody: 'Hi {{user.name}},\n\nYour trial is showing results. Here\'s what upgrading unlocks...',
+                emailSubject: 'Your {{company.name}} trial is showing results — keep them',
+                emailBody: 'Hi {{user.name}},\n\nYour trial is showing great results. Upgrade now to keep your data, team access, and all the features you\'ve been using.\n\nChoose a plan →',
             },
             metrics: { entered: 1024, completed: 1020, failed: 4, skipped: 0 },
         },
@@ -256,8 +262,8 @@ const churnPreventionNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'We noticed you\'ve been away — here\'s what\'s new',
-                emailBody: 'Hi {{user.name}},\n\nWe\'ve made improvements since your last visit...',
+                emailSubject: 'We noticed you\'ve been away, {{user.name}} — here\'s what\'s new',
+                emailBody: 'Hi {{user.name}},\n\nWe\'ve made improvements to {{company.name}} since your last visit. Here\'s what\'s new:\n\n• [Improvement 1]\n• [Improvement 2]\n\nCome back and see →',
             },
             metrics: { entered: 342, completed: 340, failed: 2, skipped: 0 },
         },
@@ -294,8 +300,8 @@ const churnPreventionNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'Before you go — we\'d love to make this right',
-                emailBody: 'Hi {{user.name}},\n\nWe want to understand what\'s not working and help fix it...',
+                emailSubject: 'We\'d love to have you back, {{user.name}}',
+                emailBody: 'Hi {{user.name}},\n\nWe understand things change. If something wasn\'t working for you in {{company.name}}, we\'d genuinely like to know. Reply to this email — it goes straight to our team.\n\nOr if you\'re ready to come back: Log in →',
             },
             metrics: { entered: 198, completed: 196, failed: 2, skipped: 0 },
         },
@@ -380,8 +386,8 @@ const expansionNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'You\'re getting great results — unlock even more',
-                emailBody: 'Hi {{user.name}},\n\nYour usage shows you\'re ready for the next level...',
+                emailSubject: 'Unlock more for {{account.name}} on {{company.name}}',
+                emailBody: 'Hi {{user.name}},\n\nYou\'re getting great results on your current plan. Here\'s what upgrading unlocks:\n\n• More seats for your growing team\n• Advanced analytics & reporting\n• Priority support\n\nCompare plans →',
             },
             metrics: { entered: 156, completed: 155, failed: 1, skipped: 0 },
         },
@@ -395,8 +401,8 @@ const expansionNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'You\'re approaching your plan limits — upgrade now',
-                emailBody: 'Hi {{user.name}},\n\nYou\'re at {{var.seatUsagePercent}}% of your seat limit...',
+                emailSubject: '{{user.name}}, you\'re at {{var.seatUsagePercent}}% of your plan limit',
+                emailBody: 'Hi {{user.name}},\n\n{{account.name}} is approaching team seat limits on your current plan. Upgrade now to avoid disruptions.\n\nUpgrade now →',
             },
             metrics: { entered: 148, completed: 147, failed: 1, skipped: 0 },
         },
@@ -504,8 +510,8 @@ const npsFollowUpNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'Thank you for your support! 🎉',
-                emailBody: 'Hi {{user.name}},\n\nThank you for the great rating! Would you be willing to leave a review?',
+                emailSubject: 'Thank you for the great rating, {{user.name}}! 🎉',
+                emailBody: 'Hi {{user.name}},\n\nThank you for your amazing score! Your support means the world to us. Would you be willing to leave a quick review? It takes 2 minutes and helps others discover {{company.name}}.\n\nLeave a review →',
             },
         },
     },
@@ -532,8 +538,8 @@ const npsFollowUpNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'We value your feedback — let\'s talk',
-                emailBody: 'Hi {{user.name}},\n\nWe\'re sorry to hear about your experience. Can we schedule a call?',
+                emailSubject: 'We want to make this right, {{user.name}}',
+                emailBody: 'Hi {{user.name}},\n\nThank you for your honest feedback. We\'re sorry {{company.name}} hasn\'t met your expectations. Can we schedule a quick call to understand what we can improve?\n\nBook a call →',
             },
         },
     },
@@ -560,8 +566,8 @@ const npsFollowUpNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'Thanks for your feedback',
-                emailBody: 'Hi {{user.name}},\n\nThanks for sharing your thoughts. We\'re always working to improve.',
+                emailSubject: 'Thanks for your feedback, {{user.name}}',
+                emailBody: 'Hi {{user.name}},\n\nThank you for taking the time to share your thoughts about {{company.name}}. We\'re always working to improve, and your feedback helps us do that.\n\nBest,\nThe {{company.name}} Team',
             },
         },
     },
@@ -688,7 +694,7 @@ export const seedFlowDefinitions: FlowDefinition[] = [
                 data: {
                     label: 'Renewal Notice',
                     nodeType: 'action',
-                    actionConfig: { kind: 'send_email', emailSubject: 'Your renewal is coming up — let\'s make it seamless', emailBody: 'Hi {{user.name}},\n\nYour contract renews in 30 days...' },
+                    actionConfig: { kind: 'send_email', emailSubject: 'Your {{company.name}} renewal is coming up', emailBody: 'Hi {{user.name}},\n\nYour contract for {{account.name}} renews in 30 days. If you need to make changes to your plan or team, now is a great time.\n\nReview your plan →' },
                 },
             },
             {
@@ -700,7 +706,7 @@ export const seedFlowDefinitions: FlowDefinition[] = [
                 data: {
                     label: 'Final Reminder',
                     nodeType: 'action',
-                    actionConfig: { kind: 'send_email', emailSubject: 'Your contract renews in 16 days', emailBody: 'Hi {{user.name}},\n\nJust a reminder...' },
+                    actionConfig: { kind: 'send_email', emailSubject: 'Your {{company.name}} contract renews in 16 days', emailBody: 'Hi {{user.name}},\n\nYour {{company.name}} contract renews soon. Everything will auto-renew unless you make changes.\n\nManage billing →' },
                 },
             },
             {

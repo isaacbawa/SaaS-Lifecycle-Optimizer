@@ -27,7 +27,7 @@ export async function GET() {
         orgId ? getTrackedUserCount(orgId).catch(() => 0) : Promise.resolve(0),
         orgId ? getTrackedAccountCount(orgId).catch(() => 0) : Promise.resolve(0),
         orgId ? getEventCount(orgId).catch(() => 0) : Promise.resolve(0),
-        orgId ? getAllFlowDefinitions(orgId).catch(() => []) : Promise.resolve([]),
+        orgId ? getAllFlowDefinitions(orgId).then(r => r.items).catch(() => []) : Promise.resolve([]),
         orgId ? getWebhooks(orgId).catch(() => []) : Promise.resolve([]),
         orgId ? getApiKeysByOrg(orgId).catch(() => []) : Promise.resolve([]),
     ]);

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from '@/hooks/use-toast';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -130,6 +132,9 @@ export default function PersonalizationPage() {
     ]);
     const [saving, setSaving] = useState(false);
 
+    // Delete confirmation
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
     // Test / resolve dialog
     const [testOpen, setTestOpen] = useState(false);
     const [testUserId, setTestUserId] = useState('');
@@ -201,13 +206,21 @@ export default function PersonalizationPage() {
             if (res.ok) {
                 setDialogOpen(false);
                 fetchRules();
+                toast({ title: editing ? 'Rule updated' : 'Rule created', description: `"${formName}" has been ${editing ? 'updated' : 'created'} successfully.` });
+            } else {
+                toast({ title: 'Error', description: 'Failed to save personalization rule.', variant: 'destructive' });
             }
         } finally { setSaving(false); }
     };
 
     const deleteRule = async (id: string) => {
         const res = await fetch(`/api/v1/personalization-rules/${id}`, { method: 'DELETE' });
-        if (res.ok) fetchRules();
+        if (res.ok) {
+            fetchRules();
+            toast({ title: 'Rule deleted', description: 'The personalization rule has been removed.' });
+        } else {
+            toast({ title: 'Error', description: 'Failed to delete rule.', variant: 'destructive' });
+        }
     };
 
     const testResolve = async () => {
@@ -425,7 +438,7 @@ export default function PersonalizationPage() {
                                                             Edit Rule
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="text-destructive" onClick={() => deleteRule(rule.id)}>
+                                                        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(rule.id)}>
                                                             <Trash2 className="h-3.5 w-3.5 mr-2" />
                                                             Delete
                                                         </DropdownMenuItem>
@@ -672,6 +685,15 @@ export default function PersonalizationPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Confirmation */}
+            <ConfirmDialog
+                open={!!deleteId}
+                onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+                title="Delete personalization rule?"
+                description="This will permanently remove this rule and its variant data. This cannot be undone."
+                onConfirm={() => { if (deleteId) deleteRule(deleteId); }}
+            />
         </div>
     );
 }

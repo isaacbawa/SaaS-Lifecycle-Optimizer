@@ -10,7 +10,7 @@
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveOrgId } from '@/lib/auth/resolve-org';
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 import { getAllFlowDefinitions, upsertFlowDefinition } from '@/lib/db/operations';
 import { mapFlowDefToUI } from '@/lib/db/mappers';
 import type { FlowBuilderStatus, FlowNodeDef, FlowEdgeDef } from '@/lib/definitions';
@@ -31,15 +31,29 @@ function jsonError(code: string, message: string, status = 400) {
 export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const status = url.searchParams.get('status') as FlowBuilderStatus | null;
+    const limitParam = url.searchParams.get('limit');
+    const offsetParam = url.searchParams.get('offset');
 
-    const orgId = await resolveOrgId();
-    const dbFlows = await getAllFlowDefinitions(orgId, status ?? undefined);
-    const flows = dbFlows.map(mapFlowDefToUI);
+    const authResult = await requireDashboardAuth();
+    if (!authResult.success) return authResult.response;
+    const orgId = authResult.orgId;
+
+    const pagination = (limitParam || offsetParam) ? {
+        limit: limitParam ? parseInt(limitParam, 10) : undefined,
+        offset: offsetParam ? parseInt(offsetParam, 10) : undefined,
+    } : undefined;
+
+    const result = await getAllFlowDefinitions(orgId, status ?? undefined, pagination);
+    const flows = result.items.map(mapFlowDefToUI);
 
     // Sort by updatedAt desc
     flows.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
-    return jsonSuccess(flows);
+    return NextResponse.json({
+        success: true,
+        data: flows,
+        pagination: { total: result.total, limit: result.limit, offset: result.offset, hasMore: result.hasMore },
+    });
 }
 
 /* ── POST ────────────────────────────────────────────────────────────── */
@@ -59,62 +73,90 @@ export async function POST(request: NextRequest) {
         return jsonError('VALIDATION_ERROR', 'Flow name is required.', 422);
     }
 
-    const orgId = await resolveOrgId();
-    const now = new Date().toISOString();
-    const id = `fdef_${Date.now().toString(36)}_${crypto.randomUUID().substring(0, 8)}`;
+    const authResult = await requireDashboardAuth();
+    if (!authResult.success) return authResult.response;
+    const orgId = authResult.orgId;
 
-    // Create a starter trigger + exit node
-    const triggerNode: FlowNodeDef = {
-        id: `node_${crypto.randomUUID().substring(0, 8)}`,
-        type: 'trigger',
-        position: { x: 400, y: 80 },
-        data: {
-            label: 'Trigger',
-            description: '',
-            nodeType: 'trigger',
-            triggerConfig: {
-                kind: 'lifecycle_change',
-                allowReEntry: false,
-                reEntryCooldownMinutes: 1440,
+    /* ── Template-based or blank creation ─────────────────── */
+    const hasTemplateData = Array.isArray(body.nodes) && (body.nodes as FlowNodeDef[]).length > 0;
+
+    let nodes: FlowNodeDef[];
+    let edges: FlowEdgeDef[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let variables: any[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let settings: any;
+
+    if (hasTemplateData) {
+        // Use template data provided by the client
+        nodes = body.nodes as FlowNodeDef[];
+        edges = Array.isArray(body.edges) ? (body.edges as FlowEdgeDef[]) : [];
+        variables = Array.isArray(body.variables) ? body.variables : [];
+        settings = body.settings && typeof body.settings === 'object' ? body.settings : {
+            enrollmentCap: 0,
+            maxConcurrentEnrollments: 5000,
+            autoExitDays: 30,
+            respectQuietHours: true,
+            priority: 5,
+        };
+    } else {
+        // Create a starter trigger + exit node
+        const triggerNode: FlowNodeDef = {
+            id: `node_${crypto.randomUUID().substring(0, 8)}`,
+            type: 'trigger',
+            position: { x: 400, y: 80 },
+            data: {
+                label: 'Trigger',
+                description: '',
+                nodeType: 'trigger',
+                triggerConfig: {
+                    kind: 'lifecycle_change',
+                    allowReEntry: false,
+                    reEntryCooldownMinutes: 1440,
+                },
             },
-        },
-    };
+        };
 
-    const exitNode: FlowNodeDef = {
-        id: `node_${crypto.randomUUID().substring(0, 8)}`,
-        type: 'exit',
-        position: { x: 400, y: 350 },
-        data: {
-            label: 'Exit',
-            description: '',
-            nodeType: 'exit',
-            exitConfig: { reason: '' },
-        },
-    };
+        const exitNode: FlowNodeDef = {
+            id: `node_${crypto.randomUUID().substring(0, 8)}`,
+            type: 'exit',
+            position: { x: 400, y: 350 },
+            data: {
+                label: 'Exit',
+                description: '',
+                nodeType: 'exit',
+                exitConfig: { reason: '' },
+            },
+        };
 
-    const edge: FlowEdgeDef = {
-        id: `edge_${crypto.randomUUID().substring(0, 8)}`,
-        source: triggerNode.id,
-        target: exitNode.id,
-    };
+        const edge: FlowEdgeDef = {
+            id: `edge_${crypto.randomUUID().substring(0, 8)}`,
+            source: triggerNode.id,
+            target: exitNode.id,
+        };
 
-    const dbFlow = await upsertFlowDefinition(orgId, {
-        name,
-        description,
-        trigger: '',
-        status: 'draft',
-        version: 1,
-        nodes: [triggerNode, exitNode],
-        edges: [edge],
-        variables: [],
-        settings: {
+        nodes = [triggerNode, exitNode];
+        edges = [edge];
+        variables = [];
+        settings = {
             enrollmentCap: 0,
             maxConcurrentEnrollments: 0,
             autoExitDays: 30,
             respectQuietHours: false,
             priority: 5,
             enrollmentTags: [],
-        },
+        };
+    }
+
+    const dbFlow = await upsertFlowDefinition(orgId, {
+        name,
+        description,
+        status: 'draft',
+        version: 1,
+        nodes,
+        edges,
+        variables,
+        settings,
         metrics: {
             totalEnrolled: 0,
             currentlyActive: 0,

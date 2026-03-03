@@ -219,7 +219,7 @@ export async function authenticate(
   }
 
   // ── Rate limit check ───────────────────────────────────────────────
-  const rl = checkRateLimit(record.id, rateTier, rateConfig);
+  const rl = await checkRateLimit(record.id, rateTier, rateConfig);
 
   if (!rl.allowed) {
     return {

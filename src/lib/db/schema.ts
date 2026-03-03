@@ -1024,6 +1024,113 @@ export const integrationsRelations = relations(integrations, ({ one }) => ({
     }),
 }));
 
+/* ═══════════════════════════════════════════════════════════════════════
+ * Email Suppression List (DB-backed, survives cold starts)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+export const suppressionReasonEnum = pgEnum('suppression_reason', [
+    'hard_bounce', 'soft_bounce', 'complaint', 'unsubscribe', 'manual_block', 'invalid_address',
+]);
+
+export const emailSuppressions = pgTable('email_suppressions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    email: varchar('email', { length: 320 }).notNull(),
+    reason: suppressionReasonEnum('reason').notNull(),
+    source: varchar('source', { length: 255 }).notNull().default('system'),
+    bounceCount: integer('bounce_count').default(0).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    uniqueIndex('email_suppression_unique_idx').on(t.organizationId, t.email),
+    index('email_suppression_org_idx').on(t.organizationId),
+    index('email_suppression_reason_idx').on(t.organizationId, t.reason),
+]);
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Email Queue (DB-backed, survives cold starts)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+export const emailQueueStatusEnum = pgEnum('email_queue_status', [
+    'queued', 'sending', 'sent', 'failed', 'dlq',
+]);
+
+export const emailPriorityEnum = pgEnum('email_priority', [
+    'critical', 'high', 'normal', 'low', 'bulk',
+]);
+
+export const emailQueue = pgTable('email_queue', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    to: varchar('to_email', { length: 320 }).notNull(),
+    subject: text('subject').notNull(),
+    html: text('html').notNull(),
+    text: text('text_body'),
+    fromName: varchar('from_name', { length: 255 }),
+    fromEmail: varchar('from_email', { length: 320 }),
+    replyTo: varchar('reply_to', { length: 320 }),
+    headers: jsonb('headers').$type<Record<string, string>>(),
+    campaignId: uuid('campaign_id'),
+    userId: uuid('user_id'),
+    priority: emailPriorityEnum('priority').default('normal').notNull(),
+    status: emailQueueStatusEnum('status').default('queued').notNull(),
+    attempts: integer('attempts').default(0).notNull(),
+    maxAttempts: integer('max_attempts').default(3).notNull(),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).defaultNow().notNull(),
+    lastError: text('last_error'),
+    providerMessageId: varchar('provider_message_id', { length: 255 }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    tags: jsonb('tags').$type<Record<string, string>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    index('email_queue_org_idx').on(t.organizationId),
+    index('email_queue_status_idx').on(t.organizationId, t.status),
+    index('email_queue_next_attempt_idx').on(t.status, t.nextAttemptAt),
+    index('email_queue_priority_idx').on(t.priority, t.nextAttemptAt),
+]);
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Email Tracking Events (DB-backed, survives cold starts)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+export const trackingEventTypeEnum = pgEnum('tracking_event_type', [
+    'open', 'click', 'unsubscribe',
+]);
+
+export const emailTrackingEvents = pgTable('email_tracking_events', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    messageId: varchar('message_id', { length: 255 }).notNull(),
+    type: trackingEventTypeEnum('type').notNull(),
+    recipientEmail: varchar('recipient_email', { length: 320 }).notNull(),
+    campaignId: uuid('campaign_id'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    index('tracking_events_org_idx').on(t.organizationId),
+    index('tracking_events_message_idx').on(t.messageId),
+    index('tracking_events_campaign_idx').on(t.campaignId),
+    index('tracking_events_type_idx').on(t.organizationId, t.type),
+]);
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Rate Limit Buckets (DB-backed, survives cold starts in serverless)
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+export const rateLimitBuckets = pgTable('rate_limit_buckets', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bucketKey: varchar('bucket_key', { length: 255 }).notNull(),
+    requestCount: integer('request_count').default(0).notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    windowMs: integer('window_ms').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    uniqueIndex('rate_limit_bucket_key_idx').on(t.bucketKey),
+    index('rate_limit_window_idx').on(t.windowStart),
+]);
+
 /**
  * Defines which flow node types/actions require which integration capabilities.
  * Used by the flow builder to show warnings when a required integration is missing.

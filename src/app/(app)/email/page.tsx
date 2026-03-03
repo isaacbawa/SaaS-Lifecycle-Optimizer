@@ -13,6 +13,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from '@/hooks/use-toast';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -81,6 +83,9 @@ export default function EmailPage() {
     const [previewHtml, setPreviewHtml] = useState('');
     const [previewSubject, setPreviewSubject] = useState('');
 
+    // Delete confirmation
+    const [deleteId, setDeleteId] = useState<string | null>(null);
+
     /* ── Fetch ──────────────────────────────────────── */
     const fetchTemplates = useCallback(async () => {
         try {
@@ -98,15 +103,24 @@ export default function EmailPage() {
 
     /* ── Template Actions ────────────────────────────── */
     const deleteTemplate = async (id: string) => {
-        await fetch(`/api/v1/email-templates/${id}`, { method: 'DELETE' });
-        fetchTemplates();
+        try {
+            const res = await fetch(`/api/v1/email-templates/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                fetchTemplates();
+                toast({ title: 'Template deleted', description: 'The email template has been removed.' });
+            } else {
+                toast({ title: 'Error', description: 'Failed to delete template.', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to delete template.', variant: 'destructive' });
+        }
     };
 
     const duplicateTemplate = async (id: string) => {
         const original = templates.find(t => t.id === id);
         if (!original) return;
         try {
-            await fetch('/api/v1/email-templates', {
+            const res = await fetch('/api/v1/email-templates', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -119,8 +133,15 @@ export default function EmailPage() {
                     status: 'draft',
                 }),
             });
-            fetchTemplates();
-        } catch { /* ignore */ }
+            if (res.ok) {
+                fetchTemplates();
+                toast({ title: 'Template duplicated', description: 'A copy of the template has been created.' });
+            } else {
+                toast({ title: 'Error', description: 'Failed to duplicate template.', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Failed to duplicate template.', variant: 'destructive' });
+        }
     };
 
     const previewTemplate = async (id: string) => {
@@ -369,7 +390,7 @@ export default function EmailPage() {
                                                             Duplicate
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="text-destructive" onClick={() => deleteTemplate(t.id)}>
+                                                        <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(t.id)}>
                                                             <Trash2 className="h-3.5 w-3.5 mr-2" />
                                                             Delete
                                                         </DropdownMenuItem>
@@ -434,6 +455,15 @@ export default function EmailPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Delete Confirmation */}
+            <ConfirmDialog
+                open={!!deleteId}
+                onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+                title="Delete template?"
+                description="This will permanently remove this email template. This cannot be undone."
+                onConfirm={() => { if (deleteId) deleteTemplate(deleteId); }}
+            />
         </div>
     );
 }

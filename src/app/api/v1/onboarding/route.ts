@@ -14,6 +14,7 @@
  * ========================================================================== */
 
 import { NextResponse } from 'next/server';
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 import {
     getSendingDomains,
     getAllEmailTemplates,
@@ -23,15 +24,6 @@ import {
     getEventCount,
     getApiKeysByOrg,
 } from '@/lib/db/operations';
-
-async function resolveOrgId() {
-    const orgId = process.env.DEMO_ORG_ID;
-    if (orgId) return orgId;
-    const { db } = await import('@/lib/db');
-    const { organizations } = await import('@/lib/db/schema');
-    const [org] = await db.select({ id: organizations.id }).from(organizations).limit(1);
-    return org?.id ?? '';
-}
 
 export interface OnboardingStep {
     id: string;
@@ -52,7 +44,9 @@ export interface OnboardingStatus {
 
 export async function GET() {
     try {
-        const orgId = await resolveOrgId();
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
 
         // Fetch all data sources in parallel — fail-safe each
         const [apiKeys, eventCount, domains, templates, segments, flows, trackedUsers] =
@@ -60,9 +54,9 @@ export async function GET() {
                 orgId ? getApiKeysByOrg(orgId).catch(() => []) : Promise.resolve([]),
                 orgId ? getEventCount(orgId).catch(() => 0) : Promise.resolve(0),
                 orgId ? getSendingDomains(orgId).catch(() => []) : Promise.resolve([]),
-                orgId ? getAllEmailTemplates(orgId).catch(() => []) : Promise.resolve([]),
-                orgId ? getAllSegments(orgId).catch(() => []) : Promise.resolve([]),
-                orgId ? getAllFlowDefinitions(orgId).catch(() => []) : Promise.resolve([]),
+                orgId ? getAllEmailTemplates(orgId).then(r => r.items).catch(() => []) : Promise.resolve([]),
+                orgId ? getAllSegments(orgId).then(r => r.items).catch(() => []) : Promise.resolve([]),
+                orgId ? getAllFlowDefinitions(orgId).then(r => r.items).catch(() => []) : Promise.resolve([]),
                 orgId ? getTrackedUserCount(orgId).catch(() => 0) : Promise.resolve(0),
             ]);
 

@@ -11,20 +11,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSendingDomains, upsertSendingDomain } from '@/lib/db/operations';
 import { verifyDomain, generateRequiredRecords } from '@/lib/engine/dns-verification';
-
-async function resolveOrgId() {
-    const orgId = process.env.DEMO_ORG_ID;
-    if (orgId) return orgId;
-    const { db } = await import('@/lib/db');
-    const { organizations } = await import('@/lib/db/schema');
-    const [org] = await db.select({ id: organizations.id }).from(organizations).limit(1);
-    return org?.id ?? '';
-}
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 
 export async function GET(request: NextRequest) {
     try {
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
 
         const { searchParams } = request.nextUrl;
         const domain = searchParams.get('domain');
@@ -45,8 +38,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
 
         const body = await request.json();
         const { action } = body;

@@ -220,12 +220,12 @@ export function mapFlowDefToUI(dbFlow: FlowDef): FlowDefinition {
         edges,
         variables,
         settings: {
+            ...settings,
             enrollmentCap: settings?.enrollmentCap ?? 0,
             maxConcurrentEnrollments: settings?.maxConcurrentEnrollments ?? 1000,
             autoExitDays: settings?.autoExitDays ?? 30,
             respectQuietHours: settings?.respectQuietHours ?? false,
             priority: settings?.priority ?? 0,
-            ...settings,
         },
         metrics: {
             totalEnrolled: metrics?.totalEnrolled ?? 0,

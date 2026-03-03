@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import {
   Activity,
   BarChart3,
@@ -32,7 +33,7 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback } from '../ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 const menuItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -57,6 +58,17 @@ const settingsItems = [
 export function AppSidebar() {
   const pathname = usePathname();
   const { state } = useSidebar();
+  const { user } = useUser();
+
+  const displayName = user?.fullName || user?.firstName || 'User';
+  const email = user?.primaryEmailAddress?.emailAddress || '';
+  const initials = displayName
+    .split(' ')
+    .map((s) => s[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U';
+  const avatarUrl = user?.imageUrl;
 
   const isActive = (href: string) => {
     if (href === '/email') return pathname === '/email' || pathname.startsWith('/email-builder');
@@ -119,12 +131,13 @@ export function AppSidebar() {
             )}
           >
             <Avatar className="h-9 w-9">
-              <AvatarFallback>AD</AvatarFallback>
+              {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
+              <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
             <div className={cn('flex flex-col', state === 'collapsed' && 'hidden')}>
-              <span className="text-sm font-medium">Admin User</span>
-              <span className="text-xs text-muted-foreground">
-                admin@saasopt.com
+              <span className="text-sm font-medium">{displayName}</span>
+              <span className="text-xs text-muted-foreground truncate max-w-[140px]">
+                {email}
               </span>
             </div>
           </div>

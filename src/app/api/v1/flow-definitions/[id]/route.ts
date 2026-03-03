@@ -7,7 +7,7 @@
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveOrgId } from '@/lib/auth/resolve-org';
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 import { getFlowDefinition, upsertFlowDefinition, deleteFlowDefinition } from '@/lib/db/operations';
 import { mapFlowDefToUI } from '@/lib/db/mappers';
 import type { FlowBuilderStatus } from '@/lib/definitions';
@@ -28,7 +28,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 /* ── GET ─────────────────────────────────────────────────────────────── */
 
 export async function GET(_request: NextRequest, ctx: RouteContext) {
-  const orgId = await resolveOrgId();
+  const authResult = await requireDashboardAuth();
+  if (!authResult.success) return authResult.response;
+  const { orgId } = authResult;
   const { id } = await ctx.params;
   const dbFlow = await getFlowDefinition(orgId, id);
   if (!dbFlow) return jsonError('NOT_FOUND', `Flow definition '${id}' not found.`, 404);
@@ -38,7 +40,9 @@ export async function GET(_request: NextRequest, ctx: RouteContext) {
 /* ── PUT ─────────────────────────────────────────────────────────────── */
 
 export async function PUT(request: NextRequest, ctx: RouteContext) {
-  const orgId = await resolveOrgId();
+  const authResult = await requireDashboardAuth();
+  if (!authResult.success) return authResult.response;
+  const { orgId } = authResult;
   const { id } = await ctx.params;
 
   const existing = await getFlowDefinition(orgId, id);
@@ -60,7 +64,7 @@ export async function PUT(request: NextRequest, ctx: RouteContext) {
     ...(Array.isArray(body.nodes) ? { nodes: body.nodes } : {}),
     ...(Array.isArray(body.edges) ? { edges: body.edges } : {}),
     ...(Array.isArray(body.variables) ? { variables: body.variables } : {}),
-    ...(body.settings && typeof body.settings === 'object' ? { settings: body.settings } : {}),
+    ...(body.settings && typeof body.settings === 'object' ? { settings: body.settings as Record<string, unknown> } : {}),
     ...(typeof body.version === 'number' ? { version: body.version } : {}),
     ...(typeof body.trigger === 'string' ? { trigger: body.trigger.trim() } : {}),
   };
@@ -80,7 +84,9 @@ export async function PUT(request: NextRequest, ctx: RouteContext) {
 /* ── DELETE ───────────────────────────────────────────────────────────── */
 
 export async function DELETE(_request: NextRequest, ctx: RouteContext) {
-  const orgId = await resolveOrgId();
+  const authResult = await requireDashboardAuth();
+  if (!authResult.success) return authResult.response;
+  const { orgId } = authResult;
   const { id } = await ctx.params;
 
   const existing = await getFlowDefinition(orgId, id);

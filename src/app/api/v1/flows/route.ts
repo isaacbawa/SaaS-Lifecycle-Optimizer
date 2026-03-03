@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   if (!auth.success) return auth.response;
 
   const dbFlows = await getAllFlowDefinitions(auth.orgId);
-  const flows = dbFlows.map(mapFlowDefToUI);
+  const flows = dbFlows.items.map(mapFlowDefToUI);
 
   // Parse query params for filtering
   const url = new URL(request.url);

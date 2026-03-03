@@ -4,25 +4,28 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllEmailTemplates, upsertEmailTemplate } from '@/lib/db/operations';
-
-async function resolveOrgId() {
-    const orgId = process.env.DEMO_ORG_ID;
-    if (orgId) return orgId;
-    const { db } = await import('@/lib/db');
-    const { organizations } = await import('@/lib/db/schema');
-    const [org] = await db.select({ id: organizations.id }).from(organizations).limit(1);
-    return org?.id ?? '';
-}
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 
 export async function GET(request: NextRequest) {
     try {
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
 
         const { searchParams } = request.nextUrl;
         const status = searchParams.get('status') ?? undefined;
-        const templates = await getAllEmailTemplates(orgId, status);
-        return NextResponse.json({ success: true, data: templates });
+        const limitParam = searchParams.get('limit');
+        const offsetParam = searchParams.get('offset');
+        const pagination = (limitParam || offsetParam) ? {
+            limit: limitParam ? parseInt(limitParam, 10) : undefined,
+            offset: offsetParam ? parseInt(offsetParam, 10) : undefined,
+        } : undefined;
+        const result = await getAllEmailTemplates(orgId, status, pagination);
+        return NextResponse.json({
+            success: true,
+            data: result.items,
+            pagination: { total: result.total, limit: result.limit, offset: result.offset, hasMore: result.hasMore },
+        });
     } catch (err) {
         return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });
     }
@@ -30,8 +33,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
 
         const body = await request.json();
         const template = await upsertEmailTemplate(orgId, body);

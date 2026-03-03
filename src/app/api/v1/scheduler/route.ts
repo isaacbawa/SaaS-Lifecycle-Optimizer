@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
 
 async function getAllActiveEnrollmentCount(orgId: string): Promise<number> {
     // Count enrollments across all flows
-    const allFlows = await getAllFlowDefinitions(orgId);
+    const allFlows = (await getAllFlowDefinitions(orgId)).items;
     let count = 0;
     for (const flow of allFlows) {
         const enrollments = await getFlowEnrollments(orgId, flow.id, 'active');

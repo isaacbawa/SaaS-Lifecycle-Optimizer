@@ -5,29 +5,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllSegments, upsertSegment, getAllTrackedUsers, getAllTrackedAccounts, getSegmentMembers, clearSegmentMemberships, upsertSegmentMembership, updateSegmentCount } from '@/lib/db/operations';
 import { evaluateSegmentBatch } from '@/lib/engine/segmentation';
-
-/** Demo org ID — replace with Clerk org resolution in production */
-const DEMO_ORG_ID = process.env.DEMO_ORG_ID ?? '';
-
-async function resolveOrgId() {
-    if (DEMO_ORG_ID) return DEMO_ORG_ID;
-    // Fallback: get first org from DB
-    const { db } = await import('@/lib/db');
-    const { organizations } = await import('@/lib/db/schema');
-    const [org] = await db.select({ id: organizations.id }).from(organizations).limit(1);
-    return org?.id ?? '';
-}
+import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 
 export async function GET(request: NextRequest) {
     try {
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
 
         const { searchParams } = request.nextUrl;
         const status = searchParams.get('status') ?? undefined;
-        const segments = await getAllSegments(orgId, status);
+        const limitParam = searchParams.get('limit');
+        const offsetParam = searchParams.get('offset');
+        const pagination = (limitParam || offsetParam) ? {
+            limit: limitParam ? parseInt(limitParam, 10) : undefined,
+            offset: offsetParam ? parseInt(offsetParam, 10) : undefined,
+        } : undefined;
+        const result = await getAllSegments(orgId, status, pagination);
 
-        return NextResponse.json({ success: true, data: segments });
+        return NextResponse.json({
+            success: true,
+            data: result.items,
+            pagination: { total: result.total, limit: result.limit, offset: result.offset, hasMore: result.hasMore },
+        });
     } catch (err) {
         return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });
     }
@@ -35,8 +35,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const orgId = await resolveOrgId();
-        if (!orgId) return NextResponse.json({ success: false, error: 'No organization found' }, { status: 400 });
+        const authResult = await requireDashboardAuth();
+        if (!authResult.success) return authResult.response;
+        const { orgId } = authResult;
 
         const body = await request.json();
         const { action, ...data } = body;

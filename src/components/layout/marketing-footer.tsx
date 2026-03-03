@@ -45,10 +45,10 @@ export function MarketingFooter() {
           <div>
             <h4 className="font-semibold text-sm mb-3">Company</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="#" className="hover:text-foreground transition-colors">About</Link></li>
-              <li><Link href="#" className="hover:text-foreground transition-colors">Privacy</Link></li>
-              <li><Link href="#" className="hover:text-foreground transition-colors">Terms</Link></li>
-              <li><Link href="#" className="hover:text-foreground transition-colors">Contact</Link></li>
+              <li><Link href="/#how-it-works" className="hover:text-foreground transition-colors">About</Link></li>
+              <li><Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link></li>
+              <li><Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link></li>
+              <li><Link href="mailto:support@lifecycleos.com" className="hover:text-foreground transition-colors">Contact</Link></li>
             </ul>
           </div>
         </div>

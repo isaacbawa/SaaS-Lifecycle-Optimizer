@@ -13,6 +13,69 @@ import { db } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
 
 /* ═══════════════════════════════════════════════════════════════════════
+ * Database Error Handling Utility
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+export class DbOperationError extends Error {
+    constructor(
+        public readonly operation: string,
+        public readonly cause: unknown,
+    ) {
+        const causeMsg = cause instanceof Error ? cause.message : String(cause);
+        super(`[db:${operation}] ${causeMsg}`);
+        this.name = 'DbOperationError';
+    }
+}
+
+/**
+ * Wraps a database operation with consistent error handling.
+ * Read operations return the fallback value on error (non-disruptive).
+ * Write operations throw DbOperationError (callers must handle).
+ */
+async function dbRead<T>(operation: string, fn: () => Promise<T>, fallback: T): Promise<T> {
+    try {
+        return await fn();
+    } catch (err) {
+        console.error(`[db:${operation}]`, err);
+        return fallback;
+    }
+}
+
+async function dbWrite<T>(operation: string, fn: () => Promise<T>): Promise<T> {
+    try {
+        return await fn();
+    } catch (err) {
+        console.error(`[db:${operation}]`, err);
+        throw new DbOperationError(operation, err);
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Pagination Helper
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+export interface PaginationOptions {
+    limit?: number;
+    offset?: number;
+}
+
+export interface PaginatedResult<T> {
+    items: T[];
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+}
+
+const DEFAULT_PAGE_LIMIT = 50;
+const MAX_PAGE_LIMIT = 200;
+
+function clampLimit(limit?: number): number {
+    if (!limit || limit <= 0) return DEFAULT_PAGE_LIMIT;
+    return Math.min(limit, MAX_PAGE_LIMIT);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
  * Type helpers — Infer row types from schema
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -62,29 +125,33 @@ export type SendingDomain = typeof schema.sendingDomains.$inferSelect;
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export async function getOrganizationByClerkId(clerkOrgId: string) {
-    const [org] = await db
-        .select()
-        .from(schema.organizations)
-        .where(eq(schema.organizations.clerkOrgId, clerkOrgId))
-        .limit(1);
-    return org ?? null;
+    return dbRead('getOrganizationByClerkId', async () => {
+        const [org] = await db
+            .select()
+            .from(schema.organizations)
+            .where(eq(schema.organizations.clerkOrgId, clerkOrgId))
+            .limit(1);
+        return org ?? null;
+    }, null);
 }
 
 export async function upsertOrganization(data: OrganizationInsert) {
-    const [org] = await db
-        .insert(schema.organizations)
-        .values(data)
-        .onConflictDoUpdate({
-            target: schema.organizations.clerkOrgId,
-            set: {
-                name: data.name,
-                slug: data.slug,
-                imageUrl: data.imageUrl,
-                updatedAt: new Date(),
-            },
-        })
-        .returning();
-    return org;
+    return dbWrite('upsertOrganization', async () => {
+        const [org] = await db
+            .insert(schema.organizations)
+            .values(data)
+            .onConflictDoUpdate({
+                target: schema.organizations.clerkOrgId,
+                set: {
+                    name: data.name,
+                    slug: data.slug,
+                    imageUrl: data.imageUrl,
+                    updatedAt: new Date(),
+                },
+            })
+            .returning();
+        return org;
+    });
 }
 
 export async function updateOrganization(id: string, updates: Partial<OrganizationInsert>) {
@@ -110,23 +177,25 @@ export async function getUserByClerkId(clerkUserId: string) {
 }
 
 export async function upsertUser(data: DbUserInsert) {
-    const [user] = await db
-        .insert(schema.users)
-        .values(data)
-        .onConflictDoUpdate({
-            target: schema.users.clerkUserId,
-            set: {
-                email: data.email,
-                firstName: data.firstName,
-                lastName: data.lastName,
-                imageUrl: data.imageUrl,
-                organizationId: data.organizationId,
-                lastSignInAt: data.lastSignInAt,
-                updatedAt: new Date(),
-            },
-        })
-        .returning();
-    return user;
+    return dbWrite('upsertUser', async () => {
+        const [user] = await db
+            .insert(schema.users)
+            .values(data)
+            .onConflictDoUpdate({
+                target: schema.users.clerkUserId,
+                set: {
+                    email: data.email,
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    imageUrl: data.imageUrl,
+                    organizationId: data.organizationId,
+                    lastSignInAt: data.lastSignInAt,
+                    updatedAt: new Date(),
+                },
+            })
+            .returning();
+        return user;
+    });
 }
 
 export async function getOrganizationUsers(orgId: string) {
@@ -400,32 +469,36 @@ export async function getLifecycleDistribution(orgId: string) {
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export async function ingestEvent(orgId: string, data: Omit<EventInsert, 'organizationId'>) {
-    const [event] = await db
-        .insert(schema.events)
-        .values({ ...data, organizationId: orgId })
-        .onConflictDoNothing({
-            target: [schema.events.organizationId, schema.events.messageId],
-        })
-        .returning();
-    return event ?? null;
+    return dbWrite('ingestEvent', async () => {
+        const [event] = await db
+            .insert(schema.events)
+            .values({ ...data, organizationId: orgId })
+            .onConflictDoNothing({
+                target: [schema.events.organizationId, schema.events.messageId],
+            })
+            .returning();
+        return event ?? null;
+    });
 }
 
 export async function ingestEvents(orgId: string, batch: Omit<EventInsert, 'organizationId'>[]) {
-    if (batch.length === 0) return { ingested: 0, duplicates: 0 };
+    return dbWrite('ingestEvents', async () => {
+        if (batch.length === 0) return { ingested: 0, duplicates: 0 };
 
-    const values = batch.map((e) => ({ ...e, organizationId: orgId }));
-    const inserted = await db
-        .insert(schema.events)
-        .values(values)
-        .onConflictDoNothing({
-            target: [schema.events.organizationId, schema.events.messageId],
-        })
-        .returning({ id: schema.events.id });
+        const values = batch.map((e) => ({ ...e, organizationId: orgId }));
+        const inserted = await db
+            .insert(schema.events)
+            .values(values)
+            .onConflictDoNothing({
+                target: [schema.events.organizationId, schema.events.messageId],
+            })
+            .returning({ id: schema.events.id });
 
-    return {
-        ingested: inserted.length,
-        duplicates: batch.length - inserted.length,
-    };
+        return {
+            ingested: inserted.length,
+            duplicates: batch.length - inserted.length,
+        };
+    });
 }
 
 export async function getEvents(orgId: string, filters?: {
@@ -475,15 +548,17 @@ export async function getEventCount(orgId: string, filters?: { name?: string }) 
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export async function validateApiKey(keyHash: string) {
-    const [key] = await db
-        .select()
-        .from(schema.apiKeys)
-        .where(and(
-            eq(schema.apiKeys.keyHash, keyHash),
-            eq(schema.apiKeys.revoked, false),
-        ))
-        .limit(1);
-    return key ?? null;
+    return dbRead('validateApiKey', async () => {
+        const [key] = await db
+            .select()
+            .from(schema.apiKeys)
+            .where(and(
+                eq(schema.apiKeys.keyHash, keyHash),
+                eq(schema.apiKeys.revoked, false),
+            ))
+            .limit(1);
+        return key ?? null;
+    }, null);
 }
 
 export async function getApiKeysByOrg(orgId: string) {
@@ -529,52 +604,62 @@ export async function touchApiKeyUsage(keyId: string) {
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export async function getFlowDefinition(orgId: string, id: string) {
-    const [flow] = await db
-        .select()
-        .from(schema.flowDefinitions)
-        .where(and(
-            eq(schema.flowDefinitions.organizationId, orgId),
-            eq(schema.flowDefinitions.id, id),
-        ))
-        .limit(1);
-    return flow ?? null;
+    return dbRead('getFlowDefinition', async () => {
+        const [flow] = await db
+            .select()
+            .from(schema.flowDefinitions)
+            .where(and(
+                eq(schema.flowDefinitions.organizationId, orgId),
+                eq(schema.flowDefinitions.id, id),
+            ))
+            .limit(1);
+        return flow ?? null;
+    }, null);
 }
 
-export async function getAllFlowDefinitions(orgId: string, status?: string) {
+export async function getAllFlowDefinitions(orgId: string, status?: string, pagination?: PaginationOptions): Promise<PaginatedResult<typeof schema.flowDefinitions.$inferSelect>> {
     const conditions = [eq(schema.flowDefinitions.organizationId, orgId)];
     if (status) {
         conditions.push(
             eq(schema.flowDefinitions.status, status as typeof schema.flowDefinitions.status.enumValues[number]),
         );
     }
-    return db
-        .select()
-        .from(schema.flowDefinitions)
-        .where(and(...conditions))
-        .orderBy(desc(schema.flowDefinitions.updatedAt));
+    if (!pagination) {
+        const items = await db.select().from(schema.flowDefinitions).where(and(...conditions)).orderBy(desc(schema.flowDefinitions.updatedAt));
+        return { items, total: items.length, limit: items.length, offset: 0, hasMore: false };
+    }
+    const limit = clampLimit(pagination.limit);
+    const offset = pagination.offset ?? 0;
+    const [items, [{ total }]] = await Promise.all([
+        db.select().from(schema.flowDefinitions).where(and(...conditions)).orderBy(desc(schema.flowDefinitions.updatedAt)).limit(limit).offset(offset),
+        db.select({ total: count() }).from(schema.flowDefinitions).where(and(...conditions)),
+    ]);
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
 }
 
 export async function upsertFlowDefinition(orgId: string, data: Omit<FlowDefInsert, 'organizationId'>) {
-    const [flow] = await db
-        .insert(schema.flowDefinitions)
-        .values({ ...data, organizationId: orgId })
-        .onConflictDoUpdate({
-            target: schema.flowDefinitions.id,
-            set: {
-                name: data.name,
-                description: data.description,
-                status: data.status,
-                nodes: data.nodes,
-                edges: data.edges,
-                variables: data.variables,
-                settings: data.settings,
-                metrics: data.metrics,
-                updatedAt: new Date(),
-                publishedAt: data.publishedAt,
-            },
-        })
-        .returning();
-    return flow;
+    return dbWrite('upsertFlowDefinition', async () => {
+        const [flow] = await db
+            .insert(schema.flowDefinitions)
+            .values({ ...data, organizationId: orgId })
+            .onConflictDoUpdate({
+                target: schema.flowDefinitions.id,
+                set: {
+                    name: data.name,
+                    description: data.description,
+                    status: data.status,
+                    nodes: data.nodes,
+                    edges: data.edges,
+                    variables: data.variables,
+                    settings: data.settings,
+                    metrics: data.metrics,
+                    updatedAt: new Date(),
+                    publishedAt: data.publishedAt,
+                },
+            })
+            .returning();
+        return flow;
+    });
 }
 
 export async function deleteFlowDefinition(orgId: string, id: string) {
@@ -1032,10 +1117,20 @@ export async function getSegmentByName(orgId: string, name: string) {
     return seg ?? null;
 }
 
-export async function getAllSegments(orgId: string, status?: string) {
+export async function getAllSegments(orgId: string, status?: string, pagination?: PaginationOptions): Promise<PaginatedResult<typeof schema.segments.$inferSelect>> {
     const conditions = [eq(schema.segments.organizationId, orgId)];
     if (status) conditions.push(eq(schema.segments.status, status as 'active' | 'draft' | 'archived'));
-    return db.select().from(schema.segments).where(and(...conditions)).orderBy(desc(schema.segments.updatedAt));
+    if (!pagination) {
+        const items = await db.select().from(schema.segments).where(and(...conditions)).orderBy(desc(schema.segments.updatedAt));
+        return { items, total: items.length, limit: items.length, offset: 0, hasMore: false };
+    }
+    const limit = clampLimit(pagination.limit);
+    const offset = pagination.offset ?? 0;
+    const [items, [{ total }]] = await Promise.all([
+        db.select().from(schema.segments).where(and(...conditions)).orderBy(desc(schema.segments.updatedAt)).limit(limit).offset(offset),
+        db.select({ total: count() }).from(schema.segments).where(and(...conditions)),
+    ]);
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
 }
 
 export async function upsertSegment(orgId: string, data: Omit<SegmentInsert, 'organizationId'>) {
@@ -1101,10 +1196,20 @@ export async function getEmailTemplate(orgId: string, id: string) {
     return t ?? null;
 }
 
-export async function getAllEmailTemplates(orgId: string, status?: string) {
+export async function getAllEmailTemplates(orgId: string, status?: string, pagination?: PaginationOptions): Promise<PaginatedResult<typeof schema.emailTemplates.$inferSelect>> {
     const conditions = [eq(schema.emailTemplates.organizationId, orgId)];
     if (status) conditions.push(eq(schema.emailTemplates.status, status as 'draft' | 'active' | 'archived'));
-    return db.select().from(schema.emailTemplates).where(and(...conditions)).orderBy(desc(schema.emailTemplates.updatedAt));
+    if (!pagination) {
+        const items = await db.select().from(schema.emailTemplates).where(and(...conditions)).orderBy(desc(schema.emailTemplates.updatedAt));
+        return { items, total: items.length, limit: items.length, offset: 0, hasMore: false };
+    }
+    const limit = clampLimit(pagination.limit);
+    const offset = pagination.offset ?? 0;
+    const [items, [{ total }]] = await Promise.all([
+        db.select().from(schema.emailTemplates).where(and(...conditions)).orderBy(desc(schema.emailTemplates.updatedAt)).limit(limit).offset(offset),
+        db.select({ total: count() }).from(schema.emailTemplates).where(and(...conditions)),
+    ]);
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
 }
 
 export async function upsertEmailTemplate(orgId: string, data: Omit<EmailTemplateInsert, 'organizationId'>) {
@@ -1143,10 +1248,20 @@ export async function getEmailCampaign(orgId: string, id: string) {
     return c ?? null;
 }
 
-export async function getAllEmailCampaigns(orgId: string, status?: string) {
+export async function getAllEmailCampaigns(orgId: string, status?: string, pagination?: PaginationOptions): Promise<PaginatedResult<typeof schema.emailCampaigns.$inferSelect>> {
     const conditions = [eq(schema.emailCampaigns.organizationId, orgId)];
     if (status) conditions.push(eq(schema.emailCampaigns.status, status as 'draft' | 'scheduled' | 'sending' | 'sent' | 'paused' | 'cancelled'));
-    return db.select().from(schema.emailCampaigns).where(and(...conditions)).orderBy(desc(schema.emailCampaigns.updatedAt));
+    if (!pagination) {
+        const items = await db.select().from(schema.emailCampaigns).where(and(...conditions)).orderBy(desc(schema.emailCampaigns.updatedAt));
+        return { items, total: items.length, limit: items.length, offset: 0, hasMore: false };
+    }
+    const limit = clampLimit(pagination.limit);
+    const offset = pagination.offset ?? 0;
+    const [items, [{ total }]] = await Promise.all([
+        db.select().from(schema.emailCampaigns).where(and(...conditions)).orderBy(desc(schema.emailCampaigns.updatedAt)).limit(limit).offset(offset),
+        db.select({ total: count() }).from(schema.emailCampaigns).where(and(...conditions)),
+    ]);
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
 }
 
 export async function upsertEmailCampaign(orgId: string, data: Omit<EmailCampaignInsert, 'organizationId'> | (Partial<Omit<EmailCampaignInsert, 'organizationId'>> & { id: string })) {
@@ -1234,10 +1349,20 @@ export async function getPersonalizationRule(orgId: string, id: string) {
     return r ?? null;
 }
 
-export async function getAllPersonalizationRules(orgId: string, status?: string) {
+export async function getAllPersonalizationRules(orgId: string, status?: string, pagination?: PaginationOptions): Promise<PaginatedResult<typeof schema.personalizationRules.$inferSelect>> {
     const conditions = [eq(schema.personalizationRules.organizationId, orgId)];
     if (status) conditions.push(eq(schema.personalizationRules.status, status as 'active' | 'draft' | 'archived'));
-    return db.select().from(schema.personalizationRules).where(and(...conditions)).orderBy(desc(schema.personalizationRules.priority));
+    if (!pagination) {
+        const items = await db.select().from(schema.personalizationRules).where(and(...conditions)).orderBy(desc(schema.personalizationRules.priority));
+        return { items, total: items.length, limit: items.length, offset: 0, hasMore: false };
+    }
+    const limit = clampLimit(pagination.limit);
+    const offset = pagination.offset ?? 0;
+    const [items, [{ total }]] = await Promise.all([
+        db.select().from(schema.personalizationRules).where(and(...conditions)).orderBy(desc(schema.personalizationRules.priority)).limit(limit).offset(offset),
+        db.select({ total: count() }).from(schema.personalizationRules).where(and(...conditions)),
+    ]);
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
 }
 
 export async function upsertPersonalizationRule(orgId: string, data: Omit<PersonalizationRuleInsert, 'organizationId'>) {

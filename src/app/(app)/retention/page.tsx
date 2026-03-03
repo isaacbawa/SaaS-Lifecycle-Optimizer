@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 export default async function RetentionPage() {
   const orgId = await resolveOrgId();
   const dbUsers = await getAllTrackedUsers(orgId);
-  const users = dbUsers.map(mapTrackedUserToUser);
+  const users = dbUsers.map((u) => mapTrackedUserToUser(u));
   const retentionCohorts = computeRetentionCohorts(dbUsers);
 
   /* ── Computed Metrics ─────────────────────────────────────────── */

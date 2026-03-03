@@ -180,7 +180,7 @@ export function initEmailSystem(): void {
                     message.includes('554')
                 ) {
                     // 5xx = permanent failure → hard bounce
-                    recordBounce(email.to, 'hard', message, 'smtp_response');
+                    await recordBounce(email.to, 'hard', message, 'smtp_response');
                 } else if (
                     message.includes('421') ||
                     message.includes('450') ||
@@ -188,7 +188,7 @@ export function initEmailSystem(): void {
                     message.includes('452')
                 ) {
                     // 4xx = temporary failure → soft bounce
-                    recordBounce(email.to, 'soft', message, 'smtp_response');
+                    await recordBounce(email.to, 'soft', message, 'smtp_response');
                 }
 
                 return { success: false, error: message };
@@ -246,8 +246,8 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
     const provider = getTransport() ? 'smtp' : 'log' as const;
 
     // 1. Check suppression
-    if (isSuppressed(payload.to)) {
-        const entry = getSuppressionEntry(payload.to);
+    if (await isSuppressed(payload.to)) {
+        const entry = await getSuppressionEntry(payload.to);
         console.log(
             `[email-system] Suppressed: ${payload.to} (reason: ${entry?.reason})`,
         );
@@ -276,7 +276,7 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
     const unsubHeaders = getUnsubscribeHeaders(messageId, payload.to, payload.campaignId);
 
     // 5. Enqueue
-    const queueId = enqueue({
+    const queueId = await enqueue({
         to: payload.to,
         subject: payload.subject,
         html,
@@ -327,8 +327,8 @@ export function getActiveProvider(): 'smtp' | 'log' {
 export async function getEmailSystemStatus(): Promise<EmailSystemStatus> {
     const config = getTransportConfig();
     const health = await checkTransportHealth();
-    const queue = getQueueMetrics();
-    const suppression = getSuppressionStats();
+    const queue = await getQueueMetrics();
+    const suppression = await getSuppressionStats();
 
     return {
         provider: getTransport() ? 'smtp' : 'log',

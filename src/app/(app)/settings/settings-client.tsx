@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,10 +15,15 @@ import { Switch } from '@/components/ui/switch';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Code, CreditCard, User, Users, Shield, Copy, Eye, EyeOff, Webhook, Plug, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Loader2, ArrowRight, Terminal, Zap } from 'lucide-react';
+import {
+  Code, CreditCard, User, Users, Shield, Copy, Eye, EyeOff,
+  Webhook, Plug, CheckCircle2, AlertTriangle, RefreshCw,
+  Loader2, ArrowRight, Terminal, Plus, Trash2,
+} from 'lucide-react';
 import { CodeBlock } from '@/components/ui/code-block';
 import type { TeamMember, WebhookConfig } from '@/lib/definitions';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
 /* ── Webhook status styles ──────────────────────────────────────────── */
@@ -36,25 +42,55 @@ const roleColors: Record<string, string> = {
   Viewer: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 };
 
-/* ── Component ──────────────────────────────────────────────────────── */
+/* ── Types ──────────────────────────────────────────────────────────── */
+
+interface ApiKeyInfo {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  environment: string;
+  scopes: string[];
+  createdAt: string;
+  lastUsedAt: string | null;
+}
 
 interface SettingsClientProps {
   teamMembers: TeamMember[];
   webhooks: WebhookConfig[];
+  apiKeys: ApiKeyInfo[];
 }
 
-export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
-  const [profileName, setProfileName] = useState('Admin User');
-  const [profileEmail, setProfileEmail] = useState('admin@lifecycleos.com');
-  const [showApiKey, setShowApiKey] = useState(false);
+export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys }: SettingsClientProps) {
+  const { user, isLoaded: isUserLoaded } = useUser();
+
+  // Profile state — seeded from Clerk
+  const [profileName, setProfileName] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  useEffect(() => {
+    if (isUserLoaded && user) {
+      setProfileName(`${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || 'User');
+    }
+  }, [isUserLoaded, user]);
+
+  // API Keys state
+  const [apiKeysList, setApiKeysList] = useState<ApiKeyInfo[]>(initialApiKeys);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyEnv, setNewKeyEnv] = useState<'development' | 'production'>('production');
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
+  const [showKeyId, setShowKeyId] = useState<string | null>(null);
+
+  // Webhooks
   const [newWebhookUrl, setNewWebhookUrl] = useState('');
+
+  // Notifications (local only)
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [slackNotifications, setSlackNotifications] = useState(false);
 
   const apiKey = 'lcos_live_a1b2c3d4e5f6g7h8i9j0';
-  const testApiKey = 'lcos_test_x9y8z7w6v5u4t3s2r1q0';
 
-  /* ── Connection Status (auto-detected like Clerk) ──────── */
+  /* ── Connection Status (auto-detected) ──────── */
   interface ConnectionStatus {
     apiKeysCount: number;
     webhooksCount: number;
@@ -66,40 +102,101 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
 
   const fetchConnectionStatus = useCallback(async () => {
     try {
-      // Fetch API keys count
-      const keysRes = await fetch('/api/v1/keys', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      const keysJson = keysRes.ok ? await keysRes.json() : { data: { keys: [] } };
-      const keys = keysJson.data?.keys ?? [];
-
-      // Fetch webhooks count
-      const whRes = await fetch('/api/v1/webhooks', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      const whJson = whRes.ok ? await whRes.json() : { data: { webhooks: [] } };
-      const wh = whJson.data?.webhooks ?? [];
-
-      // Fetch recent events to check if SDK is actively sending
-      const evRes = await fetch('/api/v1/health', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      const evJson = evRes.ok ? await evRes.json() : { data: {} };
-
+      const res = await fetch('/api/v1/health');
+      const json = res.ok ? await res.json() : { data: {} };
       setConnStatus({
-        apiKeysCount: keys.length,
-        webhooksCount: wh.length,
-        eventsIngested: evJson.data?.usersTracked > 0 || evJson.data?.eventsStored > 0,
-        lastEventAt: evJson.data?.lastEventAt,
+        apiKeysCount: apiKeysList.length,
+        webhooksCount: webhooks.length,
+        eventsIngested: json.data?.usersTracked > 0 || json.data?.eventsStored > 0,
+        lastEventAt: json.data?.lastEventAt,
       });
     } catch {
-      setConnStatus({ apiKeysCount: 0, webhooksCount: 0, eventsIngested: false });
+      setConnStatus({ apiKeysCount: apiKeysList.length, webhooksCount: webhooks.length, eventsIngested: false });
     } finally {
       setConnLoading(false);
     }
-  }, [apiKey]);
+  }, [apiKeysList.length, webhooks.length]);
 
   useEffect(() => { fetchConnectionStatus(); }, [fetchConnectionStatus]);
+
+  /* ── Profile Save ──────────────────────────────── */
+  const saveProfile = async () => {
+    if (!user) return;
+    setProfileSaving(true);
+    try {
+      const parts = profileName.trim().split(/\s+/);
+      const firstName = parts[0] || '';
+      const lastName = parts.slice(1).join(' ') || '';
+      await user.update({ firstName, lastName });
+      toast({ title: 'Profile updated', description: 'Your name has been saved.' });
+    } catch (err) {
+      toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  /* ── API Key Create ────────────────────────────── */
+  const createNewApiKey = async () => {
+    if (!newKeyName.trim()) return;
+    setCreatingKey(true);
+    setNewlyCreatedKey(null);
+    try {
+      const res = await fetch('/api/v1/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          name: newKeyName.trim(),
+          environment: newKeyEnv,
+          scopes: ['identify', 'track', 'group', 'read', 'write'],
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: { message: 'Failed to create key' } }));
+        throw new Error(j.error?.message ?? 'Failed to create key');
+      }
+      const j = await res.json();
+      const newKey = j.data?.key;
+      if (newKey?.rawKey) {
+        setNewlyCreatedKey(newKey.rawKey);
+      }
+      if (newKey) {
+        setApiKeysList(prev => [{
+          id: newKey.id,
+          name: newKey.name,
+          keyPrefix: newKey.keyPrefix,
+          environment: newKey.environment,
+          scopes: newKey.scopes ?? [],
+          createdAt: new Date().toISOString(),
+          lastUsedAt: null,
+        }, ...prev]);
+      }
+      setNewKeyName('');
+      toast({ title: 'API key created', description: 'Copy the key now — it won\'t be shown again.' });
+    } catch (err) {
+      toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
+    } finally {
+      setCreatingKey(false);
+    }
+  };
+
+  /* ── API Key Revoke ────────────────────────────── */
+  const revokeKey = async (keyId: string) => {
+    try {
+      const res = await fetch(`/api/v1/keys/${keyId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: { message: 'Failed to revoke key' } }));
+        throw new Error(j.error?.message ?? 'Failed to revoke');
+      }
+      setApiKeysList(prev => prev.filter(k => k.id !== keyId));
+      toast({ title: 'API key revoked', description: 'The key has been permanently revoked.' });
+    } catch (err) {
+      toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
+    }
+  };
 
   return (
     <div className="grid gap-6">
@@ -118,18 +215,20 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
           <Card>
             <CardHeader>
               <CardTitle>Profile</CardTitle>
-              <CardDescription>Manage your personal profile and preferences.</CardDescription>
+              <CardDescription>Your profile is managed through Clerk authentication. Update your display name below.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
                   <AvatarFallback className="text-2xl">
-                    {profileName.split(' ').map(w => w[0]).join('').slice(0, 2)}
+                    {isUserLoaded && user
+                      ? (user.firstName?.[0] ?? '') + (user.lastName?.[0] ?? '')
+                      : 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <Button variant="outline" size="sm">Change Photo</Button>
-                  <p className="mt-1 text-xs text-muted-foreground">JPG, PNG or GIF. Max 2MB.</p>
+                  <p className="text-sm font-medium">{isUserLoaded && user ? user.primaryEmailAddress?.emailAddress : '...'}</p>
+                  <p className="text-xs text-muted-foreground">Signed in via Clerk</p>
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
@@ -139,7 +238,14 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={isUserLoaded && user ? (user.primaryEmailAddress?.emailAddress ?? '') : ''}
+                    disabled
+                    className="bg-muted"
+                  />
+                  <p className="text-xs text-muted-foreground">Email is managed via Clerk</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Timezone</Label>
@@ -161,21 +267,9 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
                   <Input id="role-display" value="Admin" disabled className="bg-muted" />
                 </div>
               </div>
-              <Separator />
-              <div className="space-y-3">
-                <h4 className="font-medium">Change Password</h4>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <Input id="current-password" type="password" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
-                    <Input id="new-password" type="password" />
-                  </div>
-                </div>
-              </div>
-              <Button>Save Changes</Button>
+              <Button onClick={saveProfile} disabled={profileSaving}>
+                {profileSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving…</> : 'Save Changes'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -187,10 +281,12 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
               <div>
                 <CardTitle>Team Members</CardTitle>
                 <CardDescription>
-                  {teamMembers.length} members · Manage access and roles for your organization.
+                  {teamMembers.length} members · Team management is handled via Clerk organization settings.
                 </CardDescription>
               </div>
-              <Button>Invite Member</Button>
+              <Button variant="outline" asChild>
+                <a href="https://clerk.com" target="_blank" rel="noopener noreferrer">Manage in Clerk</a>
+              </Button>
             </CardHeader>
             <CardContent>
               <Table>
@@ -200,7 +296,6 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last Active</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -232,10 +327,6 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{member.lastActive ? new Date(member.lastActive).toLocaleDateString() : 'Never'}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">Edit</Button>
-                        <Button variant="ghost" size="sm" className="text-destructive">Remove</Button>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -248,60 +339,22 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
         <TabsContent value="billing" className="mt-6 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Subscription</CardTitle>
-              <CardDescription>Manage your plan and billing details.</CardDescription>
+              <div className="flex items-center gap-2">
+                <CardTitle>Subscription & Billing</CardTitle>
+                <Badge variant="outline">Coming Soon</Badge>
+              </div>
+              <CardDescription>
+                Stripe billing integration is on our roadmap. You&apos;ll be able to manage plans, view usage, and update payment methods here.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="rounded-lg border p-4 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium">Business Plan</h4>
-                    <Badge>Current</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">$499/month · Billed monthly · Renews Feb 15, 2025</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline">Change Plan</Button>
-                  <Button variant="destructive" size="sm">Cancel</Button>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h4 className="font-medium mb-3">Usage This Billing Period</h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs text-muted-foreground">Tracked Users</p>
-                    <p className="text-lg font-bold">2,847 / 10,000</p>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs text-muted-foreground">Emails Sent</p>
-                    <p className="text-lg font-bold">45,230 / 100,000</p>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs text-muted-foreground">API Calls</p>
-                    <p className="text-lg font-bold">12,400 / 50,000</p>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div>
-                <h4 className="font-medium mb-2">Payment Method</h4>
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-14 items-center justify-center rounded bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-bold">
-                      VISA
-                    </div>
-                    <div>
-                      <p className="font-medium">•••• •••• •••• 4242</p>
-                      <p className="text-xs text-muted-foreground">Expires 12/2026</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">Update</Button>
-                </div>
+            <CardContent>
+              <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
+                <CreditCard className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p className="font-medium">Billing dashboard coming soon</p>
+                <p className="text-sm mt-1">Stripe integration for subscription management, usage metering, and invoicing.</p>
+                <Link href="/pricing">
+                  <Button variant="outline" className="mt-4" size="sm">View Pricing Plans</Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -315,33 +368,92 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
               <CardDescription>Manage your API keys for SDK integration and server-side access.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Live API Key</Label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Input
-                      readOnly
-                      value={showApiKey ? apiKey : '•'.repeat(apiKey.length)}
-                      className="font-mono text-sm bg-muted"
-                    />
-                    <Button variant="outline" size="icon" onClick={() => setShowApiKey(!showApiKey)}>
-                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => navigator.clipboard.writeText(apiKey)}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
+              {/* Key creation form */}
+              <div className="flex items-end gap-2">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs">Key Name</Label>
+                  <Input
+                    placeholder="e.g. Production Backend"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                  />
                 </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Test API Key</Label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Input readOnly value={testApiKey} className="font-mono text-sm bg-muted" />
-                    <Button variant="outline" size="icon" onClick={() => navigator.clipboard.writeText(testApiKey)}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
+                <div className="w-40 space-y-1">
+                  <Label className="text-xs">Environment</Label>
+                  <Select value={newKeyEnv} onValueChange={(v) => setNewKeyEnv(v as 'development' | 'production')}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="production">Production</SelectItem>
+                      <SelectItem value="development">Development</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+                <Button onClick={createNewApiKey} disabled={creatingKey || !newKeyName.trim()}>
+                  {creatingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-1" />Create Key</>}
+                </Button>
               </div>
+
+              {/* Newly created key alert */}
+              {newlyCreatedKey && (
+                <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20 p-4 space-y-2">
+                  <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                    New API key created — copy it now, this is the only time it will be shown:
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Input readOnly value={newlyCreatedKey} className="font-mono text-sm bg-white dark:bg-black" />
+                    <Button variant="outline" size="icon" onClick={() => {
+                      navigator.clipboard.writeText(newlyCreatedKey);
+                      toast({ title: 'Copied', description: 'API key copied to clipboard.' });
+                    }}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Existing keys table */}
+              {apiKeysList.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Key Prefix</TableHead>
+                      <TableHead>Environment</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Last Used</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {apiKeysList.map((k) => (
+                      <TableRow key={k.id}>
+                        <TableCell className="font-medium">{k.name}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {showKeyId === k.id ? k.keyPrefix + '••••••••••••' : '••••••••••••••••••'}
+                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-1" onClick={() => setShowKeyId(showKeyId === k.id ? null : k.id)}>
+                            {showKeyId === k.id ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs capitalize">{k.environment}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{new Date(k.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" className="text-destructive" onClick={() => revokeKey(k.id)}>
+                            <Trash2 className="h-3.5 w-3.5 mr-1" />Revoke
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground">
+                  <Code className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No API keys yet. Create one to get started with the SDK.</p>
+                </div>
+              )}
 
               <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-3">
                 <p className="text-sm text-amber-800 dark:text-amber-300">
@@ -351,6 +463,7 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
 
               <Separator />
 
+              {/* Webhooks section */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -362,51 +475,46 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
                   </div>
                 </div>
 
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Endpoint</TableHead>
-                      <TableHead>Events</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {webhooks.map((wh) => (
-                      <TableRow key={wh.id}>
-                        <TableCell className="font-mono text-xs">{wh.url}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {wh.events.slice(0, 3).map((ev) => (
-                              <Badge key={ev} variant="outline" className="text-[10px]">{ev}</Badge>
-                            ))}
-                            {wh.events.length > 3 && (
-                              <Badge variant="outline" className="text-[10px]">+{wh.events.length - 3}</Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={cn('border-transparent text-xs', webhookStatusColors[wh.status])}>
-                            {wh.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="sm">Edit</Button>
-                          <Button variant="ghost" size="sm" className="text-destructive">Delete</Button>
-                        </TableCell>
+                {webhooks.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Endpoint</TableHead>
+                        <TableHead>Events</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-
-                <div className="mt-4 flex gap-2">
-                  <Input
-                    placeholder="https://your-app.com/webhook"
-                    value={newWebhookUrl}
-                    onChange={(e) => setNewWebhookUrl(e.target.value)}
-                  />
-                  <Button>Add Webhook</Button>
-                </div>
+                    </TableHeader>
+                    <TableBody>
+                      {webhooks.map((wh) => (
+                        <TableRow key={wh.id}>
+                          <TableCell className="font-mono text-xs">{wh.url}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {wh.events.slice(0, 3).map((ev) => (
+                                <Badge key={ev} variant="outline" className="text-[10px]">{ev}</Badge>
+                              ))}
+                              {wh.events.length > 3 && (
+                                <Badge variant="outline" className="text-[10px]">+{wh.events.length - 3}</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={cn('border-transparent text-xs', webhookStatusColors[wh.status])}>
+                              {wh.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    No webhooks configured. Use the SDK setup page to add webhooks.
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  Manage webhooks via the <Link href="/sdk" className="underline">SDK setup page</Link> or the REST API.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -416,8 +524,11 @@ export function SettingsClient({ teamMembers, webhooks }: SettingsClientProps) {
         <TabsContent value="notifications" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Notification Preferences</CardTitle>
-              <CardDescription>Control how and when you receive alerts.</CardDescription>
+              <div className="flex items-center gap-2">
+                <CardTitle>Notification Preferences</CardTitle>
+                <Badge variant="outline" className="text-xs">Saved locally</Badge>
+              </div>
+              <CardDescription>Control how and when you receive alerts. Preferences are currently saved in your browser only.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
@@ -656,7 +767,7 @@ function SetupStep({
         )}
         {code && !completed && (
           <div className="mt-2">
-            <CodeBlock code={code} language="bash" className="text-xs" />
+            <CodeBlock code={code} />
           </div>
         )}
       </div>
