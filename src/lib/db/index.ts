@@ -30,6 +30,23 @@ function getDb() {
 const globalKey = Symbol.for('lifecycleos-db');
 type GlobalWithDb = typeof globalThis & { [globalKey]?: ReturnType<typeof getDb> };
 
-export const db = ((globalThis as GlobalWithDb)[globalKey] ??= getDb());
+/**
+ * Lazy database proxy — defers connection until first property access,
+ * so importing this module during `next build` (page-data collection)
+ * won't throw when DATABASE_URL is absent from the build environment.
+ */
+type DbInstance = ReturnType<typeof getDb>;
 
-export type Database = typeof db;
+function resolveDb(): DbInstance {
+    return ((globalThis as GlobalWithDb)[globalKey] ??= getDb());
+}
+
+export const db: DbInstance = new Proxy({} as DbInstance, {
+    get(_target, prop, receiver) {
+        const real = resolveDb();
+        const value = Reflect.get(real, prop, receiver);
+        return typeof value === 'function' ? value.bind(real) : value;
+    },
+});
+
+export type Database = DbInstance;
