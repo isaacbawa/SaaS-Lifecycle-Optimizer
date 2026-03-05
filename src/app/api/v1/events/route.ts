@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     timestamp: item.timestamp || sentAt || nowIso,
     receivedAt: nowIso,
     messageId: item.messageId,
-    context: (item.context ?? {}) as StoredEvent['context'],
+    context: (item.context ?? {}) as unknown as StoredEvent['context'],
     processed: false,
   }));
 
