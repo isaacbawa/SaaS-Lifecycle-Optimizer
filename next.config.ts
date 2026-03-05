@@ -1,20 +1,46 @@
 import type { NextConfig } from 'next';
 
+/* ── Clerk Frontend API domain (derived from publishable key) ──────── */
+function clerkFrontendDomain(): string {
+  const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+  const encoded = key.replace(/^pk_(test|live)_/, '');
+  try {
+    const raw = Buffer.from(encoded, 'base64').toString('utf-8');
+    return raw.endsWith('$') ? raw.slice(0, -1) : raw;
+  } catch {
+    return '';
+  }
+}
+
+const clerkDomain = clerkFrontendDomain();
+
+// Build a list of all Clerk-related origins that must be allowed by CSP.
+// This covers dev instances (*.clerk.accounts.dev), production proxy
+// domains (e.g. clerk.yourapp.vercel.app), and first-party Clerk CDN.
+const clerkOrigins = [
+  clerkDomain ? `https://${clerkDomain}` : '',
+  clerkDomain ? `wss://${clerkDomain}` : '',
+  'https://*.clerk.accounts.dev',
+  'wss://*.clerk.accounts.dev',
+  'https://*.clerk.com',
+  'wss://*.clerk.com',
+  'https://img.clerk.com',
+  'https://challenges.cloudflare.com',
+].filter(Boolean);
+
 const nextConfig: NextConfig = {
   /* ── Script & image remote sources ─────────────────────────── */
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.clerk.accounts.dev' },
       { protocol: 'https', hostname: 'img.clerk.com' },
+      ...(clerkDomain ? [{ protocol: 'https' as const, hostname: clerkDomain }] : []),
     ],
   },
 
   /* ── Webpack: resilient chunk loading ──────────────────────── */
   webpack(config, { isServer }) {
     if (!isServer) {
-      // Lower the timeout before webpack marks a chunk as failed.
-      // The default (120 000 ms) keeps the spinner too long on flaky
-      // networks; 20 s is enough for any reasonable CDN round-trip.
       config.output = {
         ...config.output,
         chunkLoadTimeout: 20_000,
@@ -23,8 +49,11 @@ const nextConfig: NextConfig = {
     return config;
   },
 
-  /* ── Headers: allow Clerk CDN scripts to load ──────────────── */
+  /* ── Headers: CSP + Clerk origins ──────────────────────────── */
   async headers() {
+    const clerkSrc = clerkOrigins.filter(o => o.startsWith('https://')).join(' ');
+    const clerkConnect = clerkOrigins.join(' ');
+
     return [
       {
         source: '/(.*)',
@@ -33,12 +62,12 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com",
+              `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${clerkSrc}`,
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://*.clerk.accounts.dev https://*.clerk.com https://img.clerk.com",
+              `img-src 'self' data: blob: ${clerkSrc}`,
               "font-src 'self' data:",
-              "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com wss://*.clerk.accounts.dev wss://*.clerk.com",
-              "frame-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com",
+              `connect-src 'self' ${clerkConnect}`,
+              `frame-src 'self' ${clerkSrc}`,
               "worker-src 'self' blob:",
             ].join('; '),
           },
