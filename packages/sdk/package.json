@@ -1,7 +1,7 @@
 {
     "name": "@lifecycleos/sdk",
     "version": "1.0.0",
-    "description": "Official LifecycleOS SDK for Next.js SaaS applications — identify users, track events, manage accounts, and leverage lifecycle-driven automation.",
+    "description": "Official LifecycleOS SDK for Next.js SaaS applications — identify users, track events, manage accounts, and leverage lifecycle-driven automation. Core client is framework-agnostic; React bindings work with any React 18+ framework; Next.js helpers provide server-side utilities.",
     "main": "./dist/index.js",
     "module": "./dist/index.mjs",
     "types": "./dist/index.d.ts",
@@ -65,7 +65,9 @@
         "sdk",
         "user-tracking",
         "churn-prevention",
-        "expansion"
+        "expansion",
+        "event-tracking",
+        "product-analytics"
     ],
     "license": "MIT",
     "repository": {
@@ -74,5 +76,6 @@
     },
     "engines": {
         "node": ">=18.0.0"
-    }
+    },
+    "sideEffects": false
 }

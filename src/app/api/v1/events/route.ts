@@ -98,12 +98,19 @@ export async function POST(request: NextRequest) {
     const extUserId = (item.properties.userId as string) || undefined;
     const extAccountId = (item.properties.accountId as string) || undefined;
 
+    // Merge SDK context (page URL, user agent, timezone) into properties
+    // so it persists in the jsonb column without requiring schema migration
+    const mergedProperties: Record<string, unknown> = {
+      ...item.properties,
+      ...(item.context ? { _context: item.context } : {}),
+    };
+
     return {
       name: item.event,
       trackedUserId: extUserId ? (userIdCache.get(extUserId) ?? undefined) : undefined,
       accountId: extAccountId ? (accountIdCache.get(extAccountId) ?? undefined) : undefined,
       externalUserId: extUserId,
-      properties: item.properties as Record<string, unknown>,
+      properties: mergedProperties,
       messageId: item.messageId,
       clientTimestamp: item.timestamp ? new Date(item.timestamp) : undefined,
     };
@@ -123,7 +130,7 @@ export async function POST(request: NextRequest) {
     timestamp: item.timestamp || sentAt || nowIso,
     receivedAt: nowIso,
     messageId: item.messageId,
-    context: {} as StoredEvent['context'],
+    context: (item.context ?? {}) as StoredEvent['context'],
     processed: false,
   }));
 

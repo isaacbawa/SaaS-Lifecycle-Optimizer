@@ -161,6 +161,7 @@ export interface EventInput {
     properties: Record<string, unknown>;
     timestamp?: string;
     messageId?: string;
+    context?: Record<string, unknown>;
 }
 
 export interface EventsBatchInput {
@@ -215,6 +216,7 @@ export function validateEventsBatch(body: unknown): ValidationResult<EventsBatch
                 properties: (isObject(ev.properties) ? ev.properties : {}) as Record<string, unknown>,
                 timestamp: ev.timestamp as string | undefined,
                 messageId: ev.messageId as string | undefined,
+                context: isObject(ev.context) ? (ev.context as Record<string, unknown>) : undefined,
             });
         }
     }

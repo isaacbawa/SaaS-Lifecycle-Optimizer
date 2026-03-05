@@ -1,18 +1,50 @@
 # @lifecycleos/sdk
 
-Production SDK for integrating LifecycleOS into Next.js SaaS applications.
+Production SDK for integrating **LifecycleOS** into Next.js SaaS applications.
 
 Track users, events, accounts, and page views. Manage lifecycle stages from trial to expansion automatically.
+
+---
+
+## Architecture
+
+The SDK ships as **three sub-path exports** so you only import what your runtime needs:
+
+| Entry point | Runtime | Depends on | Purpose |
+|---|---|---|---|
+| `@lifecycleos/sdk` | Any (browser, Node.js, edge) | Nothing | Core client: identify, track, group, flush |
+| `@lifecycleos/sdk/react` | Browser + React 18+ | `react` | Provider, hooks, drop-in components |
+| `@lifecycleos/sdk/nextjs` | Next.js 14+ server | `next` | Server Actions, Route Handlers, middleware, webhook verification |
+
+> **Designed for Next.js.** The React layer works with any React framework (Remix, Vite+React, CRA, Gatsby), but the server-side helpers (`/nextjs`) are purpose-built for Next.js Server Components, Server Actions, and middleware.
+
+---
 
 ## Install
 
 ```bash
 npm install @lifecycleos/sdk
+# or
+pnpm add @lifecycleos/sdk
+# or
+yarn add @lifecycleos/sdk
 ```
 
-## Quick Start
+**Peer dependencies** (install alongside):
 
-### 1. Provider Setup (App Router)
+| Package | Required for |
+|---|---|
+| `react` ≥18 | `@lifecycleos/sdk/react` only |
+| `react-dom` ≥18 | `@lifecycleos/sdk/react` only |
+| `next` ≥14 | `@lifecycleos/sdk/nextjs` only |
+
+All peers are optional — if you only use the core client, no peer deps are needed.
+
+---
+
+## Quick Start — Next.js App Router
+
+### 1. Provider Setup
 
 ```tsx
 // app/providers.tsx
@@ -140,7 +172,7 @@ import { GroupAccount } from '@lifecycleos/sdk/react';
 
 ---
 
-## Server-Side (API Routes, Server Actions)
+## Server-Side — Next.js API Routes & Server Actions
 
 ```ts
 import { serverIdentify, serverTrack, serverGroup } from '@lifecycleos/sdk/nextjs';
@@ -157,6 +189,17 @@ export async function upgradeUser(userId: string, newPlan: string) {
 
   await serverIdentify(userId, { plan: newPlan });
 }
+```
+
+### Batch Server-Side Events
+
+```ts
+import { serverTrackBatch } from '@lifecycleos/sdk/nextjs';
+
+await serverTrackBatch([
+  { event: 'feature_used', properties: { feature: 'reports', userId: 'u1' } },
+  { event: 'feature_used', properties: { feature: 'exports', userId: 'u2' } },
+]);
 ```
 
 ### Webhook Verification
@@ -177,49 +220,66 @@ export async function POST(req: Request) {
 }
 ```
 
----
+### Middleware Page View Tracking
 
-## Environment Variables
+```ts
+// middleware.ts
+import { trackMiddlewarePageView } from '@lifecycleos/sdk/nextjs';
 
-```env
-# Client-side (public)
-NEXT_PUBLIC_LIFECYCLEOS_KEY=lk_pub_xxx
-
-# Server-side (secret)
-LIFECYCLEOS_API_KEY=lk_sec_xxx
-LIFECYCLEOS_API_URL=https://your-app.com/api/v1
-LIFECYCLEOS_WEBHOOK_SECRET=whsec_xxx
+export async function middleware(request: NextRequest) {
+  await trackMiddlewarePageView(request);
+  return NextResponse.next();
+}
 ```
 
-## Core Client (Advanced)
+---
+
+## Core Client (Advanced / Framework-Agnostic)
+
+The core client works in **any JavaScript runtime** — no React or Next.js required.
 
 ```ts
 import { createClient } from '@lifecycleos/sdk';
 
 const client = createClient({
-  apiKey: 'lk_pub_xxx',
-  apiBaseUrl: '/api/v1',
+  apiKey: 'lcos_live_xxx',
+  apiBaseUrl: 'https://your-lifecycleos-instance.com/api/v1',
   flushAt: 20,
   flushInterval: 10000,
   maxRetries: 3,
   debug: true,
 });
 
-client.identify('user_123', { email: 'jane@example.com' });
+// Identify a user
+await client.identify('user_123', { email: 'jane@example.com', plan: 'Growth' });
+
+// Track an event
 client.track('button_clicked', { button: 'signup' });
+
+// Track a page view
+client.page({ url: '/pricing', title: 'Pricing' });
+
+// Associate user with an account
+await client.group('acc_456', { name: 'Acme Corp', plan: 'Enterprise', seats: 50 });
+
+// Force-flush all queued events
 await client.flush();
+
+// Shut down gracefully (flushes remaining events)
+await client.shutdown();
 ```
 
 ### Plugins
 
 ```ts
-import { createClient, LifecycleOSPlugin } from '@lifecycleos/sdk';
+import { createClient } from '@lifecycleos/sdk';
+import type { LifecycleOSPlugin } from '@lifecycleos/sdk';
 
 const loggingPlugin: LifecycleOSPlugin = {
   name: 'logger',
   beforeTrack: (event, properties) => {
     console.log(`[Track] ${event}`, properties);
-    return properties;
+    return properties; // Return null to suppress the event
   },
   afterFlush: (results) => {
     console.log(`[Flush] ${results.length} events sent`);
@@ -227,44 +287,88 @@ const loggingPlugin: LifecycleOSPlugin = {
 };
 
 const client = createClient({
-  apiKey: 'lk_pub_xxx',
+  apiKey: 'lcos_live_xxx',
   apiBaseUrl: '/api/v1',
   plugins: [loggingPlugin],
 });
 ```
 
-## API
+---
 
-### Hooks
+## Environment Variables
+
+```env
+# Client-side (public — included in browser bundle)
+NEXT_PUBLIC_LIFECYCLEOS_KEY=lcos_live_xxx
+
+# Server-side (secret — never exposed to browser)
+LIFECYCLEOS_API_KEY=lcos_sec_xxx
+LIFECYCLEOS_API_URL=https://your-app.com/api/v1
+LIFECYCLEOS_WEBHOOK_SECRET=whsec_xxx
+```
+
+---
+
+## API Reference
+
+### Hooks (`@lifecycleos/sdk/react`)
 
 | Hook | Returns | Description |
 |------|---------|-------------|
-| `useIdentify()` | `{ identify, loading, error, data }` | Identify users |
-| `useTrack()` | `track(event, props?)` | Track events |
-| `useGroup()` | `{ group, loading, error, data }` | Group accounts |
-| `usePage()` | `trackPage(props?)` | Track pages |
-| `useFlush()` | `flush()` | Force flush queue |
-| `usePageTracking()` | `void` | Auto page tracking |
+| `useIdentify()` | `{ identify, loading, error, data }` | Identify users with traits |
+| `useTrack()` | `track(event, props?)` | Track events (batched) |
+| `useGroup()` | `{ group, loading, error, data }` | Associate user with account |
+| `usePage()` | `trackPage(props?)` | Track page views |
+| `useFlush()` | `flush()` | Force flush event queue |
+| `usePageTracking()` | `void` | Auto page tracking on navigation |
+| `useLifecycleOS()` | `LifecycleOSClient` | Direct client access |
+| `useLifecycleOSOptional()` | `LifecycleOSClient \| null` | Safe client access (no throw) |
 
-### Components
+### Components (`@lifecycleos/sdk/react`)
 
 | Component | Props | Description |
 |-----------|-------|-------------|
+| `LifecycleOSProvider` | `apiKey, apiBaseUrl?, ...config` | Provides client to component tree |
 | `IdentifyUser` | `userId, traits?, onIdentified?, onError?` | Identify on mount |
-| `GroupAccount` | `groupId, traits?, onGrouped?` | Group on mount |
-| `TrackEvent` | `event, properties?, trigger?, children?` | Track with triggers |
+| `GroupAccount` | `groupId, traits?, onGrouped?, onError?` | Group on mount |
+| `TrackEvent` | `event, properties?, trigger?, children?` | Track with mount/click/visible triggers |
 | `PageTracker` | — | Auto page view tracking |
 
-### Server Functions
+### Server Functions (`@lifecycleos/sdk/nextjs`)
 
 | Function | Description |
 |----------|-------------|
-| `serverIdentify(userId, traits?)` | Server-side identify |
-| `serverTrack(event, props?)` | Server-side track |
-| `serverTrackBatch(events[])` | Batch server-side track |
-| `serverGroup(groupId, traits?)` | Server-side group |
-| `verifyWebhook(body, sig, secret)` | Verify webhook HMAC |
-| `trackMiddlewarePageView(req)` | Track from middleware |
+| `serverIdentify(userId, traits?, config?)` | Server-side identify |
+| `serverTrack(event, props?, config?)` | Server-side track (single event) |
+| `serverTrackBatch(events[], config?)` | Batch server-side track |
+| `serverGroup(groupId, traits?, config?)` | Server-side group |
+| `verifyWebhook(body, signature, secret)` | Verify webhook HMAC-SHA256 |
+| `trackMiddlewarePageView(request, config?)` | Track from Next.js middleware |
+
+### Core Client (`@lifecycleos/sdk`)
+
+| Method | Description |
+|--------|-------------|
+| `createClient(config)` | Create a new client instance |
+| `init(config)` | Initialize default singleton |
+| `getClient()` | Get default singleton |
+| `resetClient()` | Reset and shutdown singleton |
+
+### Client Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `apiKey` | `string` | — | **Required.** Your LifecycleOS API key |
+| `apiBaseUrl` | `string` | `'/api/v1'` | API base URL |
+| `environment` | `string` | `'production'` | Environment tag |
+| `flushAt` | `number` | `20` | Batch size before auto-flush |
+| `flushInterval` | `number` | `10000` | Auto-flush interval (ms) |
+| `maxRetries` | `number` | `3` | Max retry attempts on failure |
+| `retryBaseDelay` | `number` | `1000` | Base delay for exponential backoff (ms) |
+| `debug` | `boolean` | `false` | Enable console debug logging |
+| `timeout` | `number` | `10000` | Request timeout (ms) |
+
+---
 
 ## License
 

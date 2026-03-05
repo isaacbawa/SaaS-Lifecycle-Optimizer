@@ -356,32 +356,30 @@ export async function getAllTrackedUsers(orgId: string, options?: {
 }
 
 export async function upsertTrackedUser(orgId: string, data: Omit<TrackedUserInsert, 'organizationId'>) {
+    // Build the conflict-update set dynamically: only include fields
+    // that are explicitly provided (not undefined) so we never
+    // overwrite existing non-null values with NULL.
+    const conflictFields: Array<keyof typeof data> = [
+        'email', 'name', 'accountId', 'lifecycleState', 'previousState',
+        'stateChangedAt', 'mrr', 'plan', 'lastLoginAt', 'loginFrequency7d',
+        'loginFrequency30d', 'featureUsage30d', 'sessionDepthMinutes',
+        'churnRiskScore', 'expansionScore', 'npsScore', 'tags', 'properties',
+        'signupDate', 'activatedDate', 'seatCount', 'seatLimit',
+        'apiCalls30d', 'apiLimit', 'supportTickets30d', 'supportEscalations',
+    ];
+    const conflictSet: Record<string, unknown> = { updatedAt: new Date() };
+    for (const key of conflictFields) {
+        if (data[key] !== undefined) {
+            conflictSet[key] = data[key];
+        }
+    }
+
     const [user] = await db
         .insert(schema.trackedUsers)
         .values({ ...data, organizationId: orgId })
         .onConflictDoUpdate({
             target: [schema.trackedUsers.organizationId, schema.trackedUsers.externalId],
-            set: {
-                email: data.email,
-                name: data.name,
-                accountId: data.accountId,
-                lifecycleState: data.lifecycleState,
-                previousState: data.previousState,
-                stateChangedAt: data.stateChangedAt,
-                mrr: data.mrr,
-                plan: data.plan,
-                lastLoginAt: data.lastLoginAt,
-                loginFrequency7d: data.loginFrequency7d,
-                loginFrequency30d: data.loginFrequency30d,
-                featureUsage30d: data.featureUsage30d,
-                sessionDepthMinutes: data.sessionDepthMinutes,
-                churnRiskScore: data.churnRiskScore,
-                expansionScore: data.expansionScore,
-                npsScore: data.npsScore,
-                tags: data.tags,
-                properties: data.properties,
-                updatedAt: new Date(),
-            },
+            set: conflictSet,
         })
         .returning();
     return user;
@@ -498,6 +496,28 @@ export async function ingestEvents(orgId: string, batch: Omit<EventInsert, 'orga
             ingested: inserted.length,
             duplicates: batch.length - inserted.length,
         };
+    });
+}
+
+/**
+ * Link orphaned events — events that arrived before identify() — to their
+ * tracked user. Updates all events matching the externalUserId where
+ * trackedUserId is still NULL.
+ */
+export async function linkOrphanedEvents(orgId: string, externalUserId: string, trackedUserId: string) {
+    return dbWrite('linkOrphanedEvents', async () => {
+        const result = await db
+            .update(schema.events)
+            .set({ trackedUserId })
+            .where(
+                and(
+                    eq(schema.events.organizationId, orgId),
+                    eq(schema.events.externalUserId, externalUserId),
+                    isNull(schema.events.trackedUserId),
+                ),
+            )
+            .returning({ id: schema.events.id });
+        return { linked: result.length };
     });
 }
 

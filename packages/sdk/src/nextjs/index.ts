@@ -37,9 +37,10 @@ interface ServerConfig {
 
 function getServerConfig(): ServerConfig {
     const apiKey = process.env.LIFECYCLEOS_API_KEY ?? process.env.LIFECYCLEOS_SECRET_KEY ?? '';
-    const apiBaseUrl = process.env.LIFECYCLEOS_API_URL ?? process.env.NEXT_PUBLIC_APP_URL
-        ? `${process.env.NEXT_PUBLIC_APP_URL}/api/v1`
-        : 'http://localhost:3000/api/v1';
+    const apiBaseUrl = process.env.LIFECYCLEOS_API_URL
+        ?? (process.env.NEXT_PUBLIC_APP_URL
+            ? `${process.env.NEXT_PUBLIC_APP_URL}/api/v1`
+            : 'http://localhost:3000/api/v1');
 
     return {
         apiKey,

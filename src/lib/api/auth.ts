@@ -168,7 +168,16 @@ export async function authenticate(
         token = body._token;
       }
     } catch {
-      // body parse failed — fall through to unauthorized
+      // body parse failed — try query param next
+    }
+
+    // Also support ?key= query param (legacy sendBeacon fallback)
+    if (!token) {
+      const url = new URL(request.url);
+      const queryKey = url.searchParams.get('key');
+      if (queryKey && queryKey.length >= 10) {
+        token = queryKey;
+      }
     }
 
     if (!token) {

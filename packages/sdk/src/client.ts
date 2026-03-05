@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════
  * @lifecycleos/sdk — Core Client
  *
- * Production-grade analytics client for Next.js SaaS applications.
+ * Framework-agnostic analytics client for SaaS applications.
+ * Works in any JavaScript runtime: browser, Node.js, edge workers.
  *
  * Features:
  *   • Automatic event batching with configurable flush thresholds
@@ -11,7 +12,13 @@
  *   • Page visibility-aware flushing (flushes on tab hide)
  *   • Debug mode with structured console output
  *   • Idempotency keys on every event
- *   • Server-side safe (no window/document access in core)
+ *   • Server-side safe (no window/document access in core logic)
+ *
+ * Compatible with:
+ *   • Next.js (App Router & Pages Router)
+ *   • React (Remix, Vite+React, Create React App, Gatsby)
+ *   • Plain JavaScript / TypeScript (no framework required)
+ *   • Node.js server-side (Express, Fastify, Hono, etc.)
  *
  * Usage:
  *   import { createClient } from '@lifecycleos/sdk';
@@ -369,11 +376,14 @@ class LifecycleOSClientImpl implements LifecycleOSClient {
                 const payload = JSON.stringify({
                     batch: this.queue,
                     sentAt: new Date().toISOString(),
+                    _beacon: true,
+                    _token: this.config.apiKey,
                 });
                 try {
                     const blob = new Blob([payload], { type: 'application/json' });
-                    // We can't add auth headers to sendBeacon, so include API key in query
-                    navigator.sendBeacon(`${url}?key=${this.config.apiKey}`, blob);
+                    // sendBeacon cannot set headers — _token is embedded in body
+                    // for the server's beacon fallback auth path
+                    navigator.sendBeacon(url, blob);
                     this.queue = [];
                 } catch {
                     // Fallback: try regular flush

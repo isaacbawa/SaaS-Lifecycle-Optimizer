@@ -12,15 +12,32 @@ import { validateIdentify } from '@/lib/api/validation';
 import {
   getTrackedUserByExternalId,
   upsertTrackedUser,
+  updateTrackedUser,
   getTrackedAccountByExternalId,
+  getTrackedAccount,
   addActivityEntry,
+  linkOrphanedEvents,
+  getAllSegments,
+  upsertSegmentMembership,
+  removeSegmentMembership,
+  getAllFlowDefinitions,
+  getUserEnrollments as dbGetUserEnrollments,
+  upsertEnrollment as dbUpsertEnrollment,
+  upsertFlowDefinition as dbUpsertFlowDefinition,
 } from '@/lib/db/operations';
-import { mapTrackedUserToUser, mapTrackedAccountToAccount } from '@/lib/db/mappers';
+import { mapTrackedUserToUser, mapTrackedAccountToAccount, mapFlowDefToUI, mapFlowEnrollToUI } from '@/lib/db/mappers';
 import { classifyLifecycleState } from '@/lib/engine/lifecycle';
 import { scoreChurnRisk } from '@/lib/engine/churn';
 import { detectExpansionSignals, computeExpansionScore } from '@/lib/engine/expansion';
+import { evaluateSegmentFilters } from '@/lib/engine/segmentation';
 import { dispatchWebhooks } from '@/lib/engine/webhooks';
-import type { LifecycleState } from '@/lib/definitions';
+import {
+  matchesTrigger,
+  createEnrollment,
+  processEnrollment,
+  findTriggerNode,
+} from '@/lib/engine/flow';
+import type { LifecycleState, User } from '@/lib/definitions';
 
 export async function POST(request: NextRequest) {
   // ── Auth (identify scope, standard rate tier) ─────────────────
@@ -110,40 +127,171 @@ export async function POST(request: NextRequest) {
   const classification = classifyLifecycleState(user);
   const stateChanged = classification.state !== user.lifecycleState;
 
-  if (stateChanged) {
-    await upsertTrackedUser(orgId, {
-      id: dbUser.id,
-      externalId: userId,
-      name,
-      lifecycleState: classification.state as LifecycleState,
-      previousState: user.lifecycleState as LifecycleState,
-      stateChangedAt: now,
-    });
-    user = { ...user, lifecycleState: classification.state, previousState: user.lifecycleState };
-  }
-
   // ── Score Churn Risk ──────────────────────────────────────────
   const churnResult = scoreChurnRisk(user);
-  await upsertTrackedUser(orgId, {
-    id: dbUser.id,
-    externalId: userId,
-    name,
-    churnRiskScore: churnResult.riskScore,
-  });
 
   // ── Expansion Scan ────────────────────────────────────────────
-  if (traits.accountId) {
-    const dbAccount = await getTrackedAccountByExternalId(orgId, traits.accountId as string);
+  let expansionScore = user.expansionScore ?? 0;
+  if (dbAccountId) {
+    const dbAccount = await getTrackedAccount(orgId, dbAccountId);
     if (dbAccount) {
       const account = mapTrackedAccountToAccount(dbAccount);
       const signals = detectExpansionSignals(user, account);
-      const expansionScore = computeExpansionScore(signals);
-      await upsertTrackedUser(orgId, {
-        id: dbUser.id,
-        externalId: userId,
-        name,
-        expansionScore,
-      });
+      expansionScore = computeExpansionScore(signals);
+    }
+  }
+
+  // ── Apply ALL computed updates in a single call to avoid overwrite ──
+  const computedUpdates: Record<string, unknown> = {
+    churnRiskScore: churnResult.riskScore,
+    expansionScore,
+  };
+  if (stateChanged) {
+    computedUpdates.lifecycleState = classification.state;
+    computedUpdates.previousState = user.lifecycleState;
+    computedUpdates.stateChangedAt = now;
+  }
+  await updateTrackedUser(orgId, dbUser.id, computedUpdates);
+
+  // Refresh user object with all updates applied
+  const refreshedDb = await getTrackedUserByExternalId(orgId, userId);
+  if (refreshedDb) {
+    user = mapTrackedUserToUser(refreshedDb, accountName);
+  } else {
+    user = { ...user, ...(stateChanged ? { lifecycleState: classification.state, previousState: user.lifecycleState } : {}), churnRiskScore: churnResult.riskScore, expansionScore };
+  }
+
+  // ── Link orphaned events (events that arrived before this identify) ──
+  if (isNew) {
+    try {
+      await linkOrphanedEvents(orgId, userId, dbUser.id);
+    } catch {
+      // Non-critical — events still exist, just not linked to user
+    }
+  }
+
+  // ── Segment Evaluation ────────────────────────────────────────
+  let segmentsEntered: string[] = [];
+  let segmentsExited: string[] = [];
+  try {
+    const userRecord = flattenUserForSegment(user);
+    const segments = (await getAllSegments(orgId, 'active')).items;
+    for (const seg of segments) {
+      const filters = (seg.filters ?? []) as import('@/lib/db/schema').SegmentFilter[];
+      if (filters.length === 0) continue;
+      const filterLogic = ((seg as Record<string, unknown>).filterLogic as string) ?? 'AND';
+      const matched = evaluateSegmentFilters(filters, filterLogic, userRecord);
+      if (matched) {
+        await upsertSegmentMembership(seg.id, dbUser.id);
+        segmentsEntered.push(seg.name);
+      } else {
+        await removeSegmentMembership(seg.id, dbUser.id);
+        segmentsExited.push(seg.name);
+      }
+    }
+  } catch (e) {
+    console.error('[identify] Segment evaluation error:', (e as Error).message);
+  }
+
+  // ── Flow Enrollment (lifecycle_change trigger) ────────────────
+  let flowEnrollments = 0;
+  if (stateChanged) {
+    try {
+      const activeFlows = (await getAllFlowDefinitions(orgId, 'active')).items;
+      for (const dbFlow of activeFlows) {
+        const flow = mapFlowDefToUI(dbFlow);
+        const triggerNode = findTriggerNode(flow);
+        if (!triggerNode || !triggerNode.data.triggerConfig) continue;
+
+        // Build lifecycle_change trigger event
+        const triggerEvent = {
+          type: 'lifecycle_change' as const,
+          fromState: user.previousState ?? 'Lead',
+          toState: classification.state,
+          userId: user.id,
+          accountId: user.account?.id,
+        };
+
+        if (!matchesTrigger(triggerNode.data.triggerConfig, triggerEvent)) continue;
+
+        // Check existing enrollments
+        const existingEnrollments = await dbGetUserEnrollments(orgId, dbUser.id);
+        const alreadyEnrolled = existingEnrollments.some(
+          (e) => e.flowId === flow.id && (e.status === 'active' || e.status === 'paused'),
+        );
+        if (alreadyEnrolled) continue;
+
+        const hasCompleted = existingEnrollments.some(
+          (e) => e.flowId === flow.id && (e.status === 'completed' || e.status === 'exited'),
+        );
+        if (hasCompleted) continue;
+
+        // Create enrollment
+        const enrollment = createEnrollment(flow, user.id, user.account?.id, user, {});
+        if (!enrollment) continue;
+
+        await dbUpsertEnrollment({
+          id: enrollment.id,
+          organizationId: orgId,
+          flowId: enrollment.flowId,
+          trackedUserId: dbUser.id,
+          accountId: dbAccountId ?? undefined,
+          flowVersion: enrollment.flowVersion ?? 1,
+          status: enrollment.status,
+          currentNodeId: enrollment.currentNodeId,
+          variables: enrollment.variables,
+          enrolledAt: new Date(enrollment.enrolledAt),
+          lastProcessedAt: enrollment.lastProcessedAt ? new Date(enrollment.lastProcessedAt) : undefined,
+          nextProcessAt: enrollment.nextProcessAt ? new Date(enrollment.nextProcessAt) : undefined,
+          history: enrollment.history,
+        });
+        flowEnrollments++;
+
+        // Process the enrollment
+        const processResult = processEnrollment({ flow, enrollment, user });
+        await dbUpsertEnrollment({
+          id: processResult.enrollment.id,
+          organizationId: orgId,
+          flowId: processResult.enrollment.flowId,
+          trackedUserId: dbUser.id,
+          accountId: dbAccountId ?? undefined,
+          flowVersion: processResult.enrollment.flowVersion ?? 1,
+          status: processResult.enrollment.status,
+          currentNodeId: processResult.enrollment.currentNodeId,
+          variables: processResult.enrollment.variables,
+          enrolledAt: new Date(processResult.enrollment.enrolledAt),
+          lastProcessedAt: processResult.enrollment.lastProcessedAt ? new Date(processResult.enrollment.lastProcessedAt) : undefined,
+          completedAt: processResult.enrollment.completedAt ? new Date(processResult.enrollment.completedAt) : undefined,
+          nextProcessAt: processResult.enrollment.nextProcessAt ? new Date(processResult.enrollment.nextProcessAt) : undefined,
+          history: processResult.enrollment.history,
+        });
+
+        // Update flow metrics
+        const metrics = flow.metrics ?? {
+          totalEnrolled: 0, currentlyActive: 0, completed: 0,
+          goalReached: 0, exitedEarly: 0, errorCount: 0,
+        };
+        metrics.totalEnrolled++;
+        metrics.currentlyActive++;
+        if (processResult.enrollment.status === 'completed') {
+          metrics.currentlyActive = Math.max(0, metrics.currentlyActive - 1);
+          metrics.completed++;
+        }
+        await dbUpsertFlowDefinition(orgId, {
+          id: dbFlow.id, name: dbFlow.name, description: dbFlow.description,
+          status: dbFlow.status, nodes: dbFlow.nodes, edges: dbFlow.edges,
+          variables: dbFlow.variables, settings: dbFlow.settings,
+          metrics: JSON.parse(JSON.stringify(metrics)),
+        });
+
+        void dispatchWebhooks('flow.triggered', {
+          flowId: flow.id, flowName: flow.name,
+          userId: user.id, userName: user.name,
+          enrollmentId: enrollment.id,
+        }, orgId);
+      }
+    } catch (e) {
+      console.error('[identify] Flow enrollment error:', (e as Error).message);
     }
   }
 
@@ -179,10 +327,43 @@ export async function POST(request: NextRequest) {
         score: churnResult.riskScore,
         tier: churnResult.riskTier,
       },
+      segments: {
+        entered: segmentsEntered,
+        exited: segmentsExited,
+      },
+      flows: {
+        enrolled: flowEnrollments,
+      },
     },
     200,
     auth.startTime,
     auth.requestId,
     auth.rateLimit,
   );
+}
+
+/** Flatten user for segment filter evaluation */
+function flattenUserForSegment(user: User): Record<string, unknown> {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    plan: user.plan,
+    lifecycleState: user.lifecycleState,
+    mrr: user.mrr ?? 0,
+    churnRiskScore: user.churnRiskScore ?? 0,
+    expansionScore: user.expansionScore ?? 0,
+    loginFrequency7d: user.loginFrequencyLast7Days,
+    loginFrequency30d: user.loginFrequencyLast30Days,
+    sessionDepthMinutes: user.sessionDepthMinutes,
+    npsScore: user.npsScore,
+    seatCount: user.seatCount,
+    seatLimit: user.seatLimit,
+    apiCalls30d: user.apiCallsLast30Days,
+    apiLimit: user.apiLimit,
+    supportTickets30d: user.supportTicketsLast30Days,
+    supportEscalations: user.supportEscalations,
+    daysUntilRenewal: user.daysUntilRenewal,
+    accountId: user.account?.id,
+  };
 }

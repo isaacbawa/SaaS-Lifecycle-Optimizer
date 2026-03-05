@@ -26,6 +26,7 @@ import {
     getTrackedUserByExternalId,
     getTrackedUser,
     updateTrackedUser,
+    upsertTrackedUser,
     getTrackedAccount,
     getTrackedAccountByExternalId,
     getAllFlowDefinitions,
@@ -40,6 +41,8 @@ import {
     getAllSegments,
     upsertSegmentMembership,
     removeSegmentMembership,
+    getEvents as dbGetEvents,
+    linkOrphanedEvents,
 } from '@/lib/db/operations';
 import {
     mapTrackedUserToUser,
@@ -223,25 +226,78 @@ async function processEventInner(
     const loaded = await loadUser(orgId, event.userId);
     if (!loaded) {
         // Event references a user we haven't seen via identify() yet.
-        try {
-            void dispatchWebhooks('event.tracked', {
-                event: event.event,
-                userId: event.userId,
-                accountId: event.accountId,
-                properties: event.properties,
-                timestamp: event.timestamp,
-            }, orgId);
-            result.webhooks.eventsDispatched = 1;
-        } catch (e) {
-            errors.push(`webhook_dispatch: ${(e as Error).message}`);
+        // Auto-create the user so events are never silently dropped.
+        // This ensures tracking works even if SDK calls track() before identify().
+        const autoCreated = await autoCreateUserFromEvent(orgId, event.userId, event);
+        if (!autoCreated) {
+            // Truly could not create — dispatch webhook and bail
+            try {
+                void dispatchWebhooks('event.tracked', {
+                    event: event.event,
+                    userId: event.userId,
+                    accountId: event.accountId,
+                    properties: event.properties,
+                    timestamp: event.timestamp,
+                }, orgId);
+                result.webhooks.eventsDispatched = 1;
+            } catch (e) {
+                errors.push(`webhook_dispatch: ${(e as Error).message}`);
+            }
+            result.processingTimeMs = Date.now() - start;
+            return result;
         }
-        result.processingTimeMs = Date.now() - start;
-        return result;
+
+        // Continue processing with the auto-created user
+        // (the full pipeline below will run lifecycle, churn, etc.)
+        const { user: autoUser, internalId: autoId, accountInternalId: autoAccountId } = autoCreated;
+        return processEventInnerWithUser(event, orgId, result, errors, now, start, autoUser, autoId, autoAccountId);
     }
 
     const { user, internalId, accountInternalId } = loaded;
+    return processEventInnerWithUser(event, orgId, result, errors, now, start, user, internalId, accountInternalId);
+}
 
-    /* â”€â”€ Stage 1: Lifecycle Reclassification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/** Full pipeline processing for a resolved user (Stages 0-9) */
+async function processEventInnerWithUser(
+    event: StoredEvent,
+    orgId: string,
+    result: PipelineResult,
+    errors: string[],
+    now: string,
+    start: number,
+    user: User,
+    internalId: string,
+    accountInternalId: string | null,
+): Promise<PipelineResult> {
+    /* ── Stage 0: Update Behavioral Metrics from Event Data ──────── */
+    /*
+     * THIS IS THE HEART OF THE TRACKING SYSTEM.
+     * When events arrive, we must update the user's behavioral metrics
+     * so the lifecycle engine, churn scoring, and expansion detection
+     * operate on accurate, real-time data — not stale initial values.
+     *
+     * Supported event types:
+     *   signup             → set signupDate
+     *   login/session_start → update lastLoginAt, increment login frequencies
+     *   session_end        → update sessionDepthMinutes
+     *   feature_used       → append to featureUsage30d
+     *   page/page_viewed   → update lastLoginAt (activity proxy)
+     *   plan_changed etc   → update plan, mrr
+     *   nps_submitted      → update npsScore
+     *   support_ticket     → increment supportTickets30d
+     *   api_call           → increment apiCalls30d
+     *   seat_added/removed → update seatCount
+     */
+    try {
+        const metricUpdates = computeBehavioralMetricUpdates(event, user);
+        if (Object.keys(metricUpdates).length > 0) {
+            await updateTrackedUser(orgId, internalId, metricUpdates);
+        }
+    } catch (e) {
+        errors.push(`behavioral_metrics: ${(e as Error).message}`);
+    }
+
+
     try {
         const transition = detectStateTransition(user);
         result.lifecycle = {
@@ -745,6 +801,263 @@ function buildTriggerEvent(
 }
 
 /* â”€â”€ Helper: Flatten User for Segment Evaluation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+/* ── Helper: Compute Behavioral Metric Updates ────────────────────── */
+
+/**
+ * Analyze an incoming event and return the set of tracked user field
+ * updates that should be applied BEFORE lifecycle reclassification.
+ *
+ * This is critical: without these updates, the lifecycle engine reads
+ * stale data and cannot accurately classify users.  Every behavioral
+ * event type has specific metric side-effects defined here.
+ *
+ * The returned object only contains keys that need updating — callers
+ * should merge it into a partial update (no full upsert).
+ */
+function computeBehavioralMetricUpdates(
+    event: StoredEvent,
+    user: User,
+): Record<string, unknown> {
+    const updates: Record<string, unknown> = {};
+    const eventName = event.event.toLowerCase().replace(/^\$/, '');
+    const props = (event.properties ?? {}) as Record<string, unknown>;
+    const now = new Date();
+
+    // ── Helper: normalize event name variants ────────────────────
+    const isOneOf = (...names: string[]) => names.some(n => eventName === n || eventName === n.replace(/_/g, ''));
+
+    // ── Signup Events ────────────────────────────────────────────
+    if (isOneOf('signup', 'signed_up', 'user_created', 'registration_completed', 'account_created')) {
+        if (!user.signupDate) {
+            updates.signupDate = event.timestamp ? new Date(event.timestamp) : now;
+        }
+        // Also treat as a login
+        updates.lastLoginAt = now;
+        updates.loginFrequency7d = (user.loginFrequencyLast7Days ?? 0) + 1;
+        updates.loginFrequency30d = (user.loginFrequencyLast30Days ?? 0) + 1;
+    }
+
+    // ── Login / Session Start Events ─────────────────────────────
+    else if (isOneOf('login', 'logged_in', 'session_start', 'session_started', 'signed_in', 'auth_success')) {
+        updates.lastLoginAt = now;
+        updates.loginFrequency7d = (user.loginFrequencyLast7Days ?? 0) + 1;
+        updates.loginFrequency30d = (user.loginFrequencyLast30Days ?? 0) + 1;
+    }
+
+    // ── Session End / Duration Events ────────────────────────────
+    else if (isOneOf('session_end', 'session_ended', 'session', 'session_complete')) {
+        const duration = typeof props.duration === 'number'
+            ? props.duration
+            : typeof props.durationMinutes === 'number'
+                ? props.durationMinutes
+                : typeof props.duration_minutes === 'number'
+                    ? props.duration_minutes
+                    : typeof props.durationMs === 'number'
+                        ? props.durationMs / 60_000
+                        : typeof props.duration_ms === 'number'
+                            ? props.duration_ms / 60_000
+                            : typeof props.sessionLength === 'number'
+                                ? props.sessionLength
+                                : null;
+
+        if (duration !== null && duration > 0) {
+            // Rolling average: approximate by weighting current value 70% and new 30%
+            const current = user.sessionDepthMinutes ?? 0;
+            const updated = current === 0
+                ? Math.round(duration * 100) / 100
+                : Math.round((current * 0.7 + duration * 0.3) * 100) / 100;
+            updates.sessionDepthMinutes = updated;
+        }
+    }
+
+    // ── Feature Usage Events ─────────────────────────────────────
+    else if (isOneOf('feature_used', 'feature_activated', 'feature_accessed')) {
+        const featureName = (props.feature ?? props.featureName ?? props.feature_name ?? props.name) as string | undefined;
+        if (featureName && typeof featureName === 'string') {
+            const existingFeatures = (user.featureUsageLast30Days ?? []) as string[];
+            if (!existingFeatures.includes(featureName)) {
+                updates.featureUsage30d = [...existingFeatures, featureName];
+            }
+        }
+        // Feature usage implies activity
+        updates.lastLoginAt = now;
+    }
+
+    // ── Page View Events ─────────────────────────────────────────
+    else if (isOneOf('page', 'page_viewed', 'pageview', 'page_view', 'screen_viewed')) {
+        // Page views are implicit activity signals
+        updates.lastLoginAt = now;
+    }
+
+    // ── Subscription / Plan Change Events ────────────────────────
+    else if (isOneOf(
+        'subscription_upgraded', 'subscription_downgraded', 'subscription_changed',
+        'plan_changed', 'plan_upgraded', 'plan_downgraded',
+        'subscription_created', 'subscription_started',
+    )) {
+        if (props.plan || props.newPlan || props.toPlan || props.new_plan) {
+            updates.plan = (props.plan ?? props.newPlan ?? props.toPlan ?? props.new_plan) as string;
+        }
+        if (typeof props.mrr === 'number') {
+            updates.mrr = props.mrr;
+        } else if (typeof props.newMrr === 'number') {
+            updates.mrr = props.newMrr;
+        } else if (typeof props.new_mrr === 'number') {
+            updates.mrr = props.new_mrr;
+        } else if (typeof props.amount === 'number') {
+            updates.mrr = props.amount;
+        }
+    }
+
+    // ── Subscription Cancelled ───────────────────────────────────
+    else if (isOneOf('subscription_cancelled', 'subscription_canceled', 'churned', 'cancelled')) {
+        updates.mrr = 0;
+        if (props.plan || props.previousPlan) {
+            // Keep the plan reference for historical context
+        }
+    }
+
+    // ── NPS Events ───────────────────────────────────────────────
+    else if (isOneOf('nps_submitted', 'nps_response', 'nps_scored', 'survey_completed')) {
+        const score = typeof props.score === 'number'
+            ? props.score
+            : typeof props.npsScore === 'number'
+                ? props.npsScore
+                : typeof props.nps_score === 'number'
+                    ? props.nps_score
+                    : typeof props.rating === 'number'
+                        ? props.rating
+                        : null;
+        if (score !== null && score >= 0 && score <= 10) {
+            updates.npsScore = Math.round(score);
+        }
+    }
+
+    // ── Support Ticket Events ────────────────────────────────────
+    else if (isOneOf('support_ticket_created', 'ticket_created', 'support_request', 'help_requested')) {
+        updates.supportTickets30d = (user.supportTicketsLast30Days ?? 0) + 1;
+    }
+
+    // ── Support Escalation Events ────────────────────────────────
+    else if (isOneOf('support_escalated', 'ticket_escalated', 'escalation_created')) {
+        updates.supportEscalations = (user.supportEscalations ?? 0) + 1;
+        updates.supportTickets30d = (user.supportTicketsLast30Days ?? 0) + 1;
+    }
+
+    // ── API Usage Events ─────────────────────────────────────────
+    else if (isOneOf('api_call', 'api_request', 'api_used', 'api_hit')) {
+        const callCount = typeof props.count === 'number' ? props.count : 1;
+        updates.apiCalls30d = (user.apiCallsLast30Days ?? 0) + callCount;
+    }
+
+    // ── Seat Management Events ───────────────────────────────────
+    else if (isOneOf('seat_added', 'user_added', 'member_added', 'invite_accepted')) {
+        updates.seatCount = (user.seatCount ?? 1) + 1;
+    } else if (isOneOf('seat_removed', 'user_removed', 'member_removed')) {
+        updates.seatCount = Math.max(1, (user.seatCount ?? 1) - 1);
+    }
+
+    // ── Activation Check ─────────────────────────────────────────
+    // If metrics now meet activation criteria, set activatedDate
+    if (!user.activatedDate) {
+        const featureCount = updates.featureUsage30d
+            ? (updates.featureUsage30d as string[]).length
+            : (user.featureUsageLast30Days ?? []).length;
+        const sessionDepth = typeof updates.sessionDepthMinutes === 'number'
+            ? updates.sessionDepthMinutes
+            : (user.sessionDepthMinutes ?? 0);
+
+        if (featureCount >= 3 && sessionDepth >= 10) {
+            updates.activatedDate = now;
+        }
+    }
+
+    return updates;
+}
+
+/**
+ * Auto-create a tracked user when events arrive for an externalId
+ * that has not yet been identify()'d.  This ensures no events are
+ * silently dropped — the user is created in "Lead" state with
+ * whatever information we can extract from the event properties.
+ */
+async function autoCreateUserFromEvent(
+    orgId: string,
+    externalUserId: string,
+    event: StoredEvent,
+): Promise<{
+    user: User;
+    internalId: string;
+    accountInternalId: string | null;
+} | null> {
+    const props = (event.properties ?? {}) as Record<string, unknown>;
+    const now = new Date();
+
+    // Try to resolve account if provided
+    let dbAccountId: string | undefined;
+    const extAccountId = (props.accountId ?? event.accountId) as string | undefined;
+    if (extAccountId) {
+        const dbAccount = await getTrackedAccountByExternalId(orgId, extAccountId);
+        if (dbAccount) {
+            dbAccountId = dbAccount.id;
+        }
+    }
+
+    const isSignup = ['signup', 'signed_up', 'user_created', 'registration_completed', 'account_created']
+        .includes(event.event.toLowerCase().replace(/^\$/, ''));
+
+    const dbUser = await upsertTrackedUser(orgId, {
+        externalId: externalUserId,
+        email: (props.email as string) || undefined,
+        name: (props.name as string) || (props.userName as string) || (props.user_name as string) || 'Unknown User',
+        accountId: dbAccountId,
+        lifecycleState: 'Lead' as const,
+        mrr: 0,
+        plan: (props.plan as string) || 'Trial',
+        signupDate: isSignup ? now : undefined,
+        lastLoginAt: now,
+        loginFrequency7d: 1,
+        loginFrequency30d: 1,
+        featureUsage30d: [],
+        sessionDepthMinutes: 0,
+        churnRiskScore: 15,
+        expansionScore: 0,
+        seatCount: 1,
+        seatLimit: typeof props.seatLimit === 'number' ? props.seatLimit : 3,
+        apiCalls30d: 0,
+        apiLimit: typeof props.apiLimit === 'number' ? props.apiLimit : 500,
+    });
+
+    // Link any orphaned events for this externalId
+    try {
+        await linkOrphanedEvents(orgId, externalUserId, dbUser.id);
+    } catch {
+        // Non-critical — events still exist, just not linked
+    }
+
+    // Log the auto-creation
+    await addActivityEntry(orgId, {
+        type: 'account_event',
+        title: 'User Auto-Created from Event',
+        description: `User ${externalUserId} auto-created from "${event.event}" event`,
+        trackedUserId: dbUser.id,
+        accountId: dbAccountId,
+    });
+
+    // Resolve account name
+    let accountName: string | undefined;
+    if (dbUser.accountId) {
+        const dbAccount = await getTrackedAccount(orgId, dbUser.accountId);
+        accountName = dbAccount?.name ?? undefined;
+    }
+
+    return {
+        user: mapTrackedUserToUser(dbUser, accountName),
+        internalId: dbUser.id,
+        accountInternalId: dbUser.accountId,
+    };
+}
 
 function flattenUserForSegment(user: User): Record<string, unknown> {
     return {
