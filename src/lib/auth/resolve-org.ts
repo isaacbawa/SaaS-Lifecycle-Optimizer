@@ -4,12 +4,13 @@
  * Provides a single entry-point to resolve the internal org UUID from:
  *   1. Clerk session (dashboard server components) — always tried first
  *   2. Auto-provisioned org for authenticated users with no org
- *   3. DEMO_ORG_ID env override (development only, never in production)
+ *   3. Just-in-time user + org provisioning when webhook hasn't fired yet
+ *   4. DEMO_ORG_ID env override (development only, never in production)
  *
  * Every data access MUST go through this to ensure tenant isolation.
  * ========================================================================== */
 
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -20,8 +21,10 @@ import { eq } from 'drizzle-orm';
  * Priority:
  *   1. Clerk session → org table lookup (via Clerk orgId)
  *   2. Clerk session → user table lookup (via Clerk userId → organizationId)
- *   3. Auto-provision: create a personal org for authenticated users with none
- *   4. DEMO_ORG_ID env var (development only)
+ *   3. Auto-provision org for DB users that have no org yet
+ *   4. Just-in-time: create DB user + org when Clerk user has no DB row
+ *      (handles webhook delays / missing webhook config)
+ *   5. DEMO_ORG_ID env var (development only)
  *
  * Throws if no organization can be resolved.
  */
@@ -51,11 +54,18 @@ export async function resolveOrgId(): Promise<string> {
                 .limit(1);
             if (user?.orgId) return user.orgId;
 
-            // 1c. Auto-provision: authenticated user exists but has no org.
-            //     Create a personal organization so they start with clean data.
+            // 1c. Auto-provision: authenticated user exists in DB but has no org.
             if (user) {
                 const newOrg = await autoProvisionOrg(clerkUserId);
                 if (newOrg) return newOrg;
+            }
+
+            // 1d. Just-in-time provisioning: Clerk user is authenticated but
+            //     has NO row in our DB (webhook hasn't fired or failed).
+            //     Create the user row + personal org so the app works immediately.
+            if (!user) {
+                const orgId = await justInTimeProvision(clerkUserId);
+                if (orgId) return orgId;
             }
         }
     } catch {
@@ -105,6 +115,73 @@ async function autoProvisionOrg(clerkUserId: string): Promise<string | null> {
         }
     } catch (err) {
         console.error('[resolveOrgId] Auto-provision failed:', err);
+    }
+    return null;
+}
+
+/**
+ * Just-in-time provisioning for authenticated Clerk users with no DB row.
+ *
+ * This handles the common production scenario where:
+ *  - The Clerk webhook for `user.created` hasn't fired yet (delay / race)
+ *  - The webhook endpoint isn't configured in the Clerk production instance
+ *  - The webhook secret is missing or misconfigured
+ *
+ * Creates the user row + personal organization in a single transaction
+ * so the app works immediately without depending on webhook delivery.
+ */
+async function justInTimeProvision(clerkUserId: string): Promise<string | null> {
+    try {
+        // Fetch profile data from Clerk so the DB row is complete
+        const clerkUser = await currentUser();
+        if (!clerkUser) return null;
+
+        const email = clerkUser.emailAddresses?.[0]?.emailAddress ?? 'unknown@unknown.com';
+        const personalClerkOrgId = `personal_${clerkUserId}`;
+
+        // Create personal organization
+        const [newOrg] = await db
+            .insert(schema.organizations)
+            .values({
+                clerkOrgId: personalClerkOrgId,
+                name: 'My Organization',
+                slug: `personal-${clerkUserId.slice(-8)}`,
+            })
+            .onConflictDoUpdate({
+                target: schema.organizations.clerkOrgId,
+                set: { updatedAt: new Date() },
+            })
+            .returning({ id: schema.organizations.id });
+
+        if (!newOrg) return null;
+
+        // Create user row linked to the new org
+        await db
+            .insert(schema.users)
+            .values({
+                clerkUserId,
+                email,
+                firstName: clerkUser.firstName,
+                lastName: clerkUser.lastName,
+                imageUrl: clerkUser.imageUrl,
+                organizationId: newOrg.id,
+                role: 'owner',
+            })
+            .onConflictDoUpdate({
+                target: schema.users.clerkUserId,
+                set: {
+                    email,
+                    firstName: clerkUser.firstName,
+                    lastName: clerkUser.lastName,
+                    imageUrl: clerkUser.imageUrl,
+                    organizationId: newOrg.id,
+                    updatedAt: new Date(),
+                },
+            });
+
+        return newOrg.id;
+    } catch (err) {
+        console.error('[resolveOrgId] Just-in-time provisioning failed:', err);
     }
     return null;
 }
