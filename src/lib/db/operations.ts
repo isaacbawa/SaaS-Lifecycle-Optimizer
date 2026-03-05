@@ -1477,3 +1477,78 @@ export async function getIntegrationCapabilities(orgId: string): Promise<{ capab
     }
     return { capabilities: [...capabilities], connectedCategories: [...categories] };
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * User Preferences — DB-backed per-user settings
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/** Get a single preference by key for a user (by internal user ID) */
+export async function getUserPreference(userId: string, key: string) {
+    return dbRead(`getUserPreference:${key}`, async () => {
+        const [row] = await db
+            .select({ value: schema.userPreferences.value })
+            .from(schema.userPreferences)
+            .where(and(
+                eq(schema.userPreferences.userId, userId),
+                eq(schema.userPreferences.key, key),
+            ))
+            .limit(1);
+        return row?.value ?? null;
+    }, null);
+}
+
+/** Get all preferences for a user */
+export async function getAllUserPreferences(userId: string) {
+    return dbRead('getAllUserPreferences', async () => {
+        const rows = await db
+            .select({ key: schema.userPreferences.key, value: schema.userPreferences.value })
+            .from(schema.userPreferences)
+            .where(eq(schema.userPreferences.userId, userId));
+        const prefs: Record<string, Record<string, unknown>> = {};
+        for (const row of rows) {
+            prefs[row.key] = row.value;
+        }
+        return prefs;
+    }, {});
+}
+
+/** Upsert a preference — create or update by (userId, key) */
+export async function setUserPreference(userId: string, key: string, value: Record<string, unknown>) {
+    return dbWrite('setUserPreference', async () => {
+        const [row] = await db
+            .insert(schema.userPreferences)
+            .values({ userId, key, value })
+            .onConflictDoUpdate({
+                target: [schema.userPreferences.userId, schema.userPreferences.key],
+                set: { value, updatedAt: new Date() },
+            })
+            .returning();
+        return row;
+    });
+}
+
+/** Delete a preference */
+export async function deleteUserPreference(userId: string, key: string) {
+    return dbWrite('deleteUserPreference', async () => {
+        const result = await db
+            .delete(schema.userPreferences)
+            .where(and(
+                eq(schema.userPreferences.userId, userId),
+                eq(schema.userPreferences.key, key),
+            ))
+            .returning({ id: schema.userPreferences.id });
+        return result.length > 0;
+    });
+}
+
+/** Resolve internal user ID from Clerk user ID */
+export async function getInternalUserId(clerkUserId: string): Promise<string | null> {
+    return dbRead('getInternalUserId', async () => {
+        const [row] = await db
+            .select({ id: schema.users.id })
+            .from(schema.users)
+            .where(eq(schema.users.clerkUserId, clerkUserId))
+            .limit(1);
+        return row?.id ?? null;
+    }, null);
+}

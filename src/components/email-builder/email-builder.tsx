@@ -16,7 +16,7 @@
  *  - Save to server (POST /api/v1/email-templates)
  *  - Load from server (via templateId prop)
  *  - HTML export / download
- *  - localStorage auto-save
+ *  - Server-side auto-save draft via preferences API
  *  - Global styles (background, fonts, width, border radius)
  *  - Context-aware: works standalone, in campaigns, or in flows
  * ========================================================================== */
@@ -98,9 +98,9 @@ const PALETTE_CATEGORIES: { label: string; types: BlockType[] }[] = [
   { label: 'Compliance', types: ['social', 'footer'] },
 ];
 
-/* ── Local storage key ───────────────────────────────────────────────── */
+/* ── Draft persistence key (preferences API) ─────────────────────────── */
 
-const STORAGE_KEY = 'lifecycleos_email_builder';
+const DRAFT_PREF_KEY = 'email_builder_draft';
 
 /* ── Variable Inserter (reusable in Code mode + Subject bar) ─────────── */
 
@@ -388,9 +388,9 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
   /* ── Load template from server ─────────────────── */
   useEffect(() => {
     if (!templateId) {
-      // Show template picker on first mount if no existing template
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (!saved) setShowTemplateDialog(true);
+      // Show template picker on first mount if no draft loaded yet
+      // (draft loading effect will hide it if a draft exists)
+      setShowTemplateDialog(true);
       return;
     }
     let cancelled = false;
@@ -434,39 +434,47 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
     setSelectedBlockId(null);
   }, [editorMode, blocks, globalStyles, subject, preheader]);
 
-  /* ── Auto-save to localStorage ─────────────────── */
+  /* ── Auto-save draft to server ───────────────────── */
   useEffect(() => {
     const timer = setTimeout(() => {
       if (blocks.length > 0 || codeHtml) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          blocks, subject, preheader, templateName, globalStyles, codeHtml,
-          serverTemplateId,
-        }));
+        fetch('/api/v1/preferences', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            key: DRAFT_PREF_KEY,
+            value: { blocks, subject, preheader, templateName, globalStyles, codeHtml, serverTemplateId },
+          }),
+        }).catch(() => { /* non-critical */ });
       }
-    }, 1000);
+    }, 1500);
     return () => clearTimeout(timer);
   }, [blocks, subject, preheader, templateName, globalStyles, codeHtml, serverTemplateId]);
 
-  /* ── Load saved state on mount (only if not loading from server) ── */
+  /* ── Load saved draft from server (only if not loading a template) ── */
   useEffect(() => {
-    if (templateId) return; // Skip localStorage if loading from server
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.blocks?.length > 0 || parsed.codeHtml) {
-          setBlocks(parsed.blocks ?? []);
-          setSubject(parsed.subject ?? '');
-          setPreheader(parsed.preheader ?? '');
-          setTemplateName(parsed.templateName ?? 'Untitled Email');
-          setGlobalStyles(parsed.globalStyles ?? { ...DEFAULT_GLOBAL_STYLES });
-          if (parsed.codeHtml) setCodeHtml(parsed.codeHtml);
-          if (parsed.serverTemplateId) setServerTemplateId(parsed.serverTemplateId);
-          setHistory([parsed.blocks ?? []]);
-          if (parsed.blocks?.length > 0) setShowTemplateDialog(false);
+    if (templateId) return; // Skip draft if loading from server template
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/v1/preferences');
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        const draft = json.data?.[DRAFT_PREF_KEY];
+        if (draft && (draft.blocks?.length > 0 || draft.codeHtml)) {
+          setBlocks(draft.blocks ?? []);
+          setSubject(draft.subject ?? '');
+          setPreheader(draft.preheader ?? '');
+          setTemplateName(draft.templateName ?? 'Untitled Email');
+          setGlobalStyles(draft.globalStyles ?? { ...DEFAULT_GLOBAL_STYLES });
+          if (draft.codeHtml) setCodeHtml(draft.codeHtml);
+          if (draft.serverTemplateId) setServerTemplateId(draft.serverTemplateId);
+          setHistory([draft.blocks ?? []]);
+          if (draft.blocks?.length > 0) setShowTemplateDialog(false);
         }
-      }
-    } catch { /* ignore */ }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
   }, [templateId]);
 
   /* ── Save to server ────────────────────────────── */
@@ -956,7 +964,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                             size="sm"
                             className="w-full text-xs"
                             onClick={() => {
-                              localStorage.removeItem(STORAGE_KEY);
+                              fetch('/api/v1/preferences?key=email_builder_draft', { method: 'DELETE' }).catch(() => {});
                               setBlocks([]);
                               setSubject('');
                               setPreheader('');

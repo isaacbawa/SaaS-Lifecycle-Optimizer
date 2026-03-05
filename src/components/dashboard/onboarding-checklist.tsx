@@ -54,17 +54,6 @@ interface OnboardingStatus {
     allDone: boolean;
 }
 
-const SESSION_DISMISS_KEY_PREFIX = 'lcos_onboarding_dismissed_session_v2';
-const DONE_DISMISS_KEY_PREFIX = 'lcos_onboarding_completed_dismissed_v2';
-
-function getSessionDismissKey(userId?: string) {
-    return `${SESSION_DISMISS_KEY_PREFIX}:${userId ?? 'anonymous'}`;
-}
-
-function getDoneDismissKey(userId?: string) {
-    return `${DONE_DISMISS_KEY_PREFIX}:${userId ?? 'anonymous'}`;
-}
-
 /* ── Step Metadata ───────────────────────────────────────────────────── */
 
 const stepMeta: Record<string, {
@@ -165,9 +154,8 @@ export function OnboardingChecklist() {
     const [activeStep, setActiveStep] = useState<string | null>(null);
     const [showCompletion, setShowCompletion] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-
-    const sessionDismissKey = getSessionDismissKey(user?.id);
-    const doneDismissKey = getDoneDismissKey(user?.id);
+    // Session-only dismiss (tab-scoped, doesn't need DB persistence)
+    const sessionDismissedRef = useRef(false);
 
     const fetchStatus = useCallback(async () => {
         try {
@@ -192,6 +180,19 @@ export function OnboardingChecklist() {
         if (!isLoaded) return;
 
         (async () => {
+            // Load dismiss preference from DB
+            let prefDismissed = false;
+            try {
+                const prefRes = await fetch('/api/v1/preferences');
+                if (prefRes.ok) {
+                    const prefJson = await prefRes.json();
+                    const dismissPref = prefJson.data?.onboarding_dismiss;
+                    if (dismissPref?.permanentlyDismissed) {
+                        prefDismissed = true;
+                    }
+                }
+            } catch { /* non-critical */ }
+
             const data = await fetchStatus();
             if (!data) {
                 setLoading(false);
@@ -200,17 +201,15 @@ export function OnboardingChecklist() {
 
             try {
                 if (data.allDone) {
-                    const alreadyDismissedDone = localStorage.getItem(doneDismissKey) === 'true';
-                    if (alreadyDismissedDone) {
+                    if (prefDismissed) {
                         setDismissed(true);
                     } else {
                         setShowCompletion(true);
                         setDismissed(false);
                     }
                 } else {
-                    const sessionDismissed = sessionStorage.getItem(sessionDismissKey) === 'true';
-                    setDismissed(sessionDismissed);
-                    localStorage.removeItem(doneDismissKey);
+                    // Session-only dismiss for incomplete onboarding (tab-scoped)
+                    setDismissed(sessionDismissedRef.current);
                 }
             } catch {
                 setDismissed(false);
@@ -218,18 +217,25 @@ export function OnboardingChecklist() {
                 setLoading(false);
             }
         })();
-    }, [fetchStatus, isLoaded, doneDismissKey, sessionDismissKey]);
+    }, [fetchStatus, isLoaded]);
 
     const handleDismiss = useCallback(() => {
         setDismissed(true);
-        try {
-            if (status?.allDone) {
-                localStorage.setItem(doneDismissKey, 'true');
-            } else {
-                sessionStorage.setItem(sessionDismissKey, 'true');
-            }
-        } catch { /* noop */ }
-    }, [status?.allDone, doneDismissKey, sessionDismissKey]);
+        if (status?.allDone) {
+            // Permanently dismiss — save to DB
+            fetch('/api/v1/preferences', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    key: 'onboarding_dismiss',
+                    value: { dismissed: true, permanentlyDismissed: true },
+                }),
+            }).catch(() => { /* non-critical */ });
+        } else {
+            // Session-only dismiss (just for this tab)
+            sessionDismissedRef.current = true;
+        }
+    }, [status?.allDone]);
 
     useEffect(() => {
         if (!status?.allDone || dismissed) return;

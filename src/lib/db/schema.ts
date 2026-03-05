@@ -1135,6 +1135,27 @@ export const rateLimitBuckets = pgTable('rate_limit_buckets', {
  * Defines which flow node types/actions require which integration capabilities.
  * Used by the flow builder to show warnings when a required integration is missing.
  */
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * User Preferences (DB-backed, replaces browser-only localStorage)
+ *
+ * Stores per-user settings: notification preferences, alert rules,
+ * timezone, onboarding dismiss state, and email builder auto-save drafts.
+ * Keyed by (user_id, key) for flexible, schemaless storage via JSONB.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+export const userPreferences = pgTable('user_preferences', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    key: varchar('key', { length: 255 }).notNull(),
+    value: jsonb('value').$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    uniqueIndex('user_pref_unique_idx').on(t.userId, t.key),
+    index('user_pref_user_idx').on(t.userId),
+]);
+
 export const INTEGRATION_CAPABILITY_MAP: Record<string, { capability: string; category: string; description: string }> = {
     /* Trigger requirements */
     'trigger:lifecycle_change': { capability: 'user_tracking', category: 'sdk', description: 'SDK must be installed to track lifecycle state changes' },

@@ -84,9 +84,19 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
   // Webhooks
   const [newWebhookUrl, setNewWebhookUrl] = useState('');
 
-  // Notifications (local only)
+  // Notifications — DB-backed via /api/v1/preferences
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [slackNotifications, setSlackNotifications] = useState(false);
+  const [timezone, setTimezone] = useState('america-new-york');
+  const [alertRules, setAlertRules] = useState<Record<string, boolean>>({
+    'Churn Risk Alert': true,
+    'Expansion Signal': true,
+    'Deliverability Drop': true,
+    'Revenue Milestone': false,
+    'Activation Stall': true,
+  });
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [prefsSaving, setPrefsSaving] = useState(false);
 
   const apiKey = 'lcos_live_a1b2c3d4e5f6g7h8i9j0';
 
@@ -118,6 +128,42 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
   }, [apiKeysList.length, webhooks.length]);
 
   useEffect(() => { fetchConnectionStatus(); }, [fetchConnectionStatus]);
+
+  /* ── Load Preferences from DB ──────────────────── */
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/v1/preferences');
+        if (!res.ok) return;
+        const json = await res.json();
+        const data = json.data ?? {};
+        if (data.notifications) {
+          setEmailNotifications(data.notifications.emailNotifications ?? true);
+          setSlackNotifications(data.notifications.slackNotifications ?? false);
+        }
+        if (data.timezone) {
+          setTimezone(data.timezone.timezone ?? 'america-new-york');
+        }
+        if (data.alert_rules) {
+          setAlertRules(prev => ({ ...prev, ...(data.alert_rules.rules ?? {}) }));
+        }
+      } catch { /* non-critical */ }
+      finally { setPrefsLoaded(true); }
+    })();
+  }, []);
+
+  /* ── Save a preference to DB ───────────────────── */
+  const savePref = useCallback(async (key: string, value: Record<string, unknown>) => {
+    setPrefsSaving(true);
+    try {
+      await fetch('/api/v1/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      });
+    } catch { /* non-critical */ }
+    finally { setPrefsSaving(false); }
+  }, []);
 
   /* ── Profile Save ──────────────────────────────── */
   const saveProfile = async () => {
@@ -249,7 +295,7 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Timezone</Label>
-                  <Select defaultValue="america-new-york">
+                  <Select value={timezone} onValueChange={(v) => { setTimezone(v); savePref('timezone', { timezone: v }); }}>
                     <SelectTrigger id="timezone">
                       <SelectValue placeholder="Select timezone" />
                     </SelectTrigger>
@@ -526,9 +572,13 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CardTitle>Notification Preferences</CardTitle>
-                <Badge variant="outline" className="text-xs">Saved locally</Badge>
+                {prefsSaving ? (
+                  <Badge variant="outline" className="text-xs"><Loader2 className="h-3 w-3 mr-1 animate-spin inline" />Saving…</Badge>
+                ) : prefsLoaded ? (
+                  <Badge variant="outline" className="text-xs text-green-700 border-green-200 bg-green-50"><CheckCircle2 className="h-3 w-3 mr-1 inline" />Synced</Badge>
+                ) : null}
               </div>
-              <CardDescription>Control how and when you receive alerts. Preferences are currently saved in your browser only.</CardDescription>
+              <CardDescription>Control how and when you receive alerts. Preferences are saved to your account and sync across devices.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
@@ -537,7 +587,10 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
                     <p className="font-medium">Email Notifications</p>
                     <p className="text-sm text-muted-foreground">Receive alerts via email for critical events</p>
                   </div>
-                  <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
+                  <Switch checked={emailNotifications} onCheckedChange={(v) => {
+                    setEmailNotifications(v);
+                    savePref('notifications', { emailNotifications: v, slackNotifications });
+                  }} />
                 </div>
 
                 <div className="flex items-center justify-between rounded-lg border p-4">
@@ -545,7 +598,10 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
                     <p className="font-medium">Slack Integration</p>
                     <p className="text-sm text-muted-foreground">Post alerts to a Slack channel</p>
                   </div>
-                  <Switch checked={slackNotifications} onCheckedChange={setSlackNotifications} />
+                  <Switch checked={slackNotifications} onCheckedChange={(v) => {
+                    setSlackNotifications(v);
+                    savePref('notifications', { emailNotifications, slackNotifications: v });
+                  }} />
                 </div>
               </div>
 
@@ -554,18 +610,22 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
               <div className="space-y-3">
                 <h4 className="font-medium">Alert Rules</h4>
                 {[
-                  { label: 'Churn Risk Alert', desc: 'When a user moves to AtRisk or Critical tier', enabled: true },
-                  { label: 'Expansion Signal', desc: 'When an account triggers an expansion signal', enabled: true },
-                  { label: 'Deliverability Drop', desc: 'When delivery rate falls below 95%', enabled: true },
-                  { label: 'Revenue Milestone', desc: 'When MRR crosses a defined threshold', enabled: false },
-                  { label: 'Activation Stall', desc: 'When a trial user is stuck for >7 days', enabled: true },
+                  { label: 'Churn Risk Alert', desc: 'When a user moves to AtRisk or Critical tier' },
+                  { label: 'Expansion Signal', desc: 'When an account triggers an expansion signal' },
+                  { label: 'Deliverability Drop', desc: 'When delivery rate falls below 95%' },
+                  { label: 'Revenue Milestone', desc: 'When MRR crosses a defined threshold' },
+                  { label: 'Activation Stall', desc: 'When a trial user is stuck for >7 days' },
                 ].map((rule) => (
                   <div key={rule.label} className="flex items-center justify-between rounded-lg border p-3">
                     <div>
                       <p className="text-sm font-medium">{rule.label}</p>
                       <p className="text-xs text-muted-foreground">{rule.desc}</p>
                     </div>
-                    <Switch defaultChecked={rule.enabled} />
+                    <Switch checked={alertRules[rule.label] ?? false} onCheckedChange={(v) => {
+                      const updated = { ...alertRules, [rule.label]: v };
+                      setAlertRules(updated);
+                      savePref('alert_rules', { rules: updated });
+                    }} />
                   </div>
                 ))}
               </div>
