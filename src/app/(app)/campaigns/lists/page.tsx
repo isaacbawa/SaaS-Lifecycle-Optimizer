@@ -126,18 +126,29 @@ export default function MailingListsPage() {
         if (!formName.trim()) return;
         setSaving(true);
         try {
-            const payload: Record<string, unknown> = {
-                name: formName,
-                description: formDesc,
-                status: 'active',
-            };
-            if (editing) payload.id = editing.id;
-
-            const res = await fetch('/api/v1/mailing-lists', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
+            let res: Response;
+            if (editing) {
+                // Update existing list via PUT
+                res = await fetch(`/api/v1/mailing-lists/${editing.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: formName.trim(),
+                        description: formDesc,
+                    }),
+                });
+            } else {
+                // Create new list via POST
+                res = await fetch('/api/v1/mailing-lists', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: formName.trim(),
+                        description: formDesc,
+                        status: 'active',
+                    }),
+                });
+            }
             if (res.ok) {
                 setDialogOpen(false);
                 fetchLists();
@@ -146,6 +157,8 @@ export default function MailingListsPage() {
                 const json = await res.json();
                 toast({ title: 'Error', description: json.error ?? 'Failed to save list', variant: 'destructive' });
             }
+        } catch {
+            toast({ title: 'Error', description: 'Network error. Please check your connection and try again.', variant: 'destructive' });
         } finally {
             setSaving(false);
         }
@@ -154,12 +167,20 @@ export default function MailingListsPage() {
     /* ── Delete list ────────────────────────────────── */
     const handleDelete = async () => {
         if (!deleteTarget) return;
-        const res = await fetch(`/api/v1/mailing-lists/${deleteTarget.id}`, { method: 'DELETE' });
-        if (res.ok) {
-            fetchLists();
-            toast({ title: 'Mailing list deleted' });
+        try {
+            const res = await fetch(`/api/v1/mailing-lists/${deleteTarget.id}`, { method: 'DELETE' });
+            if (res.ok) {
+                fetchLists();
+                toast({ title: 'Mailing list deleted' });
+            } else {
+                const json = await res.json();
+                toast({ title: 'Error', description: json.error ?? 'Failed to delete list', variant: 'destructive' });
+            }
+        } catch {
+            toast({ title: 'Error', description: 'Network error. Please try again.', variant: 'destructive' });
+        } finally {
+            setDeleteTarget(null);
         }
-        setDeleteTarget(null);
     };
 
     /* ── Add contacts ───────────────────────────────── */

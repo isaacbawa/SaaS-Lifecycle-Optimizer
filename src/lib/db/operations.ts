@@ -1457,10 +1457,10 @@ export async function upsertMailingList(orgId: string, data: Omit<MailingListIns
             .set({ ...data, organizationId: orgId, updatedAt: new Date() })
             .where(and(eq(schema.mailingLists.organizationId, orgId), eq(schema.mailingLists.id, data.id)))
             .returning();
-        return list;
+        return list ?? null;
     }
     const [list] = await db.insert(schema.mailingLists).values({ ...data, organizationId: orgId }).returning();
-    return list;
+    return list ?? null;
 }
 
 export async function deleteMailingList(orgId: string, id: string) {

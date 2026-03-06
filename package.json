@@ -12,6 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
+    "db:apply-mailing-lists": "node _check_db.mjs",
     "db:seed": "npx tsx src/lib/db/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest"

@@ -1,6 +1,7 @@
 /* ==========================================================================
- * POST/DELETE /api/v1/mailing-lists/[id]/contacts — Manage List Contacts
+ * GET/POST/DELETE /api/v1/mailing-lists/[id]/contacts — Manage List Contacts
  *
+ * GET: List contacts in a mailing list
  * POST: Add contacts to a mailing list (single or bulk)
  * DELETE: Remove a contact from a mailing list
  * ========================================================================== */
@@ -8,6 +9,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMailingList, addMailingListContacts, removeMailingListContact, getMailingListContacts } from '@/lib/db/operations';
 import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
+
+const MAX_BULK_CONTACTS = 5000;
+
+/** Sanitize DB errors — never leak SQL queries or internal details to the client. */
+function safeError(err: unknown): { message: string; status: number } {
+    console.error('[mailing-lists/contacts] API error:', err);
+    return { message: 'An unexpected error occurred. Please try again.', status: 500 };
+}
 
 export async function GET(
     request: NextRequest,
@@ -37,7 +46,8 @@ export async function GET(
             pagination: { total: result.total, limit: result.limit, offset: result.offset, hasMore: result.hasMore },
         });
     } catch (err) {
-        return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });
+        const { message, status } = safeError(err);
+        return NextResponse.json({ success: false, error: message }, { status });
     }
 }
 
@@ -61,10 +71,20 @@ export async function POST(
             return NextResponse.json({ success: false, error: 'Provide an array of contacts with at least an email field' }, { status: 400 });
         }
 
-        // Validate emails
+        if (contacts.length > MAX_BULK_CONTACTS) {
+            return NextResponse.json({ success: false, error: `Maximum ${MAX_BULK_CONTACTS} contacts per request` }, { status: 400 });
+        }
+
+        // Validate and sanitize emails
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const validContacts = contacts.filter(
-            (c: { email?: string }) => c.email && typeof c.email === 'string' && c.email.includes('@'),
-        );
+            (c: { email?: string }) => c.email && typeof c.email === 'string' && emailRegex.test(c.email.trim()),
+        ).map((c: { email: string; firstName?: string; lastName?: string; properties?: Record<string, unknown> }) => ({
+            email: c.email.trim(),
+            firstName: typeof c.firstName === 'string' ? c.firstName.trim().slice(0, 255) : undefined,
+            lastName: typeof c.lastName === 'string' ? c.lastName.trim().slice(0, 255) : undefined,
+            properties: (c.properties && typeof c.properties === 'object' && !Array.isArray(c.properties)) ? c.properties : undefined,
+        }));
 
         if (validContacts.length === 0) {
             return NextResponse.json({ success: false, error: 'No valid email addresses provided' }, { status: 400 });
@@ -76,7 +96,8 @@ export async function POST(
             data: { added: result.added, skipped: result.skipped, total: validContacts.length },
         }, { status: 201 });
     } catch (err) {
-        return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });
+        const { message, status } = safeError(err);
+        return NextResponse.json({ success: false, error: message }, { status });
     }
 }
 
@@ -101,6 +122,7 @@ export async function DELETE(
         if (!ok) return NextResponse.json({ success: false, error: 'Contact not found' }, { status: 404 });
         return NextResponse.json({ success: true });
     } catch (err) {
-        return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });
+        const { message, status } = safeError(err);
+        return NextResponse.json({ success: false, error: message }, { status });
     }
 }
