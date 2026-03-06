@@ -964,7 +964,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                             size="sm"
                             className="w-full text-xs"
                             onClick={() => {
-                              fetch('/api/v1/preferences?key=email_builder_draft', { method: 'DELETE' }).catch(() => {});
+                              fetch('/api/v1/preferences?key=email_builder_draft', { method: 'DELETE' }).catch(() => { });
                               setBlocks([]);
                               setSubject('');
                               setPreheader('');

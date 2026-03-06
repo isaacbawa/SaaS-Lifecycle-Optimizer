@@ -727,11 +727,19 @@ function CampaignBuilderInner() {
                                 })}
                             </div>
 
-                            {segments.length === 0 && (
+                            {/* {segments.length === 0 && (
                                 <p className="text-xs text-muted-foreground">
                                     No segments defined. <Link href="/segments" className="text-primary underline">Create segments</Link> to target specific users.
                                 </p>
-                            )}
+                            )} */}
+
+                            <p className="text-xs text-muted-foreground">
+                                {segments.length === 0 && "No segments defined. "}
+                                <Link href="/segments" className="text-primary underline">
+                                    Create segments
+                                </Link>{" "}
+                                to target specific users.
+                            </p>
 
                             {/* Estimated reach */}
                             {segmentId && estimatedReach > 0 && (
