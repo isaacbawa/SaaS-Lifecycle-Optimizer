@@ -776,6 +776,12 @@ export default function SdkPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Play className="h-5 w-5 text-primary" /> Live API Console</CardTitle>
               <CardDescription>Test any API endpoint in real-time. All requests hit your live data store — changes are reflected across the dashboard.</CardDescription>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-transparent text-xs gap-1">
+                  <Shield className="h-3 w-3" /> Authenticated via session
+                </Badge>
+                <span className="text-xs text-muted-foreground">Your dashboard session is used automatically — no API key needed for console tests.</span>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -798,6 +804,7 @@ export default function SdkPage() {
                     <SelectContent>
                       <SelectItem value="GET">GET</SelectItem>
                       <SelectItem value="POST">POST</SelectItem>
+                      <SelectItem value="PUT">PUT</SelectItem>
                       <SelectItem value="DELETE">DELETE</SelectItem>
                     </SelectContent>
                   </Select>
@@ -807,7 +814,7 @@ export default function SdkPage() {
                   <Input value={testEndpoint} onChange={(e) => setTestEndpoint(e.target.value)} className="font-mono text-sm" />
                 </div>
               </div>
-              {testMethod !== 'GET' && (
+              {testMethod !== 'GET' && testMethod !== 'DELETE' && (
                 <div>
                   <Label className="text-xs text-muted-foreground mb-1 block">Request Body (JSON)</Label>
                   <textarea value={testBody} onChange={(e) => setTestBody(e.target.value)} rows={8} className="w-full rounded-lg border bg-muted p-3 font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-primary" />

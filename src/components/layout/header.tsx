@@ -35,13 +35,13 @@ const searchItems = [
   { label: 'Campaigns', href: '/campaigns', keywords: ['send', 'broadcast', 'schedule', 'email'] },
   { label: 'New Campaign', href: '/campaigns/new', keywords: ['create', 'compose', 'send'] },
   { label: 'Personalization', href: '/personalization', keywords: ['rules', 'variants', 'dynamic', 'content'] },
-  { label: 'Revenue', href: '/revenue', keywords: ['mrr', 'arr', 'income', 'billing', 'money'] },
-  { label: 'Domain & Deliverability', href: '/deliverability', keywords: ['domains', 'dns', 'spf', 'dkim', 'reputation'] },
+  { label: 'Revenue', href: '/revenue', keywords: ['mrr', 'arr', 'income', 'billing', 'money', 'revenue'] },
+  { label: 'Domain & Deliverability', href: '/deliverability', keywords: ['domains', 'dns', 'spf', 'dkim', 'dmarc', 'reputation'] },
   { label: 'Developer SDK', href: '/sdk', keywords: ['integration', 'api', 'install', 'connect', 'keys'] },
   { label: 'Settings', href: '/settings', keywords: ['profile', 'team', 'api', 'notifications', 'billing'] },
   { label: 'API Keys', href: '/settings', keywords: ['api', 'keys', 'tokens', 'authentication'] },
   { label: 'Webhooks', href: '/settings', keywords: ['hooks', 'callbacks', 'events', 'notifications'] },
-  { label: 'Docs', href: '/docs', keywords: ['documentation', 'api', 'reference', 'guide'] },
+  { label: 'Docs', href: '/docs', keywords: ['documentation', 'api', 'reference', 'guide', 'help', 'sdk', 'examples', 'tutorials', 'support'] },
 ];
 
 export function Header() {

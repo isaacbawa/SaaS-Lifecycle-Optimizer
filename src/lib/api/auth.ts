@@ -181,6 +181,40 @@ export async function authenticate(
     }
 
     if (!token) {
+      // ── Dashboard session fallback (same-origin console requests) ────
+      // When no API key is provided, check for a valid Clerk dashboard
+      // session. This allows the API Console to test endpoints without
+      // requiring a raw API key. External callers never have Clerk
+      // session cookies, so this is safe for same-origin only.
+      try {
+        const { requireDashboardAuth } = await import('@/lib/api/dashboard-auth');
+        const dash = await requireDashboardAuth();
+        if (dash.success) {
+          const rl = await checkRateLimit(`dash_${dash.orgId}`, rateTier, rateConfig);
+          if (!rl.allowed) {
+            return { success: false, response: rateLimitExceeded(rl) };
+          }
+          const dashRecord: ApiKeyRecord = {
+            id: `console_${dash.orgId}`,
+            key: 'console-session',
+            name: 'Dashboard Console',
+            environment: 'production' as const,
+            createdAt: new Date().toISOString(),
+            scopes: ['identify', 'track', 'group', 'read', 'write', 'admin'],
+          };
+          return {
+            success: true,
+            apiKey: dashRecord,
+            orgId: dash.orgId,
+            requestId,
+            startTime,
+            rateLimit: rl,
+          };
+        }
+      } catch {
+        // Clerk unavailable — fall through to error
+      }
+
       return {
         success: false,
         response: apiError(
