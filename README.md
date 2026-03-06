@@ -70,3 +70,10 @@ This is the **frontend application** of the LifecycleOS platform. The full produ
 ## License
 
 Proprietary. All rights reserved.
+
+```bash
+**It was important to;**
+# Production build
+npm run build
+npm start
+```
