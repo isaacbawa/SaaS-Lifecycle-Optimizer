@@ -734,9 +734,9 @@ function CampaignBuilderInner() {
                             )} */}
 
                             <p className="text-xs text-muted-foreground">
-                                {segments.length === 1 && "No segments defined. "}
+                                {segments.length === 0 && "No segments defined. "}
                                 <Link href="/segments" className="text-primary underline">
-                                    Create segments
+                                    Create new segments
                                 </Link>{" "}
                                 to target specific users.
                             </p>
@@ -789,10 +789,13 @@ function CampaignBuilderInner() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label className="text-xs font-medium">
-                                    Preview Text Override
-                                    <span className="text-muted-foreground font-normal ml-1">(shown in inbox preview)</span>
-                                </Label>
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs font-medium">
+                                        Preview Text Override
+                                        <span className="text-muted-foreground font-normal ml-1">(shown in inbox preview)</span>
+                                    </Label>
+                                    <VariableInserter onInsert={insertVariable} />
+                                </div>
                                 <Input
                                     ref={previewRef}
                                     value={previewTextOverride}
@@ -803,7 +806,7 @@ function CampaignBuilderInner() {
                                 />
                             </div>
 
-                            {/* Quick variable reference */}
+                            {/* Quick variable reference
                             <div className="space-y-2">
                                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
                                     Popular Variables — click to insert
@@ -831,7 +834,7 @@ function CampaignBuilderInner() {
                                         </button>
                                     ))}
                                 </div>
-                            </div>
+                            </div> */}
                         </div>
                     </CardContent>
                 </Card>
