@@ -226,7 +226,6 @@ function CampaignBuilderInner() {
     // Refs for variable insertion
     const subjectRef = useRef<HTMLInputElement>(null);
     const previewRef = useRef<HTMLInputElement>(null);
-    const [activeField, setActiveField] = useState<'subject' | 'preview'>('subject');
 
     /* ── Fetch data ─────────────────────────────────── */
     const fetchData = useCallback(async () => {
@@ -270,37 +269,37 @@ function CampaignBuilderInner() {
     useEffect(() => { fetchData(); }, [fetchData]);
 
     /* ── Variable insertion ─────────────────────────── */
-    const insertVariable = useCallback((variable: string) => {
-        if (activeField === 'subject') {
-            const input = subjectRef.current;
-            if (input) {
-                const start = input.selectionStart ?? subjectOverride.length;
-                const end = input.selectionEnd ?? subjectOverride.length;
-                const newVal = subjectOverride.slice(0, start) + variable + subjectOverride.slice(end);
-                setSubjectOverride(newVal);
-                setTimeout(() => {
-                    input.focus();
-                    input.setSelectionRange(start + variable.length, start + variable.length);
-                }, 0);
-            } else {
-                setSubjectOverride((prev) => prev + variable);
-            }
+    const insertSubjectVariable = useCallback((variable: string) => {
+        const input = subjectRef.current;
+        if (input) {
+            const start = input.selectionStart ?? subjectOverride.length;
+            const end = input.selectionEnd ?? subjectOverride.length;
+            const newVal = subjectOverride.slice(0, start) + variable + subjectOverride.slice(end);
+            setSubjectOverride(newVal);
+            setTimeout(() => {
+                input.focus();
+                input.setSelectionRange(start + variable.length, start + variable.length);
+            }, 0);
         } else {
-            const input = previewRef.current;
-            if (input) {
-                const start = input.selectionStart ?? previewTextOverride.length;
-                const end = input.selectionEnd ?? previewTextOverride.length;
-                const newVal = previewTextOverride.slice(0, start) + variable + previewTextOverride.slice(end);
-                setPreviewTextOverride(newVal);
-                setTimeout(() => {
-                    input.focus();
-                    input.setSelectionRange(start + variable.length, start + variable.length);
-                }, 0);
-            } else {
-                setPreviewTextOverride((prev) => prev + variable);
-            }
+            setSubjectOverride((prev) => prev + variable);
         }
-    }, [activeField, subjectOverride, previewTextOverride]);
+    }, [subjectOverride]);
+
+    const insertPreviewVariable = useCallback((variable: string) => {
+        const input = previewRef.current;
+        if (input) {
+            const start = input.selectionStart ?? previewTextOverride.length;
+            const end = input.selectionEnd ?? previewTextOverride.length;
+            const newVal = previewTextOverride.slice(0, start) + variable + previewTextOverride.slice(end);
+            setPreviewTextOverride(newVal);
+            setTimeout(() => {
+                input.focus();
+                input.setSelectionRange(start + variable.length, start + variable.length);
+            }, 0);
+        } else {
+            setPreviewTextOverride((prev) => prev + variable);
+        }
+    }, [previewTextOverride]);
 
     /* ── Domain auth check on fromEmail change ──────── */
     useEffect(() => {
@@ -776,13 +775,12 @@ function CampaignBuilderInner() {
                                         Subject Line Override
                                         <span className="text-muted-foreground font-normal ml-1">(optional — overrides template subject)</span>
                                     </Label>
-                                    <VariableInserter onInsert={insertVariable} />
+                                    <VariableInserter onInsert={insertSubjectVariable} />
                                 </div>
                                 <Input
                                     ref={subjectRef}
                                     value={subjectOverride}
                                     onChange={(e) => setSubjectOverride(e.target.value)}
-                                    onFocus={() => setActiveField('subject')}
                                     placeholder="Leave blank to use the template's subject line"
                                     className="h-10 font-mono text-sm"
                                 />
@@ -794,47 +792,16 @@ function CampaignBuilderInner() {
                                         Preview Text Override
                                         <span className="text-muted-foreground font-normal ml-1">(shown in inbox preview)</span>
                                     </Label>
-                                    <VariableInserter onInsert={insertVariable} />
+                                    <VariableInserter onInsert={insertPreviewVariable} />
                                 </div>
                                 <Input
                                     ref={previewRef}
                                     value={previewTextOverride}
                                     onChange={(e) => setPreviewTextOverride(e.target.value)}
-                                    onFocus={() => setActiveField('preview')}
                                     placeholder="Optional inbox preview text"
                                     className="h-10 text-sm"
                                 />
                             </div>
-
-                            {/* Quick variable reference
-                            <div className="space-y-2">
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                    Popular Variables — click to insert
-                                </p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {[
-                                        { key: 'user.firstName', label: 'First Name' },
-                                        { key: 'user.name', label: 'Full Name' },
-                                        { key: 'account.name', label: 'Account' },
-                                        { key: 'user.plan', label: 'Plan' },
-                                        { key: 'company.name', label: 'Company' },
-                                        { key: 'user.seatCount', label: 'Seats Used' },
-                                        { key: 'user.mrr', label: 'MRR' },
-                                        { key: 'user.daysUntilRenewal', label: 'Days to Renewal' },
-                                        { key: 'user.npsScore', label: 'NPS Score' },
-                                        { key: 'user.lifecycleState', label: 'Lifecycle Stage' },
-                                    ].map((v) => (
-                                        <button
-                                            key={v.key}
-                                            onClick={() => insertVariable(`{{${v.key}}}`)}
-                                            className="inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-[11px] font-mono transition-colors hover:bg-primary/10 hover:border-primary hover:text-primary"
-                                        >
-                                            <Sparkles className="h-2.5 w-2.5" />
-                                            {`{{${v.key}}}`}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div> */}
                         </div>
                     </CardContent>
                 </Card>
