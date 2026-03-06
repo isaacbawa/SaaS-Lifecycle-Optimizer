@@ -28,8 +28,7 @@ const clerkOrigins = [
   'https://challenges.cloudflare.com',
 ].filter(Boolean);
 
-const nextConfig: NextConfig = {
-  /* ── Clerk proxy: route /clerk through your own domain ─────── */
+const nextConfig: NextConfig = {  /* ── Clerk proxy: route /clerk through your own domain ───── */
   async rewrites() {
     if (!clerkDomain) return [];
     return [
@@ -39,7 +38,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-
   /* ── Script & image remote sources ─────────────────────────── */
   images: {
     remotePatterns: [
