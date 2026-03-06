@@ -29,6 +29,17 @@ const clerkOrigins = [
 ].filter(Boolean);
 
 const nextConfig: NextConfig = {
+  /* ── Clerk proxy: route /clerk through your own domain ─────── */
+  async rewrites() {
+    if (!clerkDomain) return [];
+    return [
+      {
+        source: '/clerk/:path*',
+        destination: `https://${clerkDomain}/:path*`,
+      },
+    ];
+  },
+
   /* ── Script & image remote sources ─────────────────────────── */
   images: {
     remotePatterns: [
