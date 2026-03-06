@@ -50,8 +50,8 @@ const menuItems = [
 ];
 
 const settingsItems = [
-  { href: '/sdk', icon: Code, label: 'SDK Setup' },
-  { href: '/deliverability', icon: MailCheck, label: 'Deliverability' },
+  { href: '/sdk', icon: Code, label: 'Developer SDK' },
+  { href: '/deliverability', icon: MailCheck, label: 'Domain & Deliverability' },
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 

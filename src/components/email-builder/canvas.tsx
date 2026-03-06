@@ -620,29 +620,35 @@ export function BuilderCanvas({
     onDropNewBlock,
 }: CanvasProps) {
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+    const dragOverIndexRef = useRef<number | null>(null);
     const dragItemIndex = useRef<number | null>(null);
     const dragIsPalette = useRef(false);
     const dragPaletteType = useRef<BlockType | null>(null);
 
+    const updateDragOverIndex = useCallback((value: number | null) => {
+        dragOverIndexRef.current = value;
+        setDragOverIndex(value);
+    }, []);
+
     const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
         if (blocks.length === 0) {
-            setDragOverIndex(0);
+            updateDragOverIndex(0);
         }
-    }, [blocks.length]);
+    }, [blocks.length, updateDragOverIndex]);
 
     const handleCanvasDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         const paletteType = e.dataTransfer.getData('application/x-block-type') as BlockType;
-        if (paletteType && dragOverIndex !== null) {
-            onDropNewBlock(paletteType, dragOverIndex);
+        const idx = dragOverIndexRef.current;
+        if (paletteType) {
+            onDropNewBlock(paletteType, idx ?? blocks.length);
         }
-        setDragOverIndex(null);
+        updateDragOverIndex(null);
         dragItemIndex.current = null;
         dragIsPalette.current = false;
         dragPaletteType.current = null;
-    }, [dragOverIndex, onDropNewBlock]);
+    }, [onDropNewBlock, blocks.length, updateDragOverIndex]);
 
     const handleBlockDragStart = useCallback((e: React.DragEvent, index: number) => {
         dragItemIndex.current = index;
@@ -654,8 +660,8 @@ export function BuilderCanvas({
     const handleBlockDragOver = useCallback((e: React.DragEvent, index: number) => {
         e.preventDefault();
         e.stopPropagation();
-        setDragOverIndex(index);
-    }, []);
+        updateDragOverIndex(index);
+    }, [updateDragOverIndex]);
 
     const handleBlockDrop = useCallback((e: React.DragEvent, targetIndex: number) => {
         e.preventDefault();
@@ -666,14 +672,14 @@ export function BuilderCanvas({
         } else if (dragItemIndex.current !== null && dragItemIndex.current !== targetIndex) {
             onReorderBlock(dragItemIndex.current, targetIndex);
         }
-        setDragOverIndex(null);
+        updateDragOverIndex(null);
         dragItemIndex.current = null;
-    }, [onDropNewBlock, onReorderBlock]);
+    }, [onDropNewBlock, onReorderBlock, updateDragOverIndex]);
 
     const handleDragEnd = useCallback(() => {
-        setDragOverIndex(null);
+        updateDragOverIndex(null);
         dragItemIndex.current = null;
-    }, []);
+    }, [updateDragOverIndex]);
 
     const canvasWidth = device === 'desktop' ? globalStyles.contentWidth : 375;
 
@@ -706,11 +712,18 @@ export function BuilderCanvas({
                     }}
                 >
                     {blocks.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-24 text-muted-foreground select-none">
+                        <div
+                            className={cn(
+                                'flex flex-col items-center justify-center py-24 text-muted-foreground select-none pointer-events-none transition-colors',
+                                dragOverIndex === 0 && 'bg-blue-50/60 dark:bg-blue-950/20 ring-2 ring-inset ring-blue-400/50 ring-dashed rounded-lg',
+                            )}
+                        >
                             <div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center mb-4">
                                 <ImageIcon className="h-7 w-7 opacity-40" />
                             </div>
-                            <div className="text-base font-semibold mb-1 text-foreground/60">Drop blocks here</div>
+                            <div className="text-base font-semibold mb-1 text-foreground/60">
+                                {dragOverIndex === 0 ? 'Release to drop' : 'Drop blocks here'}
+                            </div>
                             <div className="text-sm text-muted-foreground/70">Drag content blocks from the left panel to start building</div>
                         </div>
                     )}
@@ -802,7 +815,7 @@ export function BuilderCanvas({
                     {blocks.length > 0 && (
                         <div
                             className="h-12"
-                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverIndex(blocks.length); }}
+                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); updateDragOverIndex(blocks.length); }}
                             onDrop={(e) => handleBlockDrop(e, blocks.length)}
                         />
                     )}
