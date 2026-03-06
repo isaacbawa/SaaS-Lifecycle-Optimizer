@@ -312,8 +312,18 @@ function CampaignBuilderInner() {
             try {
                 const res = await fetch(`/api/v1/domains/check?email=${encodeURIComponent(fromEmail)}`);
                 if (res.ok) {
-                    const data = await res.json();
-                    setDomainWarning(data);
+                    const json = await res.json();
+                    const payload = json.data ?? json;
+                    setDomainWarning({
+                        authenticated: payload.authenticated ?? false,
+                        domain: payload.domain ?? '',
+                        registered: payload.registered ?? false,
+                        warnings: Array.isArray(payload.warnings) ? payload.warnings : [],
+                        score: payload.score,
+                        spf: payload.spf,
+                        dkim: payload.dkim,
+                        dmarc: payload.dmarc,
+                    });
                 }
             } catch { /* silent */ } finally {
                 setCheckingDomain(false);
@@ -879,7 +889,7 @@ function CampaignBuilderInner() {
                                                 </span>
                                             )}
                                         </div>
-                                        {domainWarning.warnings.length > 0 && (
+                                        {domainWarning.warnings && domainWarning.warnings.length > 0 && (
                                             <ul className="text-xs space-y-0.5 list-disc pl-4">
                                                 {domainWarning.warnings.map((w, i) => <li key={i}>{w}</li>)}
                                             </ul>
