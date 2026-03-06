@@ -1413,6 +1413,157 @@ export async function incrementPersonalizationConversion(ruleId: string) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+ * Mailing Lists — External contact lists for campaigns
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+export type MailingList = typeof schema.mailingLists.$inferSelect;
+export type MailingListInsert = typeof schema.mailingLists.$inferInsert;
+export type MailingListContact = typeof schema.mailingListContacts.$inferSelect;
+export type MailingListContactInsert = typeof schema.mailingListContacts.$inferInsert;
+
+export async function getMailingList(orgId: string, id: string) {
+    const [list] = await db
+        .select()
+        .from(schema.mailingLists)
+        .where(and(eq(schema.mailingLists.organizationId, orgId), eq(schema.mailingLists.id, id)))
+        .limit(1);
+    return list ?? null;
+}
+
+export async function getAllMailingLists(
+    orgId: string,
+    status?: string,
+    pagination?: PaginationOptions,
+): Promise<PaginatedResult<MailingList>> {
+    const conditions = [eq(schema.mailingLists.organizationId, orgId)];
+    if (status && status !== 'all') conditions.push(eq(schema.mailingLists.status, status as 'active' | 'archived'));
+
+    if (!pagination) {
+        const items = await db.select().from(schema.mailingLists).where(and(...conditions)).orderBy(desc(schema.mailingLists.updatedAt));
+        return { items, total: items.length, limit: items.length, offset: 0, hasMore: false };
+    }
+    const limit = clampLimit(pagination.limit);
+    const offset = pagination.offset ?? 0;
+    const [items, [{ total }]] = await Promise.all([
+        db.select().from(schema.mailingLists).where(and(...conditions)).orderBy(desc(schema.mailingLists.updatedAt)).limit(limit).offset(offset),
+        db.select({ total: count() }).from(schema.mailingLists).where(and(...conditions)),
+    ]);
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
+}
+
+export async function upsertMailingList(orgId: string, data: Omit<MailingListInsert, 'organizationId'>) {
+    if (data.id) {
+        const [list] = await db.update(schema.mailingLists)
+            .set({ ...data, organizationId: orgId, updatedAt: new Date() })
+            .where(and(eq(schema.mailingLists.organizationId, orgId), eq(schema.mailingLists.id, data.id)))
+            .returning();
+        return list;
+    }
+    const [list] = await db.insert(schema.mailingLists).values({ ...data, organizationId: orgId }).returning();
+    return list;
+}
+
+export async function deleteMailingList(orgId: string, id: string) {
+    const result = await db.delete(schema.mailingLists)
+        .where(and(eq(schema.mailingLists.organizationId, orgId), eq(schema.mailingLists.id, id)))
+        .returning({ id: schema.mailingLists.id });
+    return result.length > 0;
+}
+
+export async function getMailingListContacts(
+    listId: string,
+    pagination?: PaginationOptions,
+): Promise<PaginatedResult<MailingListContact>> {
+    const conditions = [eq(schema.mailingListContacts.mailingListId, listId)];
+
+    if (!pagination) {
+        const items = await db.select().from(schema.mailingListContacts).where(and(...conditions)).orderBy(desc(schema.mailingListContacts.createdAt));
+        return { items, total: items.length, limit: items.length, offset: 0, hasMore: false };
+    }
+    const limit = clampLimit(pagination.limit);
+    const offset = pagination.offset ?? 0;
+    const [items, [{ total }]] = await Promise.all([
+        db.select().from(schema.mailingListContacts).where(and(...conditions)).orderBy(desc(schema.mailingListContacts.createdAt)).limit(limit).offset(offset),
+        db.select({ total: count() }).from(schema.mailingListContacts).where(and(...conditions)),
+    ]);
+    return { items, total, limit, offset, hasMore: offset + items.length < total };
+}
+
+export async function getMailingListActiveContacts(listId: string, maxContacts: number = 10000) {
+    return db.select()
+        .from(schema.mailingListContacts)
+        .where(
+            and(
+                eq(schema.mailingListContacts.mailingListId, listId),
+                eq(schema.mailingListContacts.unsubscribed, false),
+            ),
+        )
+        .limit(maxContacts);
+}
+
+export async function addMailingListContacts(
+    orgId: string,
+    listId: string,
+    contacts: Array<{ email: string; firstName?: string; lastName?: string; properties?: Record<string, unknown> }>,
+) {
+    if (contacts.length === 0) return { added: 0, skipped: 0 };
+
+    let added = 0;
+    let skipped = 0;
+
+    for (const contact of contacts) {
+        try {
+            const result = await db.insert(schema.mailingListContacts)
+                .values({
+                    mailingListId: listId,
+                    organizationId: orgId,
+                    email: contact.email.toLowerCase().trim(),
+                    firstName: contact.firstName ?? null,
+                    lastName: contact.lastName ?? null,
+                    properties: contact.properties ?? {},
+                })
+                .onConflictDoNothing()
+                .returning({ id: schema.mailingListContacts.id });
+            if (result.length > 0) added++;
+            else skipped++;
+        } catch {
+            skipped++;
+        }
+    }
+
+    // Update cached count
+    const [{ total }] = await db.select({ total: count() }).from(schema.mailingListContacts)
+        .where(eq(schema.mailingListContacts.mailingListId, listId));
+    await db.update(schema.mailingLists)
+        .set({ contactCount: total, updatedAt: new Date() })
+        .where(eq(schema.mailingLists.id, listId));
+
+    return { added, skipped };
+}
+
+export async function removeMailingListContact(orgId: string, listId: string, contactId: string) {
+    const result = await db.delete(schema.mailingListContacts)
+        .where(
+            and(
+                eq(schema.mailingListContacts.id, contactId),
+                eq(schema.mailingListContacts.mailingListId, listId),
+                eq(schema.mailingListContacts.organizationId, orgId),
+            ),
+        )
+        .returning({ id: schema.mailingListContacts.id });
+
+    if (result.length > 0) {
+        const [{ total }] = await db.select({ total: count() }).from(schema.mailingListContacts)
+            .where(eq(schema.mailingListContacts.mailingListId, listId));
+        await db.update(schema.mailingLists)
+            .set({ contactCount: total, updatedAt: new Date() })
+            .where(eq(schema.mailingLists.id, listId));
+    }
+
+    return result.length > 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
  * Integration operations
  * ═══════════════════════════════════════════════════════════════════════ */
 

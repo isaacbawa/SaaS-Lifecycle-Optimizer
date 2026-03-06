@@ -629,6 +629,8 @@ export const emailCampaigns = pgTable('email_campaigns', {
     templateId: uuid('template_id').references(() => emailTemplates.id, { onDelete: 'set null' }),
     /** Which segment to target */
     segmentId: uuid('segment_id').references(() => segments.id, { onDelete: 'set null' }),
+    /** Which mailing list to target (external contacts) */
+    mailingListId: uuid('mailing_list_id').references(() => mailingLists.id, { onDelete: 'set null' }),
     /** Trigger config for triggered campaigns */
     triggerEvent: varchar('trigger_event', { length: 255 }),
     triggerFilters: jsonb('trigger_filters').$type<SegmentFilter[]>().default([]),
@@ -659,6 +661,7 @@ export const emailCampaigns = pgTable('email_campaigns', {
     index('email_campaigns_org_idx').on(t.organizationId),
     index('email_campaigns_status_idx').on(t.organizationId, t.status),
     index('email_campaigns_segment_idx').on(t.segmentId),
+    index('email_campaigns_mailing_list_idx').on(t.mailingListId),
     index('email_campaigns_template_idx').on(t.templateId),
 ]);
 
@@ -935,6 +938,10 @@ export const emailCampaignsRelations = relations(emailCampaigns, ({ one, many })
         fields: [emailCampaigns.segmentId],
         references: [segments.id],
     }),
+    mailingList: one(mailingLists, {
+        fields: [emailCampaigns.mailingListId],
+        references: [mailingLists.id],
+    }),
     sends: many(emailSends),
 }));
 
@@ -1177,3 +1184,71 @@ export const INTEGRATION_CAPABILITY_MAP: Record<string, { capability: string; ca
     'condition:event_count': { capability: 'event_tracking', category: 'sdk', description: 'SDK must be installed to count user events' },
     'condition:account_property': { capability: 'account_tracking', category: 'sdk', description: 'SDK must be installed with account (group) tracking' },
 };
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Mailing Lists — External contact lists for campaigns
+ *
+ * Allows SaaS owners to send campaigns to contacts who are NOT tracked
+ * users of their product (newsletter subscribers, event leads, etc.).
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+export const mailingListStatusEnum = pgEnum('mailing_list_status', [
+    'active', 'archived',
+]);
+
+export const mailingLists = pgTable('mailing_lists', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 500 }).notNull(),
+    description: text('description').default(''),
+    status: mailingListStatusEnum('status').default('active').notNull(),
+    /** Cached count of contacts in this list */
+    contactCount: integer('contact_count').default(0).notNull(),
+    /** Tags for filtering lists */
+    tags: jsonb('tags').$type<string[]>().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    index('mailing_lists_org_idx').on(t.organizationId),
+    index('mailing_lists_status_idx').on(t.organizationId, t.status),
+    uniqueIndex('mailing_lists_org_name_idx').on(t.organizationId, t.name),
+]);
+
+export const mailingListContacts = pgTable('mailing_list_contacts', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    mailingListId: uuid('mailing_list_id').notNull().references(() => mailingLists.id, { onDelete: 'cascade' }),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    email: varchar('email', { length: 320 }).notNull(),
+    firstName: varchar('first_name', { length: 255 }),
+    lastName: varchar('last_name', { length: 255 }),
+    /** Custom properties set by the user (company, source, etc.) */
+    properties: jsonb('properties').$type<Record<string, unknown>>().default({}),
+    /** Whether the contact has unsubscribed */
+    unsubscribed: boolean('unsubscribed').default(false).notNull(),
+    unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+    index('ml_contacts_list_idx').on(t.mailingListId),
+    index('ml_contacts_org_idx').on(t.organizationId),
+    uniqueIndex('ml_contacts_list_email_idx').on(t.mailingListId, t.email),
+]);
+
+export const mailingListsRelations = relations(mailingLists, ({ one, many }) => ({
+    organization: one(organizations, {
+        fields: [mailingLists.organizationId],
+        references: [organizations.id],
+    }),
+    contacts: many(mailingListContacts),
+}));
+
+export const mailingListContactsRelations = relations(mailingListContacts, ({ one }) => ({
+    mailingList: one(mailingLists, {
+        fields: [mailingListContacts.mailingListId],
+        references: [mailingLists.id],
+    }),
+    organization: one(organizations, {
+        fields: [mailingListContacts.organizationId],
+        references: [organizations.id],
+    }),
+}));

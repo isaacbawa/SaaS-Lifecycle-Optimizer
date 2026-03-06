@@ -7,6 +7,7 @@ import {
   Activity,
   BarChart3,
   Code,
+  ContactRound,
   DollarSign,
   GitFork,
   Heart,
@@ -46,6 +47,7 @@ const menuItems = [
   { href: '/flows', icon: GitFork, label: 'Flows' },
   { href: '/email', icon: Mail, label: 'Email' },
   { href: '/campaigns', icon: Megaphone, label: 'Campaigns' },
+  { href: '/campaigns/lists', icon: ContactRound, label: 'Mailing Lists' },
   { href: '/revenue', icon: DollarSign, label: 'Revenue' },
 ];
 
@@ -72,7 +74,8 @@ export function AppSidebar() {
 
   const isActive = (href: string) => {
     if (href === '/email') return pathname === '/email' || pathname.startsWith('/email-builder');
-    if (href === '/campaigns') return pathname.startsWith('/campaigns');
+    if (href === '/campaigns/lists') return pathname.startsWith('/campaigns/lists');
+    if (href === '/campaigns') return pathname.startsWith('/campaigns') && !pathname.startsWith('/campaigns/lists');
     return pathname === href;
   };
 

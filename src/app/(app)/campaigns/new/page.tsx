@@ -39,7 +39,7 @@ import {
     ArrowLeft, Send, Save, Clock, Users, Mail, FileText,
     Variable, Check, PlusCircle, Sparkles, Eye,
     AlertCircle, Loader2, Calendar as CalendarIcon, Layers,
-    AtSign, User, Building2, ShieldAlert, ShieldCheck, ExternalLink,
+    AtSign, User, Building2, ShieldAlert, ShieldCheck, ExternalLink, ContactRound,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { VARIABLE_CATEGORIES } from '@/components/email-builder/types';
@@ -79,12 +79,21 @@ interface ExistingCampaign {
     type: string;
     templateId: string | null;
     segmentId: string | null;
+    mailingListId: string | null;
     triggerEvent: string | null;
     subjectOverride: string | null;
     fromName: string | null;
     fromEmail: string | null;
     replyTo: string | null;
     scheduledAt: string | null;
+    status: string;
+}
+
+interface MailingList {
+    id: string;
+    name: string;
+    description?: string;
+    contactCount: number;
     status: string;
 }
 
@@ -192,12 +201,15 @@ function CampaignBuilderInner() {
     const [sendingNow, setSendingNow] = useState(false);
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
     const [segments, setSegments] = useState<Segment[]>([]);
+    const [mailingLists, setMailingLists] = useState<MailingList[]>([]);
 
     // Campaign fields
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [templateId, setTemplateId] = useState<string | null>(null);
     const [segmentId, setSegmentId] = useState<string | null>(null);
+    const [mailingListId, setMailingListId] = useState<string | null>(null);
+    const [audienceType, setAudienceType] = useState<'all' | 'segment' | 'list'>('all');
     const [subjectOverride, setSubjectOverride] = useState('');
     const [previewTextOverride, setPreviewTextOverride] = useState('');
     const [fromName, setFromName] = useState('');
@@ -230,12 +242,14 @@ function CampaignBuilderInner() {
     /* ── Fetch data ─────────────────────────────────── */
     const fetchData = useCallback(async () => {
         try {
-            const [tRes, sRes] = await Promise.all([
+            const [tRes, sRes, mlRes] = await Promise.all([
                 fetch('/api/v1/email-templates'),
                 fetch('/api/v1/segments'),
+                fetch('/api/v1/mailing-lists'),
             ]);
             if (tRes.ok) { const j = await tRes.json(); setTemplates(j.data ?? []); }
             if (sRes.ok) { const j = await sRes.json(); setSegments(j.data ?? []); }
+            if (mlRes.ok) { const j = await mlRes.json(); setMailingLists(j.data ?? []); }
 
             // Load existing campaign if editing
             if (editId) {
@@ -248,6 +262,10 @@ function CampaignBuilderInner() {
                         setDescription(campaign.description ?? '');
                         setTemplateId(campaign.templateId);
                         setSegmentId(campaign.segmentId);
+                        setMailingListId(campaign.mailingListId ?? null);
+                        if (campaign.mailingListId) setAudienceType('list');
+                        else if (campaign.segmentId) setAudienceType('segment');
+                        else setAudienceType('all');
                         setSubjectOverride(campaign.subjectOverride ?? '');
                         setFromName(campaign.fromName ?? '');
                         setFromEmail(campaign.fromEmail ?? '');
@@ -354,7 +372,8 @@ function CampaignBuilderInner() {
                 description: description || null,
                 type: 'one_time',
                 templateId,
-                segmentId: segmentId || null,
+                segmentId: audienceType === 'segment' ? (segmentId || null) : null,
+                mailingListId: audienceType === 'list' ? (mailingListId || null) : null,
                 subjectOverride: subjectOverride || null,
                 fromName: fromName || null,
                 fromEmail: fromEmail || null,
@@ -396,7 +415,7 @@ function CampaignBuilderInner() {
             setSendingNow(false);
         }
     }, [
-        name, description, templateId, segmentId, subjectOverride,
+        name, description, templateId, segmentId, mailingListId, audienceType, subjectOverride,
         fromName, fromEmail, replyTo, scheduleType, scheduledDate,
         scheduledTime, editId, validate, router,
     ]);
@@ -404,9 +423,12 @@ function CampaignBuilderInner() {
     /* ── Computed ───────────────────────────────────── */
     const selectedTemplate = templates.find((t) => t.id === templateId);
     const selectedSegment = segments.find((s) => s.id === segmentId);
-    const estimatedReach = selectedSegment
+    const selectedMailingList = mailingLists.find((ml) => ml.id === mailingListId);
+    const estimatedReach = audienceType === 'segment' && selectedSegment
         ? (selectedSegment.memberCount ?? selectedSegment.userCount ?? 0)
-        : 0;
+        : audienceType === 'list' && selectedMailingList
+            ? selectedMailingList.contactCount
+            : 0;
     const canSend = name.trim() && templateId;
 
     /* ── Render ─────────────────────────────────────── */
@@ -663,99 +685,178 @@ function CampaignBuilderInner() {
                         <SectionHeader
                             step={3}
                             title="Audience"
-                            description="Choose which segment of users will receive this campaign."
+                            description="Choose who will receive this campaign — your product users, a segment, or an external mailing list."
                         />
                         <div className="pl-10 space-y-4">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {/* All Users option */}
+                            {/* Audience type selector */}
+                            <div className="flex gap-2 border-b pb-3">
                                 <button
-                                    onClick={() => setSegmentId(null)}
+                                    onClick={() => { setAudienceType('all'); setSegmentId(null); setMailingListId(null); }}
                                     className={cn(
-                                        'flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-all',
-                                        segmentId === null
-                                            ? 'border-primary bg-primary/5'
-                                            : 'border-muted hover:border-muted-foreground/40',
+                                        'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
+                                        audienceType === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80 text-muted-foreground',
                                     )}
                                 >
-                                    <div className={cn(
-                                        'rounded-full p-2',
-                                        segmentId === null ? 'bg-primary/20' : 'bg-muted',
-                                    )}>
-                                        <Users className={cn('h-4 w-4', segmentId === null ? 'text-primary' : 'text-muted-foreground')} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium">All Users</p>
-                                        <p className="text-xs text-muted-foreground">Send to every tracked user</p>
-                                    </div>
-                                    {segmentId === null && (
+                                    <Users className="h-3.5 w-3.5" />
+                                    All Users
+                                </button>
+                                <button
+                                    onClick={() => { setAudienceType('segment'); setMailingListId(null); }}
+                                    className={cn(
+                                        'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
+                                        audienceType === 'segment' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80 text-muted-foreground',
+                                    )}
+                                >
+                                    <Layers className="h-3.5 w-3.5" />
+                                    Segment
+                                    {segments.length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{segments.length}</Badge>}
+                                </button>
+                                <button
+                                    onClick={() => { setAudienceType('list'); setSegmentId(null); }}
+                                    className={cn(
+                                        'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
+                                        audienceType === 'list' ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80 text-muted-foreground',
+                                    )}
+                                >
+                                    <ContactRound className="h-3.5 w-3.5" />
+                                    Mailing List
+                                    {mailingLists.length > 0 && <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">{mailingLists.length}</Badge>}
+                                </button>
+                            </div>
+
+                            {/* All Users */}
+                            {audienceType === 'all' && (
+                                <div className="rounded-lg border-2 border-primary bg-primary/5 p-4 text-left">
+                                    <div className="flex items-center gap-3">
+                                        <div className="rounded-full p-2 bg-primary/20">
+                                            <Users className="h-4 w-4 text-primary" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium">All Tracked Users</p>
+                                            <p className="text-xs text-muted-foreground">This campaign will be sent to every tracked user in your product.</p>
+                                        </div>
                                         <div className="rounded-full bg-primary p-0.5">
                                             <Check className="h-3 w-3 text-primary-foreground" />
                                         </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Segments */}
+                            {audienceType === 'segment' && (
+                                <>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {segments.map((seg) => {
+                                            const isSelected = segmentId === seg.id;
+                                            const count = seg.memberCount ?? seg.userCount ?? 0;
+                                            return (
+                                                <button
+                                                    key={seg.id}
+                                                    onClick={() => setSegmentId(seg.id)}
+                                                    className={cn(
+                                                        'flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-all',
+                                                        isSelected
+                                                            ? 'border-primary bg-primary/5'
+                                                            : 'border-muted hover:border-muted-foreground/40',
+                                                    )}
+                                                >
+                                                    <div className={cn(
+                                                        'rounded-full p-2',
+                                                        isSelected ? 'bg-primary/20' : 'bg-muted',
+                                                    )}>
+                                                        <Layers className={cn('h-4 w-4', isSelected ? 'text-primary' : 'text-muted-foreground')} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium">{seg.name}</p>
+                                                        {seg.description && (
+                                                            <p className="text-xs text-muted-foreground line-clamp-1">{seg.description}</p>
+                                                        )}
+                                                        {count > 0 && (
+                                                            <p className="text-xs text-primary font-medium mt-0.5">
+                                                                {count.toLocaleString()} users
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    {isSelected && (
+                                                        <div className="rounded-full bg-primary p-0.5">
+                                                            <Check className="h-3 w-3 text-primary-foreground" />
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {segments.length === 0 && (
+                                        <div className="rounded-lg border bg-muted/30 p-6 text-center">
+                                            <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                                            <p className="text-sm text-muted-foreground">No segments yet.</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                <Link href="/segments" className="text-primary underline">Create segments</Link> to target specific users.
+                                            </p>
+                                        </div>
                                     )}
-                                </button>
+                                </>
+                            )}
 
-                                {/* Segment options */}
-                                {segments.map((seg) => {
-                                    const isSelected = segmentId === seg.id;
-                                    const count = seg.memberCount ?? seg.userCount ?? 0;
-                                    return (
-                                        <button
-                                            key={seg.id}
-                                            onClick={() => setSegmentId(seg.id)}
-                                            className={cn(
-                                                'flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-all',
-                                                isSelected
-                                                    ? 'border-primary bg-primary/5'
-                                                    : 'border-muted hover:border-muted-foreground/40',
-                                            )}
-                                        >
-                                            <div className={cn(
-                                                'rounded-full p-2',
-                                                isSelected ? 'bg-primary/20' : 'bg-muted',
-                                            )}>
-                                                <Layers className={cn('h-4 w-4', isSelected ? 'text-primary' : 'text-muted-foreground')} />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium">{seg.name}</p>
-                                                {seg.description && (
-                                                    <p className="text-xs text-muted-foreground line-clamp-1">{seg.description}</p>
-                                                )}
-                                                {count > 0 && (
-                                                    <p className="text-xs text-primary font-medium mt-0.5">
-                                                        {count.toLocaleString()} users
-                                                    </p>
-                                                )}
-                                            </div>
-                                            {isSelected && (
-                                                <div className="rounded-full bg-primary p-0.5">
-                                                    <Check className="h-3 w-3 text-primary-foreground" />
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {/* {segments.length === 0 && (
-                                <p className="text-xs text-muted-foreground">
-                                    No segments defined. <Link href="/segments" className="text-primary underline">Create segments</Link> to target specific users.
-                                </p>
-                            )} */}
-
-                            <p className="text-xs text-muted-foreground">
-                                {segments.length === 0 && "No segments defined. "}
-                                <Link href="/segments" className="text-primary underline">
-                                    Create new segments
-                                </Link>{" "}
-                                to target specific users.
-                            </p>
+                            {/* Mailing Lists */}
+                            {audienceType === 'list' && (
+                                <>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {mailingLists.map((ml) => {
+                                            const isSelected = mailingListId === ml.id;
+                                            return (
+                                                <button
+                                                    key={ml.id}
+                                                    onClick={() => setMailingListId(ml.id)}
+                                                    className={cn(
+                                                        'flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-all',
+                                                        isSelected
+                                                            ? 'border-primary bg-primary/5'
+                                                            : 'border-muted hover:border-muted-foreground/40',
+                                                    )}
+                                                >
+                                                    <div className={cn(
+                                                        'rounded-full p-2',
+                                                        isSelected ? 'bg-primary/20' : 'bg-muted',
+                                                    )}>
+                                                        <ContactRound className={cn('h-4 w-4', isSelected ? 'text-primary' : 'text-muted-foreground')} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium">{ml.name}</p>
+                                                        {ml.description && (
+                                                            <p className="text-xs text-muted-foreground line-clamp-1">{ml.description}</p>
+                                                        )}
+                                                        <p className="text-xs text-primary font-medium mt-0.5">
+                                                            {ml.contactCount.toLocaleString()} contact{ml.contactCount !== 1 ? 's' : ''}
+                                                        </p>
+                                                    </div>
+                                                    {isSelected && (
+                                                        <div className="rounded-full bg-primary p-0.5">
+                                                            <Check className="h-3 w-3 text-primary-foreground" />
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {mailingLists.length === 0 && (
+                                        <div className="rounded-lg border bg-muted/30 p-6 text-center">
+                                            <ContactRound className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                                            <p className="text-sm text-muted-foreground">No mailing lists yet.</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                <Link href="/campaigns/lists" className="text-primary underline">Create a mailing list</Link> to send to external contacts.
+                                            </p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
 
                             {/* Estimated reach */}
-                            {segmentId && estimatedReach > 0 && (
+                            {estimatedReach > 0 && (
                                 <div className="flex items-center gap-2 rounded-md bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-4 py-2.5">
                                     <Users className="h-4 w-4 text-emerald-600" />
                                     <span className="text-sm text-emerald-700 dark:text-emerald-400">
-                                        Estimated reach: <strong>{estimatedReach.toLocaleString()}</strong> users
+                                        Estimated reach: <strong>{estimatedReach.toLocaleString()}</strong> {audienceType === 'list' ? 'contacts' : 'users'}
                                     </span>
                                 </div>
                             )}

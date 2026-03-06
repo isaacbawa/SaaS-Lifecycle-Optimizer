@@ -8,7 +8,7 @@
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllEmailCampaigns, upsertEmailCampaign, getEmailTemplate, getSegmentMembers, getAllTrackedUsers, createEmailSend, updateCampaignMetrics, getTrackedAccount, getSendingDomains } from '@/lib/db/operations';
+import { getAllEmailCampaigns, upsertEmailCampaign, getEmailTemplate, getSegmentMembers, getAllTrackedUsers, createEmailSend, updateCampaignMetrics, getTrackedAccount, getSendingDomains, getMailingListActiveContacts } from '@/lib/db/operations';
 import { prepareCampaignEmails } from '@/lib/engine/email-campaigns';
 import { sendEmail } from '@/lib/engine/email';
 import type { CampaignRecipient } from '@/lib/engine/email-campaigns';
@@ -58,9 +58,27 @@ export async function POST(request: NextRequest) {
             const template = await getEmailTemplate(orgId, campaign.templateId);
             if (!template) return NextResponse.json({ success: false, error: 'Template not found' }, { status: 404 });
 
-            // Get recipients from segment or all users
+            // Get recipients from mailing list, segment, or all users
             let recipients: CampaignRecipient[] = [];
-            if (campaign.segmentId) {
+            if (campaign.mailingListId) {
+                // Mailing list: external contacts (not tracked users)
+                const contacts = await getMailingListActiveContacts(campaign.mailingListId, 10000);
+                for (const c of contacts) {
+                    recipients.push({
+                        trackedUserId: c.id, // use contact id as identifier
+                        email: c.email,
+                        user: {
+                            id: c.id,
+                            email: c.email,
+                            name: [c.firstName, c.lastName].filter(Boolean).join(' ') || null,
+                            firstName: c.firstName,
+                            lastName: c.lastName,
+                            ...(c.properties as Record<string, unknown>),
+                        },
+                        account: null,
+                    });
+                }
+            } else if (campaign.segmentId) {
                 const members = await getSegmentMembers(campaign.segmentId, 10000);
                 for (const m of members) {
                     let account: Record<string, unknown> | null = null;
