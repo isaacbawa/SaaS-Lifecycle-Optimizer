@@ -734,7 +734,7 @@ function CampaignBuilderInner() {
                             )} */}
 
                             <p className="text-xs text-muted-foreground">
-                                {segments.length === 0 && "No segments defined. "}
+                                {segments.length === 1 && "No segments defined. "}
                                 <Link href="/segments" className="text-primary underline">
                                     Create segments
                                 </Link>{" "}
