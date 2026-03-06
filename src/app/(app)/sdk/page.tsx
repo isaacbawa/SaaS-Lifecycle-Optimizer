@@ -65,9 +65,9 @@ const API_KEY_PLACEHOLDER = 'your-api-key-here';
 
 const installCode = `npm install @lifecycleos/sdk`;
 
-const initCode = (apiKey: string) => `import { LifecycleOS } from '@lifecycleos/sdk';
+const initCode = (apiKey: string) => `import { createClient } from '@lifecycleos/sdk';
 
-const lifecycle = new LifecycleOS({
+const lifecycle = createClient({
   apiKey: '${apiKey}',
   environment: 'production',    // 'production' | 'staging' | 'development'
   flushAt: 20,                  // Batch size before auto-flush

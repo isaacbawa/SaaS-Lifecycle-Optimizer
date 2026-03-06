@@ -67,51 +67,55 @@ yarn add @lifecycleos/sdk
 # pnpm
 pnpm add @lifecycleos/sdk`;
 
-const pythonInstallSnippet = `pip install lifecycleos`;
+const pythonInstallSnippet = `pip install requests`;
 
-const initJsSnippet = `import { LifecycleOS } from '@lifecycleos/sdk';
+const initJsSnippet = `import { createClient } from '@lifecycleos/sdk';
 
-const lifecycle = new LifecycleOS({
+const lifecycle = createClient({
   apiKey: process.env.LIFECYCLEOS_API_KEY,
   environment: 'production',   // 'production' | 'staging' | 'development'
-  flushInterval: 10000,         // batch flush interval in ms (default: 10s)
-  maxBatchSize: 100,            // max events per batch (default: 100)
-  retryAttempts: 3,             // retry failed requests (default: 3)
+  flushAt: 20,                  // events before auto-flush (default: 20)
+  flushInterval: 10000,         // auto-flush interval in ms (default: 10s)
+  maxRetries: 3,                // retry failed requests (default: 3)
+  debug: false,                 // enable console logging
 });`;
 
-const initPythonSnippet = `from lifecycleos import LifecycleOS
+const initPythonSnippet = `import requests
 
-lifecycle = LifecycleOS(
-    api_key="lcos_live_a1b2c3d4e5f6g7h8i9j0",
-    environment="production",
-    flush_interval=10,        # seconds
-    max_batch_size=100,
-)`;
+API_KEY = "lcos_live_a1b2c3d4e5f6g7h8i9j0"
+BASE_URL = "https://your-app.com/api/v1"  # Your deployment URL
+HEADERS = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Content-Type": "application/json",
+}`;
 
-const identifySnippet = `lifecycle.identify('user-456', {
+const identifySnippet = `await lifecycle.identify('user-456', {
   email: 'maria@acmecorp.com',
   name: 'Maria Garcia',
   accountId: 'acc-012',
   plan: 'Growth',
   createdAt: '2025-01-10T08:00:00Z',
-  traits: {
-    role: 'admin',
-    department: 'Engineering',
-    jobTitle: 'VP of Engineering',
-  },
+  role: 'admin',
+  department: 'Engineering',
+  jobTitle: 'VP of Engineering',
 });`;
 
-const identifyPythonSnippet = `lifecycle.identify("user-456", {
-    "email": "maria@acmecorp.com",
-    "name": "Maria Garcia",
-    "account_id": "acc-012",
-    "plan": "Growth",
-    "created_at": "2025-01-10T08:00:00Z",
-    "traits": {
-        "role": "admin",
-        "department": "Engineering",
+const identifyPythonSnippet = `response = requests.post(
+    f"{BASE_URL}/identify",
+    headers=HEADERS,
+    json={
+        "userId": "user-456",
+        "traits": {
+            "email": "maria@acmecorp.com",
+            "name": "Maria Garcia",
+            "accountId": "acc-012",
+            "plan": "Growth",
+            "createdAt": "2025-01-10T08:00:00Z",
+            "role": "admin",
+            "department": "Engineering",
+        },
     },
-})`;
+)`;
 
 const groupSnippet = `lifecycle.group('acc-012', {
   name: 'Acme Corp',
@@ -127,42 +131,49 @@ const groupSnippet = `lifecycle.group('acc-012', {
 const trackSnippet = `// Track a product usage event
 lifecycle.track('feature_used', {
   userId: 'user-456',
-  properties: {
-    feature: 'email_flow_builder',
-    duration: 120,      // seconds spent
-    success: true,
-  },
+  feature: 'email_flow_builder',
+  duration: 120,      // seconds spent
+  success: true,
 });
 
 // Track a revenue event
 lifecycle.track('subscription_upgraded', {
   userId: 'user-456',
-  properties: {
-    previousPlan: 'Starter',
-    newPlan: 'Growth',
-    mrrChange: 100,
-    reason: 'seat_cap_reached',
-  },
+  previousPlan: 'Starter',
+  newPlan: 'Growth',
+  mrrChange: 100,
+  reason: 'seat_cap_reached',
 });
 
 // Track a lifecycle milestone
 lifecycle.track('trial_activated', {
   userId: 'user-456',
-  properties: {
-    plan: 'Growth',
-    activationDay: 3,
-    completedSteps: ['profile', 'first_flow', 'domain_verified'],
-  },
+  plan: 'Growth',
+  activationDay: 3,
+  completedSteps: ['profile', 'first_flow', 'domain_verified'],
 });`;
 
-const trackPythonSnippet = `lifecycle.track("feature_used", {
-    "user_id": "user-456",
-    "properties": {
-        "feature": "email_flow_builder",
-        "duration": 120,
-        "success": True,
+const trackPythonSnippet = `import requests
+
+response = requests.post(
+    f"{BASE_URL}/events",
+    headers=HEADERS,
+    json={
+        "batch": [
+            {
+                "event": "feature_used",
+                "properties": {
+                    "userId": "user-456",
+                    "feature": "email_flow_builder",
+                    "duration": 120,
+                    "success": True,
+                },
+                "timestamp": "2025-01-15T10:30:00Z",
+            }
+        ],
+        "sentAt": "2025-01-15T10:30:00Z",
     },
-})`;
+)`;
 
 const webhookPayloadSnippet = `{
   "id": "evt_a1b2c3d4e5",
@@ -203,7 +214,7 @@ function verifyWebhookSignature(
 
 // In your webhook handler:
 app.post('/webhooks/lifecycleos', (req, res) => {
-  const signature = req.headers['x-lifecycleos-signature'];
+  const signature = req.headers['x-lifecycle-signature'];
   const isValid = verifyWebhookSignature(
     JSON.stringify(req.body),
     signature,
@@ -227,7 +238,7 @@ app.post('/webhooks/lifecycleos', (req, res) => {
 });`;
 
 const apiAuthSnippet = `// All API requests require a Bearer token
-const response = await fetch('https://api.lifecycleos.com/v1/users/user-456', {
+const response = await fetch('/api/v1/users/user-456', {
   method: 'GET',
   headers: {
     'Authorization': 'Bearer lcos_live_a1b2c3d4e5f6g7h8i9j0',
@@ -235,39 +246,39 @@ const response = await fetch('https://api.lifecycleos.com/v1/users/user-456', {
   },
 });
 
-const user = await response.json();`;
+const { success, data: user } = await response.json();`;
 
 const churnAnalysisSnippet = `const response = await fetch(
-  'https://api.lifecycleos.com/v1/users/user-456/analyze',
+  '/api/v1/users/user-456/analyze',
   {
     method: 'POST',
     headers: {
       'Authorization': 'Bearer lcos_live_...',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      includeRecommendations: true,
-      lookbackDays: 30,
-    }),
   }
 );
 
-const analysis = await response.json();
+const { data } = await response.json();
 // Response shape:
 // {
-//   riskScore: 72,
-//   riskTier: "High",
-//   explanation: "Login frequency dropped 60% ...",
-//   factors: [
-//     { signal: "login_frequency_drop", weight: 0.35, category: "engagement" },
-//     { signal: "feature_usage_decline", weight: 0.25, category: "product" },
-//     ...
-//   ],
-//   recommendations: [
-//     { action: "Trigger re-engagement flow", priority: "high", automatable: true },
-//     { action: "Schedule CSM outreach", priority: "medium", automatable: false },
-//   ],
-//   estimatedMrrAtRisk: 2400,
+//   success: true,
+//   data: {
+//     analysis: {
+//       riskScore: 72,
+//       riskTier: "High",
+//       factors: [
+//         { signal: "login_frequency_drop", weight: 0.35, category: "engagement" },
+//         { signal: "feature_usage_decline", weight: 0.25, category: "product" },
+//       ],
+//       recommendations: [
+//         { action: "Trigger re-engagement flow", priority: "high", automatable: true },
+//         { action: "Schedule CSM outreach", priority: "medium", automatable: false },
+//       ],
+//       estimatedMrrAtRisk: 2400,
+//     }
+//   },
+//   meta: { requestId: "req_a1b2c3", timestamp: "..." }
 // }`;
 
 const flowTriggerSnippet = `// Lifecycle change trigger — fires when a user transitions between states
@@ -303,31 +314,38 @@ const flowTriggerSnippet = `// Lifecycle change trigger — fires when a user tr
 
 const expansionSnippet = `// Expansion signals are detected automatically. Query them via API:
 const response = await fetch(
-  'https://api.lifecycleos.com/v1/accounts/acc-012/expansion-signals',
+  '/api/v1/accounts/acc-012',
   {
-    headers: { 'Authorization': 'Bearer lcos_live_...' },
+    headers: {
+      'Authorization': 'Bearer lcos_live_...',
+      'Content-Type': 'application/json',
+    },
   }
 );
 
-const signals = await response.json();
-// Response:
-// [
-//   {
-//     signal: "seat_cap",
-//     signalDescription: "Using 23 of 25 seats (92%)",
-//     currentPlan: "Growth",
-//     suggestedPlan: "Business",
-//     currentMrr: 149,
-//     potentialMrr: 349,
-//     upliftMrr: 200,
-//     confidence: 0.87,
-//     status: "identified",
+const { data } = await response.json();
+// The account response includes expansion signals when detected:
+// {
+//   success: true,
+//   data: {
+//     account: { id, name, plan, mrr, userCount, healthScore },
+//     expansionSignals: [
+//       {
+//         signal: "seat_cap",
+//         description: "Using 23 of 25 seats (92%)",
+//         currentPlan: "Growth",
+//         suggestedPlan: "Business",
+//         potentialMrrUplift: 200,
+//         confidence: 0.87,
+//         status: "identified",
+//       }
+//     ]
 //   }
-// ]`;
+// }`;
 
 const domainSetupSnippet = `// 1. Add your sending domain via the API
 const response = await fetch(
-  'https://api.lifecycleos.com/v1/deliverability/domains',
+  '/api/v1/domains',
   {
     method: 'POST',
     headers: {
@@ -342,48 +360,55 @@ const response = await fetch(
 
 // Response includes DNS records to configure:
 // {
-//   "id": "dom-abc123",
-//   "domain": "mail.acmecorp.com",
-//   "status": "pending",
-//   "dnsRecords": {
-//     "dkim": {
-//       "type": "CNAME",
-//       "name": "lcos._domainkey.mail.acmecorp.com",
-//       "value": "dkim.lifecycleos.com"
-//     },
-//     "spf": {
-//       "type": "TXT",
-//       "name": "mail.acmecorp.com",
-//       "value": "v=spf1 include:spf.lifecycleos.com ~all"
-//     },
-//     "dmarc": {
-//       "type": "TXT",
-//       "name": "_dmarc.mail.acmecorp.com",
-//       "value": "v=DMARC1; p=quarantine; rua=mailto:dmarc@lifecycleos.com"
+//   "success": true,
+//   "data": {
+//     "id": "dom-abc123",
+//     "domain": "mail.acmecorp.com",
+//     "status": "pending",
+//     "dnsRecords": {
+//       "dkim": {
+//         "type": "CNAME",
+//         "name": "lcos._domainkey.mail.acmecorp.com",
+//         "value": "dkim.lifecycleos.com"
+//       },
+//       "spf": {
+//         "type": "TXT",
+//         "name": "mail.acmecorp.com",
+//         "value": "v=spf1 include:spf.lifecycleos.com ~all"
+//       },
+//       "dmarc": {
+//         "type": "TXT",
+//         "name": "_dmarc.mail.acmecorp.com",
+//         "value": "v=DMARC1; p=quarantine; rua=mailto:dmarc@lifecycleos.com"
+//       }
 //     }
 //   }
 // }
 
-// 2. After configuring DNS, verify:
+// 2. Check domain verification status:
 await fetch(
-  'https://api.lifecycleos.com/v1/deliverability/domains/dom-abc123/verify',
+  '/api/v1/domains/check',
   {
     method: 'POST',
-    headers: { 'Authorization': 'Bearer lcos_live_...' },
+    headers: {
+      'Authorization': 'Bearer lcos_live_...',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ domainId: 'dom-abc123' }),
   }
 );`;
 
-const errorResponseSnippet = `// Error response format
+const errorResponseSnippet = `// Error response format (all errors follow this structure)
 {
+  "success": false,
   "error": {
     "code": "VALIDATION_ERROR",
-    "message": "The 'email' field is required for user identification.",
-    "details": {
-      "field": "email",
-      "constraint": "required"
-    }
+    "message": "The 'email' field is required for user identification."
   },
-  "requestId": "req_a1b2c3d4e5"
+  "meta": {
+    "requestId": "req_a1b2c3d4e5",
+    "timestamp": "2025-01-15T10:30:00Z"
+  }
 }
 
 // Common error codes:
@@ -403,11 +428,9 @@ const useCaseActivationSnippet = `// Use Case: Accelerate trial-to-paid activati
 // Step 1: SDK tracks activation milestones automatically
 lifecycle.track('setup_step_completed', {
   userId: 'user-789',
-  properties: {
-    step: 'domain_verified',
-    stepNumber: 3,
-    totalSteps: 5,
-  },
+  step: 'domain_verified',
+  stepNumber: 3,
+  totalSteps: 5,
 });
 
 // Step 2: The lifecycle engine detects stalled trials.
@@ -515,27 +538,25 @@ const lifecycleStates = [
    ═══════════════════════════════════════════════════════════════════════ */
 
 const apiEndpoints = [
+    { method: 'POST', path: '/identify', description: 'Create or update a user with traits. Equivalent to the SDK identify() call.' },
+    { method: 'POST', path: '/events', description: 'Ingest a batch of events. Supports up to 1,000 events per request. Each event must include a userId and event name.' },
+    { method: 'POST', path: '/group', description: 'Create or update an account with properties. Equivalent to the SDK group() call.' },
     { method: 'GET', path: '/users/:id', description: 'Retrieve a user profile, including current lifecycle state, engagement metrics, and plan details.' },
-    { method: 'POST', path: '/users/:id/identify', description: 'Create or update a user with traits. Equivalent to the SDK identify() call.' },
     { method: 'POST', path: '/users/:id/analyze', description: 'Run churn risk analysis. Returns risk score, tier, contributing factors, and actionable recommendations.' },
     { method: 'GET', path: '/accounts/:id', description: 'Retrieve account details including MRR, user count, health score, and lifecycle distribution.' },
-    { method: 'POST', path: '/accounts/:id/group', description: 'Create or update an account with properties. Equivalent to the SDK group() call.' },
-    { method: 'GET', path: '/accounts/:id/expansion-signals', description: 'List detected expansion signals for an account, including confidence scores and suggested plans.' },
-    { method: 'POST', path: '/events', description: 'Ingest a batch of events. Supports up to 1,000 events per request. Each event must include a userId and event name.' },
     { method: 'GET', path: '/flows', description: 'List all email flows with their status, trigger configuration, and performance metrics.' },
-    { method: 'GET', path: '/flows/:id', description: 'Retrieve a single flow with detailed step-by-step configuration and per-step analytics.' },
-    { method: 'POST', path: '/flows/:id/activate', description: 'Activate a draft or paused flow. The flow will begin processing eligible users.' },
-    { method: 'POST', path: '/flows/:id/pause', description: 'Pause an active flow. Users currently in the flow will stop receiving emails until resumed.' },
+    { method: 'GET', path: '/analytics/kpi', description: 'KPI summary: active users, trial conversion rate, churn rate, MRR, and engagement metrics.' },
     { method: 'GET', path: '/analytics/revenue', description: 'Revenue analytics: MRR/ARR over time, waterfall data (new, expansion, contraction, churn, reactivation).' },
     { method: 'GET', path: '/analytics/retention', description: 'Retention cohort data. Returns monthly cohorts with week-over-week or month-over-month retention rates.' },
-    { method: 'GET', path: '/analytics/activation', description: 'Activation funnel data: signups, setup completions, aha moments, activations, and conversions over time.' },
-    { method: 'GET', path: '/deliverability/domains', description: 'List sending domains with verification status (DKIM, SPF, DMARC) and last check timestamps.' },
-    { method: 'POST', path: '/deliverability/domains', description: 'Add a new sending domain. Returns DNS records that must be configured before verification.' },
-    { method: 'POST', path: '/deliverability/domains/:id/verify', description: 'Trigger DNS verification for a pending domain. Returns updated status.' },
-    { method: 'GET', path: '/deliverability/metrics', description: 'Email deliverability metrics: sent, delivered, opened, clicked, bounced, spam complaints, and unsubscribes.' },
+    { method: 'GET', path: '/domains', description: 'List sending domains with verification status (DKIM, SPF, DMARC) and last check timestamps.' },
+    { method: 'POST', path: '/domains', description: 'Add a new sending domain. Returns DNS records that must be configured before verification.' },
+    { method: 'POST', path: '/domains/check', description: 'Trigger DNS verification for a pending domain. Returns updated status.' },
     { method: 'GET', path: '/webhooks', description: 'List configured webhook endpoints with their event subscriptions and status.' },
     { method: 'POST', path: '/webhooks', description: 'Create a new webhook endpoint. Specify URL, event subscriptions, and an optional secret for signature verification.' },
     { method: 'DELETE', path: '/webhooks/:id', description: 'Delete a webhook endpoint. Pending deliveries will be discarded.' },
+    { method: 'GET', path: '/keys', description: 'List API keys (masked) for the current organization.' },
+    { method: 'POST', path: '/keys', description: 'Create a new API key. Returns the full key once — store it securely.' },
+    { method: 'DELETE', path: '/keys/:id', description: 'Revoke an API key. The key is immediately invalidated.' },
 ];
 
 const methodColors: Record<string, string> = {
@@ -727,10 +748,11 @@ export default function DocsPage() {
                                     <ul className="list-disc list-inside text-muted-foreground space-y-2 pl-2">
                                         <li>
                                             <strong className="text-foreground">Event SDK</strong> —
-                                            Lightweight client (JavaScript &amp; Python) that tracks
+                                            Lightweight JavaScript/TypeScript client that tracks
                                             user identification, product events, and revenue events.
-                                            Auto-batching, retry logic, and schema validation are
-                                            built in.
+                                            Auto-batching, retry logic, and type safety are
+                                            built in. Python and other languages can use the REST API
+                                            directly.
                                         </li>
                                         <li>
                                             <strong className="text-foreground">Lifecycle Engine</strong> —
@@ -833,8 +855,9 @@ export default function DocsPage() {
 
                                     <SubHeading>Python</SubHeading>
                                     <Prose>
-                                        The Python SDK supports Python 3.8+ and provides the same
-                                        identify, track, and group methods with automatic batching.
+                                        Python developers can use the REST API directly with the
+                                        <code className="bg-muted px-1.5 py-0.5 rounded text-sm">requests</code>{' '}
+                                        library. Set up your API key and base URL:
                                     </Prose>
                                     <CodeBlock code={pythonInstallSnippet} />
                                     <CodeBlock code={initPythonSnippet} />
@@ -865,7 +888,7 @@ export default function DocsPage() {
                                     <SubHeading>JavaScript</SubHeading>
                                     <CodeBlock code={identifySnippet} />
 
-                                    <SubHeading>Python</SubHeading>
+                                    <SubHeading>Python (REST API)</SubHeading>
                                     <CodeBlock code={identifyPythonSnippet} />
 
                                     <SubHeading>Parameters</SubHeading>
@@ -917,10 +940,10 @@ export default function DocsPage() {
                                                     <TableCell className="text-muted-foreground">When the user originally created their account in your system.</TableCell>
                                                 </TableRow>
                                                 <TableRow>
-                                                    <TableCell><code className="text-xs bg-muted px-1 rounded">traits</code></TableCell>
-                                                    <TableCell>object</TableCell>
+                                                    <TableCell><code className="text-xs bg-muted px-1 rounded">[custom keys]</code></TableCell>
+                                                    <TableCell>any</TableCell>
                                                     <TableCell>No</TableCell>
-                                                    <TableCell className="text-muted-foreground">Arbitrary key-value pairs for segmentation (role, department, etc.).</TableCell>
+                                                    <TableCell className="text-muted-foreground">Any additional key-value pairs are accepted as custom traits (role, department, etc.). Passed flat alongside the standard fields.</TableCell>
                                                 </TableRow>
                                             </TableBody>
                                         </Table>
@@ -985,7 +1008,7 @@ export default function DocsPage() {
                                     <SubHeading>JavaScript</SubHeading>
                                     <CodeBlock code={trackSnippet} />
 
-                                    <SubHeading>Python</SubHeading>
+                                    <SubHeading>Python (REST API)</SubHeading>
                                     <CodeBlock code={trackPythonSnippet} />
 
                                     <SubHeading>Event structure</SubHeading>
@@ -1511,10 +1534,15 @@ export default function DocsPage() {
                                     <Prose>
                                         The REST API is available at{' '}
                                         <code className="bg-muted px-1.5 py-0.5 rounded text-sm">
-                                            https://api.lifecycleos.com/v1
+                                            /api/v1
                                         </code>
                                         . All requests require a Bearer token in the Authorization
-                                        header.
+                                        header. When calling from your own application, use your
+                                        deployment base URL (e.g.,{' '}
+                                        <code className="bg-muted px-1.5 py-0.5 rounded text-sm">
+                                            https://your-app.com/api/v1
+                                        </code>
+                                        ).
                                     </Prose>
 
                                     <SubHeading>Authentication</SubHeading>
@@ -1611,7 +1639,7 @@ export default function DocsPage() {
                                     <Prose>
                                         Every webhook request includes an{' '}
                                         <code className="bg-muted px-1.5 py-0.5 rounded text-sm">
-                                            X-LifecycleOS-Signature
+                                            X-Lifecycle-Signature
                                         </code>{' '}
                                         header. Verify it to ensure the payload is authentic:
                                     </Prose>
