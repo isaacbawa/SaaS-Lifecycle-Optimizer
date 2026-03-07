@@ -267,17 +267,34 @@ export interface TemplateVariable {
 
 export interface VariableCategory {
   name: string;
+  /** Optional hint shown below the category name to clarify audience scope. */
+  hint?: string;
   variables: TemplateVariable[];
 }
 
-/* Variables pulled from the SaaS platform data model (User, Account, etc.) */
+/*
+ * Personalization Variables — organized by audience compatibility.
+ *
+ * "Contact" variables work for ALL recipients (SaaS users AND mailing-list contacts).
+ * "User Properties" and "Lifecycle" resolve only for tracked SaaS users.
+ * "Account" resolves only when the recipient belongs to a tracked account.
+ * "System" variables are globally available.
+ */
 export const VARIABLE_CATEGORIES: VariableCategory[] = [
   {
     name: 'Contact',
+    hint: 'Works for all recipients — SaaS users and mailing list contacts alike.',
     variables: [
-      { key: 'user.name', label: 'Full Name', example: 'Jane Cooper' },
-      { key: 'user.firstName', label: 'First Name', example: 'Jane' },
       { key: 'user.email', label: 'Email Address', example: 'jane@acme.io' },
+      { key: 'user.firstName', label: 'First Name', example: 'Jane' },
+      { key: 'user.lastName', label: 'Last Name', example: 'Cooper' },
+      { key: 'user.name', label: 'Full Name', example: 'Jane Cooper' },
+    ],
+  },
+  {
+    name: 'User Properties',
+    hint: 'Available for tracked SaaS users only (not mailing-list contacts).',
+    variables: [
       { key: 'user.plan', label: 'Current Plan', example: 'Growth' },
       { key: 'user.mrr', label: 'MRR', example: '$299' },
       { key: 'user.seatCount', label: 'Seats Used', example: '12' },
@@ -288,6 +305,7 @@ export const VARIABLE_CATEGORIES: VariableCategory[] = [
   },
   {
     name: 'Account',
+    hint: 'Available when the recipient belongs to a tracked company/account.',
     variables: [
       { key: 'account.name', label: 'Company Name', example: 'Acme Inc.' },
       { key: 'account.plan', label: 'Account Plan', example: 'Business' },
@@ -302,6 +320,7 @@ export const VARIABLE_CATEGORIES: VariableCategory[] = [
   },
   {
     name: 'Lifecycle',
+    hint: 'Available for tracked SaaS users only.',
     variables: [
       { key: 'user.lifecycleState', label: 'Current Stage', example: 'Activated' },
       { key: 'user.churnRiskScore', label: 'Churn Risk Score', example: '23' },

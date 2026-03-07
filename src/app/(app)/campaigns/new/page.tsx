@@ -113,6 +113,7 @@ function VariableInserter({ onInsert }: { onInsert: (variable: string) => void }
 
     const categoryIcons: Record<string, React.ElementType> = {
         Contact: User,
+        'User Properties': User,
         Account: Building2,
         Lifecycle: Sparkles,
         System: AtSign,
@@ -147,6 +148,7 @@ function VariableInserter({ onInsert }: { onInsert: (variable: string) => void }
                                             {cat.name}
                                         </span>
                                     </div>
+                                    {cat.hint && <p className="text-[9px] text-muted-foreground/70 px-2 -mt-0.5 mb-0.5">{cat.hint}</p>}
                                     <div className="grid grid-cols-2 gap-1 mt-1">
                                         {cat.variables.map((v) => (
                                             <button

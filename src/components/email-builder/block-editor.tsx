@@ -146,7 +146,8 @@ function VariableInserter({ onInsert }: { onInsert: (variable: string) => void }
                     <div className="p-3 space-y-3">
                         {VARIABLE_CATEGORIES.map((cat) => (
                             <div key={cat.name}>
-                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">{cat.name}</p>
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">{cat.name}</p>
+                                {cat.hint && <p className="text-[9px] text-muted-foreground/70 mb-1.5">{cat.hint}</p>}
                                 <div className="space-y-0.5">
                                     {cat.variables.map((v) => (
                                         <button
@@ -203,8 +204,8 @@ function SocialVariantPicker({ value, onChange }: { value: SocialVariant; onChan
                         key={v.value}
                         onClick={() => onChange(v.value)}
                         className={`flex items-center gap-3 p-2.5 rounded-lg border text-left transition-all ${value === v.value
-                                ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-muted/20'
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-muted/20'
                             }`}
                     >
                         {/* Mini preview */}
@@ -285,8 +286,8 @@ function FooterVariantPicker({ value, onChange }: { value: FooterVariant; onChan
                         key={v.value}
                         onClick={() => onChange(v.value)}
                         className={`flex items-center gap-3 p-2.5 rounded-lg border text-left transition-all ${value === v.value
-                                ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
-                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-muted/20'
+                            ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-muted/20'
                             }`}
                     >
                         {/* Mini preview */}

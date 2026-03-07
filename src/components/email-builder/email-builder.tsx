@@ -118,6 +118,7 @@ function VariablePanel({ onInsert, compact }: { onInsert: (v: string) => void; c
 
   const categoryIcons: Record<string, React.ElementType> = {
     Contact: User,
+    'User Properties': User,
     Account: Building2,
     Lifecycle: Sparkles,
     System: AtSign,
@@ -151,6 +152,7 @@ function VariablePanel({ onInsert, compact }: { onInsert: (v: string) => void; c
                       <Icon className="h-2.5 w-2.5 text-muted-foreground" />
                       <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{cat.name}</span>
                     </div>
+                    {cat.hint && <p className="text-[8px] text-muted-foreground/70 px-1.5 -mt-0.5 mb-0.5">{cat.hint}</p>}
                     <div className="grid grid-cols-2 gap-0.5 mt-0.5">
                       {cat.variables.map((v) => (
                         <button
@@ -198,6 +200,7 @@ function VariablePanel({ onInsert, compact }: { onInsert: (v: string) => void; c
                   <Icon className="h-3 w-3 text-muted-foreground" />
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{cat.name}</span>
                 </div>
+                {cat.hint && <p className="text-[9px] text-muted-foreground/70 px-2 -mt-0.5 mb-0.5">{cat.hint}</p>}
                 <div className="space-y-0.5 mt-0.5">
                   {cat.variables.map((v) => (
                     <button

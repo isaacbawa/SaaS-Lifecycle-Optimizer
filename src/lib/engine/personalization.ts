@@ -18,6 +18,8 @@ import { evaluateSegmentFilters } from './segmentation';
 export const VARIABLE_SOURCES = {
     user: [
         { key: 'name', label: 'User Name' },
+        { key: 'firstName', label: 'First Name' },
+        { key: 'lastName', label: 'Last Name' },
         { key: 'email', label: 'User Email' },
         { key: 'lifecycleState', label: 'Lifecycle State' },
         { key: 'plan', label: 'User Plan' },
@@ -160,10 +162,14 @@ export function renderTemplate(
     }
 
     // Also include direct user/account properties as {{user.name}}, {{account.plan}} etc.
+    // Contact-scoped aliases ({{contact.X}}) are also populated from the user object
+    // so that variables resolve identically for SaaS users and mailing-list contacts.
     if (user) {
         for (const [key, val] of Object.entries(user)) {
             if (val !== null && val !== undefined && typeof val !== 'object') {
-                resolvedVars[`user.${key}`] = String(val);
+                const str = String(val);
+                resolvedVars[`user.${key}`] = str;
+                resolvedVars[`contact.${key}`] = str;
             }
         }
     }
