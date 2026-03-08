@@ -123,11 +123,12 @@ export async function enqueue(email: {
     headers?: Record<string, string>;
     campaignId?: string;
     userId?: string;
+    orgId?: string;
     priority?: EmailPriority;
     maxAttempts?: number;
     tags?: Record<string, string>;
 }): Promise<string> {
-    const orgId = await getOrgId();
+    const orgId = await getOrgId(email.orgId);
     const priority = email.priority ?? 'normal';
     const maxAttempts = email.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
 

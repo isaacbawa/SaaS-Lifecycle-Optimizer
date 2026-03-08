@@ -1119,6 +1119,7 @@ async function dispatchFlowActions(actions: TickAction[], user: User, orgId: str
                         html,
                         fromName: action.fromName,
                         replyTo: action.replyTo,
+                        orgId,
                     });
                     dispatched++;
                     break;

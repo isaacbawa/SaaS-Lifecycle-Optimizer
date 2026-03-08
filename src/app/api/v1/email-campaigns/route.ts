@@ -176,6 +176,7 @@ export async function POST(request: NextRequest) {
                         replyTo: campaign.replyTo ?? template.replyTo ?? undefined,
                         campaignId: campaign.id,
                         userId: email.trackedUserId,
+                        orgId,
                         priority: 'normal',
                         trackOpens: true,
                         trackClicks: true,

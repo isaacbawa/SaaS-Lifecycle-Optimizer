@@ -88,6 +88,7 @@ export interface EmailPayload {
     replyTo?: string;
     campaignId?: string;
     userId?: string;
+    orgId?: string;
     priority?: EmailPriority;
     tags?: Record<string, string>;
     trackOpens?: boolean;   // Default: true
@@ -246,8 +247,8 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
     const provider = getTransport() ? 'smtp' : 'log' as const;
 
     // 1. Check suppression
-    if (await isSuppressed(payload.to)) {
-        const entry = await getSuppressionEntry(payload.to);
+    if (await isSuppressed(payload.to, payload.orgId)) {
+        const entry = await getSuppressionEntry(payload.to, payload.orgId);
         console.log(
             `[email-system] Suppressed: ${payload.to} (reason: ${entry?.reason})`,
         );
@@ -286,6 +287,7 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
         replyTo: payload.replyTo,
         campaignId: payload.campaignId,
         userId: payload.userId,
+        orgId: payload.orgId,
         priority: payload.priority ?? 'normal',
         maxAttempts: payload.maxAttempts ?? 3,
         headers: unsubHeaders,

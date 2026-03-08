@@ -114,6 +114,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         replyTo: body.replyTo as string | undefined,
         campaignId: body.campaignId as string | undefined,
         userId: body.userId as string | undefined,
+        orgId: authResult.orgId,
         priority: (body.priority as 'critical' | 'high' | 'normal' | 'low' | 'bulk') ?? 'high',
     });
 

@@ -59,9 +59,9 @@ async function getOrgId(providedOrgId?: string): Promise<string> {
 
 /* ── Core Functions ─────────────────────────────────────────────────── */
 
-export async function isSuppressed(email: string): Promise<boolean> {
+export async function isSuppressed(email: string, providedOrgId?: string): Promise<boolean> {
     const key = normalize(email);
-    const orgId = await getOrgId();
+    const orgId = await getOrgId(providedOrgId);
     if (!orgId) return false;
 
     const [entry] = await db.select().from(schema.emailSuppressions)
@@ -79,9 +79,9 @@ export async function isSuppressed(email: string): Promise<boolean> {
     return true;
 }
 
-export async function getSuppressionEntry(email: string): Promise<SuppressionEntry | null> {
+export async function getSuppressionEntry(email: string, providedOrgId?: string): Promise<SuppressionEntry | null> {
     const key = normalize(email);
-    const orgId = await getOrgId();
+    const orgId = await getOrgId(providedOrgId);
     if (!orgId) return null;
 
     const [entry] = await db.select().from(schema.emailSuppressions)
