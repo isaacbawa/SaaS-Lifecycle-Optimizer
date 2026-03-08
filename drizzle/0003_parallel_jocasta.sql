@@ -1,0 +1,1 @@
+ALTER TABLE "email_sends" ALTER COLUMN "tracked_user_id" DROP NOT NULL;

@@ -678,7 +678,7 @@ export const emailSends = pgTable('email_sends', {
     organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
     campaignId: uuid('campaign_id').references(() => emailCampaigns.id, { onDelete: 'set null' }),
     templateId: uuid('template_id').references(() => emailTemplates.id, { onDelete: 'set null' }),
-    trackedUserId: uuid('tracked_user_id').notNull().references(() => trackedUsers.id, { onDelete: 'cascade' }),
+    trackedUserId: uuid('tracked_user_id').references(() => trackedUsers.id, { onDelete: 'cascade' }),
     /** Snapshot of the resolved subject and body for this send */
     resolvedSubject: text('resolved_subject'),
     resolvedBodyHtml: text('resolved_body_html'),

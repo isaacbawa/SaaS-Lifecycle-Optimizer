@@ -8,7 +8,7 @@
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllEmailCampaigns, upsertEmailCampaign, getEmailTemplate, getSegmentMembers, getAllTrackedUsers, createEmailSend, updateCampaignMetrics, getTrackedAccount, getSendingDomains, getMailingListActiveContacts } from '@/lib/db/operations';
+import { getAllEmailCampaigns, upsertEmailCampaign, getEmailTemplate, getSegmentMembers, getAllTrackedUsers, createEmailSend, getTrackedAccount, getSendingDomains, getMailingListActiveContacts } from '@/lib/db/operations';
 import { prepareCampaignEmails } from '@/lib/engine/email-campaigns';
 import { sendEmail } from '@/lib/engine/email';
 import type { CampaignRecipient } from '@/lib/engine/email-campaigns';
@@ -146,6 +146,9 @@ export async function POST(request: NextRequest) {
                 }
             }
 
+            // Mailing list contacts are NOT tracked_users — don't pass their IDs as FK
+            const isMailingList = !!campaign.mailingListId;
+
             for (const email of result.prepared) {
                 // Skip recipients without valid email addresses
                 if (!email.email || !email.email.includes('@')) {
@@ -153,19 +156,19 @@ export async function POST(request: NextRequest) {
                     continue;
                 }
 
-                // Create DB send record first
-                const sendRecord = await createEmailSend(orgId, {
-                    campaignId: campaign.id,
-                    templateId: campaign.templateId,
-                    trackedUserId: email.trackedUserId,
-                    resolvedSubject: email.subject,
-                    resolvedBodyHtml: email.bodyHtml,
-                    resolvedVariables: email.resolvedVariables,
-                    status: 'queued',
-                });
-
                 // Send through email pipeline (queue → suppression check → tracking → SMTP)
                 try {
+                    // Create DB send record (trackedUserId is null for mailing list contacts)
+                    const sendRecord = await createEmailSend(orgId, {
+                        campaignId: campaign.id,
+                        templateId: campaign.templateId,
+                        trackedUserId: isMailingList ? null : email.trackedUserId,
+                        resolvedSubject: email.subject,
+                        resolvedBodyHtml: email.bodyHtml,
+                        resolvedVariables: email.resolvedVariables,
+                        status: 'queued',
+                    });
+
                     const sendResult = await sendEmail({
                         to: email.email,
                         subject: email.subject,
@@ -196,8 +199,8 @@ export async function POST(request: NextRequest) {
                         if (sendRecord?.id) {
                             await (await import('@/lib/db/operations')).updateEmailSendStatus(
                                 sendRecord.id,
-                                sendResult.suppressed ? 'suppressed' : 'failed',
-                                { failureReason: sendResult.error },
+                                'failed',
+                                { failureReason: sendResult.error ?? (sendResult.suppressed ? 'Address suppressed' : 'Unknown error') },
                             );
                         }
                     }
