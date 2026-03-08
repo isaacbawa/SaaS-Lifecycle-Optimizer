@@ -5,7 +5,7 @@
  * cold starts. HMAC token generation/verification is unchanged.
  * ═══════════════════════════════════════════════════════════════════════ */
 
-import { createHmac } from 'crypto';
+import { createHmac, createHash, randomBytes } from 'crypto';
 import { db } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
@@ -33,26 +33,90 @@ export interface TrackingStats {
 
 /* ── Constants ──────────────────────────────────────────────────────── */
 
+/**
+ * Resolve the HMAC signing secret for tracking tokens.
+ *
+ * Priority:
+ *   1. EMAIL_TRACKING_SECRET env var (recommended for production)
+ *   2. Deterministic derivation from CLERK_SECRET_KEY (stable across cold starts)
+ *   3. Deterministic derivation from DATABASE_URL (stable across cold starts)
+ *   4. Per-instance random — logs a warning because tokens won't survive restarts
+ */
 function getTrackingSecret(): string {
-    const secret = process.env.EMAIL_TRACKING_SECRET;
-    if (!secret) {
-        throw new Error(
-            '[email-tracking] EMAIL_TRACKING_SECRET environment variable is required. ' +
-            'Generate a secure random string (e.g. openssl rand -hex 32) and set it.',
+    const explicit = process.env.EMAIL_TRACKING_SECRET;
+    if (explicit) return explicit;
+
+    // Derive a stable secret from another available secret
+    const clerkKey = process.env.CLERK_SECRET_KEY;
+    if (clerkKey) {
+        const derived = createHmac('sha256', clerkKey)
+            .update('lifecycle-os:email-tracking-secret')
+            .digest('hex');
+        console.warn(
+            '[email-tracking] EMAIL_TRACKING_SECRET not set — derived from CLERK_SECRET_KEY. ' +
+            'Set EMAIL_TRACKING_SECRET for explicit control.',
         );
+        return derived;
     }
-    return secret;
+
+    const dbUrl = process.env.DATABASE_URL;
+    if (dbUrl) {
+        const derived = createHash('sha256')
+            .update(`lifecycle-os:email-tracking:${dbUrl}`)
+            .digest('hex');
+        console.warn(
+            '[email-tracking] EMAIL_TRACKING_SECRET not set — derived from DATABASE_URL. ' +
+            'Set EMAIL_TRACKING_SECRET for explicit control.',
+        );
+        return derived;
+    }
+
+    // Last resort — ephemeral per-instance random (tokens won't survive cold starts)
+    console.warn(
+        '[email-tracking] EMAIL_TRACKING_SECRET not set and no stable secret available. ' +
+        'Using ephemeral random secret — tracking tokens will NOT survive server restarts. ' +
+        'Set EMAIL_TRACKING_SECRET (openssl rand -hex 32) in production.',
+    );
+    return randomBytes(32).toString('hex');
 }
 
+/**
+ * Resolve the application base URL for tracking endpoints.
+ *
+ * Priority:
+ *   1. NEXT_PUBLIC_APP_URL env var (recommended)
+ *   2. VERCEL_PROJECT_PRODUCTION_URL (auto-set by Vercel on production)
+ *   3. VERCEL_URL (auto-set by Vercel on every deployment)
+ *   4. Throws — no URL can be inferred
+ */
 function getAppUrl(): string {
-    const url = process.env.NEXT_PUBLIC_APP_URL;
-    if (!url) {
-        throw new Error(
-            '[email-tracking] NEXT_PUBLIC_APP_URL environment variable is required. ' +
-            'Set it to your production domain (e.g. https://app.lifecycleos.app).',
+    const explicit = process.env.NEXT_PUBLIC_APP_URL;
+    if (explicit) return explicit.replace(/\/+$/, '');
+
+    const vercelProd = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+    if (vercelProd) {
+        const url = vercelProd.startsWith('http') ? vercelProd : `https://${vercelProd}`;
+        console.warn(
+            `[email-tracking] NEXT_PUBLIC_APP_URL not set — using VERCEL_PROJECT_PRODUCTION_URL (${url}). ` +
+            'Set NEXT_PUBLIC_APP_URL for explicit control.',
         );
+        return url.replace(/\/+$/, '');
     }
-    return url;
+
+    const vercelUrl = process.env.VERCEL_URL;
+    if (vercelUrl) {
+        const url = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+        console.warn(
+            `[email-tracking] NEXT_PUBLIC_APP_URL not set — using VERCEL_URL (${url}). ` +
+            'Set NEXT_PUBLIC_APP_URL for explicit control.',
+        );
+        return url.replace(/\/+$/, '');
+    }
+
+    throw new Error(
+        '[email-tracking] Cannot determine application URL. Set NEXT_PUBLIC_APP_URL ' +
+        '(e.g. https://app.lifecycleos.app) in your environment.',
+    );
 }
 
 // Lazy-initialized to defer env-var reads until first use (allows app to boot)

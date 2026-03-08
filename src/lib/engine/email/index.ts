@@ -265,12 +265,22 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
     const trackOpens = payload.trackOpens !== false;
     const trackClicks = payload.trackClicks !== false;
 
-    if (trackOpens || trackClicks) {
-        html = injectTracking(html, messageId, payload.to, payload.campaignId);
-    }
+    let unsubHeaders: Record<string, string> = {};
 
-    // 4. Build headers (RFC 8058 unsubscribe)
-    const unsubHeaders = getUnsubscribeHeaders(messageId, payload.to, payload.campaignId);
+    try {
+        if (trackOpens || trackClicks) {
+            html = injectTracking(html, messageId, payload.to, payload.campaignId);
+        }
+
+        // 4. Build headers (RFC 8058 unsubscribe)
+        unsubHeaders = getUnsubscribeHeaders(messageId, payload.to, payload.campaignId);
+    } catch (trackingErr) {
+        // Tracking must never block email delivery — send without tracking
+        console.warn(
+            '[email-system] Tracking injection failed, sending without tracking:',
+            trackingErr instanceof Error ? trackingErr.message : trackingErr,
+        );
+    }
 
     // 5. Enqueue
     const queueId = await enqueue({
