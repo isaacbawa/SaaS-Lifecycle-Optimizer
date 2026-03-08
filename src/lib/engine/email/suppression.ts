@@ -51,10 +51,10 @@ function normalize(email: string): string {
 
 async function getOrgId(providedOrgId?: string): Promise<string> {
     if (providedOrgId) return providedOrgId;
-    // Fallback for background processing where orgId isn't passed through
-    const envOrgId = process.env.DEMO_ORG_ID;
-    if (envOrgId) return envOrgId;
-    return '';
+    throw new Error(
+        '[email-suppression] orgId is required for all suppression operations. ' +
+        'Pass orgId through the calling context.',
+    );
 }
 
 /* ── Core Functions ─────────────────────────────────────────────────── */
@@ -97,9 +97,9 @@ export async function getSuppressionEntry(email: string, providedOrgId?: string)
     return { email: entry.email, reason: entry.reason, addedAt: entry.createdAt.toISOString(), expiresAt: entry.expiresAt?.toISOString(), bounceCount: entry.bounceCount, source: entry.source, metadata: entry.metadata ?? undefined };
 }
 
-export async function addSuppression(email: string, reason: SuppressionReason, source: string, metadata?: Record<string, unknown>): Promise<SuppressionEntry> {
+export async function addSuppression(email: string, reason: SuppressionReason, source: string, metadata?: Record<string, unknown>, providedOrgId?: string): Promise<SuppressionEntry> {
     const key = normalize(email);
-    const orgId = await getOrgId();
+    const orgId = await getOrgId(providedOrgId);
 
     const [existing] = await db.select().from(schema.emailSuppressions)
         .where(and(eq(schema.emailSuppressions.organizationId, orgId), eq(schema.emailSuppressions.email, key)))
@@ -119,46 +119,43 @@ export async function addSuppression(email: string, reason: SuppressionReason, s
     return { email: key, reason: effectiveReason, addedAt: result.createdAt.toISOString(), expiresAt: result.expiresAt?.toISOString(), bounceCount, source, metadata };
 }
 
-export async function recordBounce(email: string, bounceType: 'hard' | 'soft' | 'undetermined', diagnosticCode?: string, source = 'bounce_processor'): Promise<SuppressionEntry> {
-    return addSuppression(email, bounceType === 'hard' ? 'hard_bounce' : 'soft_bounce', source, { bounceType, diagnosticCode });
+export async function recordBounce(email: string, bounceType: 'hard' | 'soft' | 'undetermined', diagnosticCode?: string, source = 'bounce_processor', providedOrgId?: string): Promise<SuppressionEntry> {
+    return addSuppression(email, bounceType === 'hard' ? 'hard_bounce' : 'soft_bounce', source, { bounceType, diagnosticCode }, providedOrgId);
 }
 
-export async function recordComplaint(email: string, feedbackType?: string, source = 'complaint_webhook'): Promise<SuppressionEntry> {
-    return addSuppression(email, 'complaint', source, { feedbackType });
+export async function recordComplaint(email: string, feedbackType?: string, source = 'complaint_webhook', providedOrgId?: string): Promise<SuppressionEntry> {
+    return addSuppression(email, 'complaint', source, { feedbackType }, providedOrgId);
 }
 
-export async function recordUnsubscribe(email: string, source = 'unsubscribe_link', campaignId?: string): Promise<SuppressionEntry> {
-    return addSuppression(email, 'unsubscribe', source, { campaignId });
+export async function recordUnsubscribe(email: string, source = 'unsubscribe_link', campaignId?: string, providedOrgId?: string): Promise<SuppressionEntry> {
+    return addSuppression(email, 'unsubscribe', source, { campaignId }, providedOrgId);
 }
 
-export async function removeSuppression(email: string): Promise<boolean> {
+export async function removeSuppression(email: string, providedOrgId?: string): Promise<boolean> {
     const key = normalize(email);
-    const orgId = await getOrgId();
-    if (!orgId) return false;
+    const orgId = await getOrgId(providedOrgId);
     const result = await db.delete(schema.emailSuppressions)
         .where(and(eq(schema.emailSuppressions.organizationId, orgId), eq(schema.emailSuppressions.email, key)))
         .returning();
     return result.length > 0;
 }
 
-export async function filterSuppressed(emails: string[]): Promise<string[]> {
+export async function filterSuppressed(emails: string[], providedOrgId?: string): Promise<string[]> {
     const results: string[] = [];
     for (const email of emails) {
-        if (!(await isSuppressed(email))) results.push(email);
+        if (!(await isSuppressed(email, providedOrgId))) results.push(email);
     }
     return results;
 }
 
-export async function getAllSuppressions(): Promise<SuppressionEntry[]> {
-    const orgId = await getOrgId();
-    if (!orgId) return [];
+export async function getAllSuppressions(providedOrgId?: string): Promise<SuppressionEntry[]> {
+    const orgId = await getOrgId(providedOrgId);
     const entries = await db.select().from(schema.emailSuppressions).where(eq(schema.emailSuppressions.organizationId, orgId));
     return entries.map((e) => ({ email: e.email, reason: e.reason, addedAt: e.createdAt.toISOString(), expiresAt: e.expiresAt?.toISOString(), bounceCount: e.bounceCount, source: e.source, metadata: e.metadata ?? undefined }));
 }
 
-export async function getSuppressionStats(): Promise<SuppressionStats> {
-    const orgId = await getOrgId();
-    if (!orgId) return { total: 0, hardBounces: 0, softBounces: 0, complaints: 0, unsubscribes: 0, manualBlocks: 0, invalidAddresses: 0 };
+export async function getSuppressionStats(providedOrgId?: string): Promise<SuppressionStats> {
+    const orgId = await getOrgId(providedOrgId);
     const [result] = await db.select({
         total: sql<number>`count(*)::int`,
         hardBounces: sql<number>`count(*) filter (where ${schema.emailSuppressions.reason} = 'hard_bounce')::int`,
@@ -171,8 +168,7 @@ export async function getSuppressionStats(): Promise<SuppressionStats> {
     return result ?? { total: 0, hardBounces: 0, softBounces: 0, complaints: 0, unsubscribes: 0, manualBlocks: 0, invalidAddresses: 0 };
 }
 
-export async function clearAllSuppressions(): Promise<void> {
-    const orgId = await getOrgId();
-    if (!orgId) return;
+export async function clearAllSuppressions(providedOrgId?: string): Promise<void> {
+    const orgId = await getOrgId(providedOrgId);
     await db.delete(schema.emailSuppressions).where(eq(schema.emailSuppressions.organizationId, orgId));
 }

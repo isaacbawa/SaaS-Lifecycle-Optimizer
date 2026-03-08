@@ -82,7 +82,7 @@ const lifecycle = createClient({
 
 const initPythonSnippet = `import requests
 
-API_KEY = "lcos_live_a1b2c3d4e5f6g7h8i9j0"
+API_KEY = "lcos_live_..."  # Your API key from Settings > API Keys
 BASE_URL = "https://your-app.com/api/v1"  # Your deployment URL
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
@@ -241,7 +241,7 @@ const apiAuthSnippet = `// All API requests require a Bearer token
 const response = await fetch('/api/v1/users/user-456', {
   method: 'GET',
   headers: {
-    'Authorization': 'Bearer lcos_live_a1b2c3d4e5f6g7h8i9j0',
+    'Authorization': 'Bearer lcos_live_...',  // Your API key
     'Content-Type': 'application/json',
   },
 });

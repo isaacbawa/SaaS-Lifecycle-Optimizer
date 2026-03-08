@@ -10,6 +10,10 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Set required env vars BEFORE importing the tracking module
+process.env.EMAIL_TRACKING_SECRET = 'test_tracking_secret_for_unit_tests_only_32chars';
+process.env.NEXT_PUBLIC_APP_URL = 'https://test.example.com';
+
 // Mock the DB module so the tracking module can be imported
 vi.mock('@/lib/db', () => ({
     db: {

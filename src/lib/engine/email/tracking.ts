@@ -33,8 +33,41 @@ export interface TrackingStats {
 
 /* ── Constants ──────────────────────────────────────────────────────── */
 
-const TRACKING_SECRET = process.env.EMAIL_TRACKING_SECRET ?? 'lcos_track_default_key_change_me';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+function getTrackingSecret(): string {
+    const secret = process.env.EMAIL_TRACKING_SECRET;
+    if (!secret) {
+        throw new Error(
+            '[email-tracking] EMAIL_TRACKING_SECRET environment variable is required. ' +
+            'Generate a secure random string (e.g. openssl rand -hex 32) and set it.',
+        );
+    }
+    return secret;
+}
+
+function getAppUrl(): string {
+    const url = process.env.NEXT_PUBLIC_APP_URL;
+    if (!url) {
+        throw new Error(
+            '[email-tracking] NEXT_PUBLIC_APP_URL environment variable is required. ' +
+            'Set it to your production domain (e.g. https://app.lifecycleos.app).',
+        );
+    }
+    return url;
+}
+
+// Lazy-initialized to defer env-var reads until first use (allows app to boot)
+let _trackingSecret: string | null = null;
+let _appUrl: string | null = null;
+
+function TRACKING_SECRET(): string {
+    if (!_trackingSecret) _trackingSecret = getTrackingSecret();
+    return _trackingSecret;
+}
+
+function APP_URL(): string {
+    if (!_appUrl) _appUrl = getAppUrl();
+    return _appUrl;
+}
 
 export const TRACKING_PIXEL_GIF = Buffer.from(
     'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
@@ -43,10 +76,28 @@ export const TRACKING_PIXEL_GIF = Buffer.from(
 
 async function getOrgId(providedOrgId?: string): Promise<string> {
     if (providedOrgId) return providedOrgId;
-    // Fallback for background processing where orgId isn't passed through
-    const envOrgId = process.env.DEMO_ORG_ID;
-    if (envOrgId) return envOrgId;
-    return '';
+    throw new Error(
+        '[email-tracking] orgId is required for all tracking operations. ' +
+        'Pass orgId through the calling context.',
+    );
+}
+
+/**
+ * Resolve orgId from a campaign ID by looking it up in the DB.
+ * Used by public tracking endpoints that don't have auth context.
+ */
+export async function resolveOrgIdFromCampaign(campaignId?: string): Promise<string | null> {
+    if (!campaignId) return null;
+    try {
+        const [campaign] = await db
+            .select({ orgId: schema.emailCampaigns.organizationId })
+            .from(schema.emailCampaigns)
+            .where(eq(schema.emailCampaigns.id, campaignId))
+            .limit(1);
+        return campaign?.orgId ?? null;
+    } catch {
+        return null;
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -62,7 +113,7 @@ export function generateTrackingToken(data: {
 }): string {
     const payload = JSON.stringify(data);
     const encoded = Buffer.from(payload).toString('base64url');
-    const signature = createHmac('sha256', TRACKING_SECRET)
+    const signature = createHmac('sha256', TRACKING_SECRET())
         .update(encoded)
         .digest('base64url')
         .slice(0, 16);
@@ -81,7 +132,7 @@ export function verifyTrackingToken(token: string): {
     if (parts.length !== 2) return null;
 
     const [encoded, signature] = parts;
-    const expectedSig = createHmac('sha256', TRACKING_SECRET)
+    const expectedSig = createHmac('sha256', TRACKING_SECRET())
         .update(encoded)
         .digest('base64url')
         .slice(0, 16);
@@ -106,17 +157,17 @@ export function verifyTrackingToken(token: string): {
 
 export function getOpenTrackingPixelUrl(messageId: string, email: string, campaignId?: string): string {
     const token = generateTrackingToken({ messageId, email, campaignId, type: 'open' });
-    return `${APP_URL}/api/v1/email/track?t=${token}`;
+    return `${APP_URL()}/api/v1/email/track?t=${token}`;
 }
 
 export function getClickTrackingUrl(messageId: string, email: string, originalUrl: string, campaignId?: string): string {
     const token = generateTrackingToken({ messageId, email, campaignId, type: 'click', url: originalUrl });
-    return `${APP_URL}/api/v1/email/track?t=${token}`;
+    return `${APP_URL()}/api/v1/email/track?t=${token}`;
 }
 
 export function getUnsubscribeUrl(messageId: string, email: string, campaignId?: string): string {
     const token = generateTrackingToken({ messageId, email, campaignId, type: 'unsub' });
-    return `${APP_URL}/api/v1/email/unsubscribe?t=${token}`;
+    return `${APP_URL()}/api/v1/email/unsubscribe?t=${token}`;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -164,8 +215,12 @@ export function injectTracking(html: string, messageId: string, email: string, c
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export async function recordTrackingEvent(event: TrackingEvent): Promise<void> {
-    const orgId = await getOrgId();
-    if (!orgId) return;
+    // Resolve orgId from campaign (for public tracking endpoints)
+    const orgId = await resolveOrgIdFromCampaign(event.campaignId);
+    if (!orgId) {
+        console.warn(`[tracking] Could not resolve orgId for tracking event (campaign: ${event.campaignId}). Event dropped.`);
+        return;
+    }
 
     try {
         await db.insert(schema.emailTrackingEvents).values({
@@ -182,7 +237,7 @@ export async function recordTrackingEvent(event: TrackingEvent): Promise<void> {
 }
 
 export async function getCampaignTrackingStats(campaignId: string): Promise<TrackingStats> {
-    const orgId = await getOrgId();
+    const orgId = await resolveOrgIdFromCampaign(campaignId);
     if (!orgId) return { totalOpens: 0, uniqueOpens: 0, totalClicks: 0, uniqueClicks: 0, unsubscribes: 0 };
 
     const [result] = await db.select({
@@ -197,8 +252,8 @@ export async function getCampaignTrackingStats(campaignId: string): Promise<Trac
     return result ?? { totalOpens: 0, uniqueOpens: 0, totalClicks: 0, uniqueClicks: 0, unsubscribes: 0 };
 }
 
-export async function getMessageTrackingStats(messageId: string): Promise<TrackingStats> {
-    const orgId = await getOrgId();
+export async function getMessageTrackingStats(messageId: string, providedOrgId?: string): Promise<TrackingStats> {
+    const orgId = providedOrgId ?? '';
     if (!orgId) return { totalOpens: 0, uniqueOpens: 0, totalClicks: 0, uniqueClicks: 0, unsubscribes: 0 };
 
     const [result] = await db.select({
@@ -213,9 +268,9 @@ export async function getMessageTrackingStats(messageId: string): Promise<Tracki
     return result ?? { totalOpens: 0, uniqueOpens: 0, totalClicks: 0, uniqueClicks: 0, unsubscribes: 0 };
 }
 
-export async function getTrackingEvents(limit = 100, offset = 0): Promise<TrackingEvent[]> {
-    const orgId = await getOrgId();
-    if (!orgId) return [];
+export async function getTrackingEvents(limit = 100, offset = 0, providedOrgId?: string): Promise<TrackingEvent[]> {
+    if (!providedOrgId) return [];
+    const orgId = providedOrgId;
 
     const events = await db.select().from(schema.emailTrackingEvents)
         .where(eq(schema.emailTrackingEvents.organizationId, orgId))

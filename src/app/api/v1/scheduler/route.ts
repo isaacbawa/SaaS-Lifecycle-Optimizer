@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processScheduledEnrollments } from '@/lib/engine/event-pipeline';
 import { resolveOrgId } from '@/lib/auth/resolve-org';
+import { authenticate } from '@/lib/api/auth';
 import { getActiveEnrollmentsDue, getAllFlowDefinitions, getFlowEnrollments } from '@/lib/db/operations';
 
 /* ── Scheduler State (survives HMR) ──────────────────────────────────── */
@@ -50,35 +51,41 @@ const state = G.__scheduler_state__ as SchedulerState;
 
 /* ── Auth Guard ──────────────────────────────────────────────────────── */
 
-function isAuthorized(request: NextRequest): boolean {
+async function isAuthorized(request: NextRequest): Promise<{ authorized: boolean; orgId?: string }> {
     // Vercel Cron sends the CRON_SECRET automatically
     const cronSecret = process.env.CRON_SECRET;
     if (cronSecret) {
         const authHeader = request.headers.get('authorization');
-        if (authHeader === `Bearer ${cronSecret}`) return true;
+        if (authHeader === `Bearer ${cronSecret}`) {
+            // CRON_SECRET is valid — resolve org from env or process all orgs
+            try {
+                const orgId = await resolveOrgId();
+                return { authorized: true, orgId };
+            } catch {
+                // Cron context has no Clerk session, but is authorized
+                return { authorized: true };
+            }
+        }
     }
 
-    // Also accept standard API keys with admin scope
-    const authHeader = request.headers.get('authorization');
-    if (authHeader?.startsWith('Bearer lcos_')) {
-        // We trust SDK keys for scheduler access in single-tenant mode
-        return true;
+    // Validate API key through the standard auth system
+    const authResult = await authenticate(request, ['write']);
+    if (authResult.success) {
+        return { authorized: true, orgId: authResult.orgId };
     }
 
-    // In development, allow unauthenticated access
-    if (process.env.NODE_ENV !== 'production') return true;
-
-    return false;
+    return { authorized: false };
 }
 
 /* ── GET: Scheduler Status ───────────────────────────────────────────── */
 
 export async function GET(request: NextRequest) {
-    if (!isAuthorized(request)) {
+    const auth = await isAuthorized(request);
+    if (!auth.authorized) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const orgId = await resolveOrgId();
+    const orgId = auth.orgId ?? await resolveOrgId();
     const pendingEnrollments = await getActiveEnrollmentsDue();
     const allEnrollments = await getAllActiveEnrollmentCount(orgId);
 
@@ -98,7 +105,8 @@ export async function GET(request: NextRequest) {
 /* ── POST: Trigger Processing Run ────────────────────────────────────── */
 
 export async function POST(request: NextRequest) {
-    if (!isAuthorized(request)) {
+    const auth = await isAuthorized(request);
+    if (!auth.authorized) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

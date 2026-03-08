@@ -85,6 +85,7 @@ export {
   getCampaignTrackingStats,
   getMessageTrackingStats,
   getTrackingEvents,
+  resolveOrgIdFromCampaign,
   TRACKING_PIXEL_GIF,
 } from './email';
 export type {

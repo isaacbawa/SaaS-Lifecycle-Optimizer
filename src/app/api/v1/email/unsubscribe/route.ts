@@ -13,6 +13,7 @@ import {
     recordTrackingEvent,
     recordUnsubscribe,
     isSuppressed,
+    resolveOrgIdFromCampaign,
 } from '@/lib/engine/email';
 
 export const runtime = 'nodejs';
@@ -34,7 +35,8 @@ export async function GET(request: Request): Promise<Response> {
         return new Response('Invalid or expired unsubscribe link', { status: 400 });
     }
 
-    const alreadySuppressed = await isSuppressed(token.email);
+    const orgId = await resolveOrgIdFromCampaign(token.campaignId);
+    const alreadySuppressed = await isSuppressed(token.email, orgId ?? undefined);
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -93,8 +95,11 @@ export async function POST(request: Request): Promise<Response> {
         return new Response('Invalid or expired unsubscribe link', { status: 400 });
     }
 
+    // Resolve orgId from campaign for suppression list
+    const orgId = await resolveOrgIdFromCampaign(token.campaignId);
+
     // Record in suppression list
-    recordUnsubscribe(token.email, 'unsubscribe_link', token.campaignId);
+    recordUnsubscribe(token.email, 'unsubscribe_link', token.campaignId, orgId ?? undefined);
 
     // Record tracking event
     recordTrackingEvent({

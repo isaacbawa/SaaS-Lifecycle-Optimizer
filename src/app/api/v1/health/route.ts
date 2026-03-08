@@ -1,13 +1,12 @@
 /* ==========================================================================
  * GET /api/v1/health — System Health Check
  *
- * Public endpoint (no auth required) that returns system status,
- * uptime, and basic store statistics.  Used by monitoring and
- * load balancers.
+ * Returns system status and uptime. Detailed data (user counts, etc.)
+ * is only included for authenticated requests.
  * ========================================================================== */
 
-import { NextResponse } from 'next/server';
-import { resolveOrgId } from '@/lib/auth/resolve-org';
+import { NextRequest, NextResponse } from 'next/server';
+import { authenticate } from '@/lib/api/auth';
 import {
     getTrackedUserCount, getTrackedAccountCount, getEventCount,
     getAllFlowDefinitions, getWebhooks, getApiKeysByOrg,
@@ -15,13 +14,30 @@ import {
 
 const startedAt = Date.now();
 
-export async function GET() {
-    let orgId: string;
-    try {
-        orgId = await resolveOrgId();
-    } catch {
-        orgId = '';
+export async function GET(request: NextRequest) {
+    const uptimeMs = Date.now() - startedAt;
+
+    // Try to authenticate — if it fails, return minimal health info
+    const authResult = await authenticate(request, ['read']);
+    if (!authResult.success) {
+        return NextResponse.json(
+            {
+                status: 'healthy',
+                version: '1.0.0',
+                uptime: {
+                    ms: uptimeMs,
+                    human: formatUptime(uptimeMs),
+                },
+                timestamp: new Date().toISOString(),
+            },
+            {
+                status: 200,
+                headers: { 'Cache-Control': 'no-store' },
+            },
+        );
     }
+
+    const orgId = authResult.orgId;
 
     const [userCount, accountCount, eventCount, flows, webhooks, keys] = await Promise.all([
         orgId ? getTrackedUserCount(orgId).catch(() => 0) : Promise.resolve(0),
@@ -31,8 +47,6 @@ export async function GET() {
         orgId ? getWebhooks(orgId).catch(() => []) : Promise.resolve([]),
         orgId ? getApiKeysByOrg(orgId).catch(() => []) : Promise.resolve([]),
     ]);
-
-    const uptimeMs = Date.now() - startedAt;
 
     return NextResponse.json(
         {

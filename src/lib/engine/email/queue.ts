@@ -26,6 +26,7 @@ export interface QueuedEmail {
     headers?: Record<string, string>;
     campaignId?: string;
     userId?: string;
+    orgId: string;
     priority: EmailPriority;
     attempts: number;
     maxAttempts: number;
@@ -98,10 +99,10 @@ function getRuntime(): RuntimeState {
 
 async function getOrgId(providedOrgId?: string): Promise<string> {
     if (providedOrgId) return providedOrgId;
-    // Fallback for background processing where orgId isn't passed through
-    const envOrgId = process.env.DEMO_ORG_ID;
-    if (envOrgId) return envOrgId;
-    return '';
+    throw new Error(
+        '[email-queue] orgId is required for all queue operations. ' +
+        'Pass orgId through the sendEmail payload or ensure it is available in the calling context.',
+    );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -210,6 +211,7 @@ function dbRowToQueuedEmail(row: typeof schema.emailQueue.$inferSelect): QueuedE
         headers: row.headers ?? undefined,
         campaignId: row.campaignId ?? undefined,
         userId: row.userId ?? undefined,
+        orgId: row.organizationId,
         priority: row.priority as EmailPriority,
         attempts: row.attempts,
         maxAttempts: row.maxAttempts,
@@ -224,16 +226,12 @@ async function tick(): Promise<void> {
     const rt = getRuntime();
     if (!rt.onSend) return;
 
-    const orgId = await getOrgId();
-    if (!orgId) return;
-
     const now = new Date();
 
-    // Fetch eligible queued items ordered by priority
+    // Fetch eligible queued items across all orgs — orgId is carried per-item
     const rows = await db.select().from(schema.emailQueue)
         .where(
             and(
-                eq(schema.emailQueue.organizationId, orgId),
                 eq(schema.emailQueue.status, 'queued'),
                 lte(schema.emailQueue.nextAttemptAt, now),
             ),
@@ -344,9 +342,13 @@ export function stopQueue(): void {
     console.log('[email-queue] Stopped');
 }
 
-export async function getQueueMetrics(): Promise<QueueMetrics> {
+export async function getQueueMetrics(providedOrgId?: string): Promise<QueueMetrics> {
     const rt = getRuntime();
-    const orgId = await getOrgId();
+
+    let whereClause;
+    if (providedOrgId) {
+        whereClause = eq(schema.emailQueue.organizationId, providedOrgId);
+    }
 
     const [counts] = await db.select({
         queued: sql<number>`count(*) filter (where ${schema.emailQueue.status} = 'queued')::int`,
@@ -355,7 +357,7 @@ export async function getQueueMetrics(): Promise<QueueMetrics> {
         failed: sql<number>`count(*) filter (where ${schema.emailQueue.status} = 'failed')::int`,
         dlq: sql<number>`count(*) filter (where ${schema.emailQueue.status} = 'dlq')::int`,
     }).from(schema.emailQueue)
-        .where(eq(schema.emailQueue.organizationId, orgId));
+        .where(whereClause);
 
     return {
         queued: counts?.queued ?? 0,
@@ -369,16 +371,19 @@ export async function getQueueMetrics(): Promise<QueueMetrics> {
     };
 }
 
-export async function getSendLog(limit = 100, offset = 0): Promise<SendRecord[]> {
-    const orgId = await getOrgId();
+export async function getSendLog(limit = 100, offset = 0, providedOrgId?: string): Promise<SendRecord[]> {
+    let whereClause;
+    if (providedOrgId) {
+        whereClause = and(
+            eq(schema.emailQueue.organizationId, providedOrgId),
+            ne(schema.emailQueue.status, 'queued'),
+        );
+    } else {
+        whereClause = ne(schema.emailQueue.status, 'queued');
+    }
 
     const rows = await db.select().from(schema.emailQueue)
-        .where(
-            and(
-                eq(schema.emailQueue.organizationId, orgId),
-                ne(schema.emailQueue.status, 'queued'),
-            ),
-        )
+        .where(whereClause)
         .orderBy(desc(schema.emailQueue.createdAt))
         .limit(limit)
         .offset(offset);
@@ -398,10 +403,15 @@ export async function getSendLog(limit = 100, offset = 0): Promise<SendRecord[]>
     }));
 }
 
-export async function getDLQ(): Promise<QueuedEmail[]> {
-    const orgId = await getOrgId();
+export async function getDLQ(providedOrgId?: string): Promise<QueuedEmail[]> {
+    let whereClause;
+    if (providedOrgId) {
+        whereClause = and(eq(schema.emailQueue.organizationId, providedOrgId), eq(schema.emailQueue.status, 'dlq'));
+    } else {
+        whereClause = eq(schema.emailQueue.status, 'dlq');
+    }
     const rows = await db.select().from(schema.emailQueue)
-        .where(and(eq(schema.emailQueue.organizationId, orgId), eq(schema.emailQueue.status, 'dlq')))
+        .where(whereClause)
         .orderBy(desc(schema.emailQueue.createdAt));
 
     return rows.map(dbRowToQueuedEmail);

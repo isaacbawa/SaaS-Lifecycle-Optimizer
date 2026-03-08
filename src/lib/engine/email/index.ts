@@ -71,6 +71,7 @@ import {
     getCampaignTrackingStats,
     getMessageTrackingStats,
     getTrackingEvents,
+    resolveOrgIdFromCampaign,
     TRACKING_PIXEL_GIF,
     type TrackingEvent,
     type TrackingStats,
@@ -181,7 +182,7 @@ export function initEmailSystem(): void {
                     message.includes('554')
                 ) {
                     // 5xx = permanent failure → hard bounce
-                    await recordBounce(email.to, 'hard', message, 'smtp_response');
+                    await recordBounce(email.to, 'hard', message, 'smtp_response', email.orgId);
                 } else if (
                     message.includes('421') ||
                     message.includes('450') ||
@@ -189,7 +190,7 @@ export function initEmailSystem(): void {
                     message.includes('452')
                 ) {
                     // 4xx = temporary failure → soft bounce
-                    await recordBounce(email.to, 'soft', message, 'smtp_response');
+                    await recordBounce(email.to, 'soft', message, 'smtp_response', email.orgId);
                 }
 
                 return { success: false, error: message };
@@ -200,23 +201,18 @@ export function initEmailSystem(): void {
             `[email-system] SMTP mode → ${config.host}:${config.port} (DKIM: ${!!config.dkim})`,
         );
     } else {
-        // Development: log mode
+        // Production: SMTP_HOST is required. Fail loudly instead of silently
+        // dropping emails. The system will throw on send attempts so operators
+        // notice the misconfiguration immediately.
         setSendHandler(async (email: QueuedEmail) => {
-            const logId = `log_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-
-            console.log(`\n📧 [email-system] LOG MODE — Email not actually sent`);
-            console.log(`   To:       ${email.to}`);
-            console.log(`   Subject:  ${email.subject}`);
-            console.log(`   Priority: ${email.priority}`);
-            console.log(`   Campaign: ${email.campaignId ?? 'none'}`);
-            console.log(`   ID:       ${logId}`);
-            console.log(`   Body:     ${email.html.substring(0, 200)}...`);
-            console.log('');
-
-            return { success: true, messageId: logId };
+            console.error(
+                `[email-system] SMTP_HOST is not configured. Email to ${email.to} (subject: "${email.subject}") was NOT delivered. ` +
+                `Set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS environment variables to enable email delivery.`,
+            );
+            return { success: false, error: 'SMTP not configured — email delivery is disabled. Set SMTP_HOST to enable.' };
         });
 
-        console.log('[email-system] LOG mode (no SMTP_HOST configured)');
+        console.warn('[email-system] WARNING: SMTP_HOST is not configured. All emails will FAIL until SMTP credentials are provided.');
     }
 
     // Start queue processing
@@ -326,11 +322,11 @@ export function getActiveProvider(): 'smtp' | 'log' {
 /**
  * Get full email system status.
  */
-export async function getEmailSystemStatus(): Promise<EmailSystemStatus> {
+export async function getEmailSystemStatus(orgId?: string): Promise<EmailSystemStatus> {
     const config = getTransportConfig();
     const health = await checkTransportHealth();
-    const queue = await getQueueMetrics();
-    const suppression = await getSuppressionStats();
+    const queue = await getQueueMetrics(orgId);
+    const suppression = await getSuppressionStats(orgId);
 
     return {
         provider: getTransport() ? 'smtp' : 'log',
@@ -396,6 +392,7 @@ export {
     getCampaignTrackingStats,
     getMessageTrackingStats,
     getTrackingEvents,
+    resolveOrgIdFromCampaign,
     TRACKING_PIXEL_GIF,
 };
 export type { TrackingEvent, TrackingStats };

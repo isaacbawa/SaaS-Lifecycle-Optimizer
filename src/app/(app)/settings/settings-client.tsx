@@ -98,7 +98,7 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [prefsSaving, setPrefsSaving] = useState(false);
 
-  const apiKey = 'lcos_live_a1b2c3d4e5f6g7h8i9j0';
+  // Dashboard client calls use Clerk session cookies — no API key needed
 
   /* ── Connection Status (auto-detected) ──────── */
   interface ConnectionStatus {
@@ -190,7 +190,7 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
     try {
       const res = await fetch('/api/v1/keys', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: newKeyName.trim(),
           environment: newKeyEnv,
@@ -231,7 +231,6 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
     try {
       const res = await fetch(`/api/v1/keys/${keyId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${apiKey}` },
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({ error: { message: 'Failed to revoke key' } }));

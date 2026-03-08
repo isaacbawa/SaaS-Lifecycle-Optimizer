@@ -386,9 +386,7 @@ export async function dispatchWebhooks(
     url: wh.url,
     events: (wh.events as string[]) ?? [],
     status: wh.status as WebhookConfig['status'],
-    // NOTE: The DB stores a hash, not the raw secret. We use the secretHash
-    // as the HMAC key. In production, receivers should be told to verify
-    // against this derived key, or we store the actual secret encrypted.
+    // The DB stores the raw secret for HMAC signing
     secret: wh.secretHash,
     createdDate: new Date(wh.createdAt).toISOString().split('T')[0],
     lastTriggered: wh.lastTriggeredAt ? new Date(wh.lastTriggeredAt).toISOString() : undefined,

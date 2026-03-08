@@ -5,7 +5,6 @@
  *   1. Clerk session (dashboard server components) — always tried first
  *   2. Auto-provisioned org for authenticated users with no org
  *   3. Just-in-time user + org provisioning when webhook hasn't fired yet
- *   4. DEMO_ORG_ID env override (development only, never in production)
  *
  * Every data access MUST go through this to ensure tenant isolation.
  * ========================================================================== */
@@ -24,7 +23,6 @@ import { eq } from 'drizzle-orm';
  *   3. Auto-provision org for DB users that have no org yet
  *   4. Just-in-time: create DB user + org when Clerk user has no DB row
  *      (handles webhook delays / missing webhook config)
- *   5. DEMO_ORG_ID env var (development only)
  *
  * Throws if no organization can be resolved.
  */
@@ -69,16 +67,13 @@ export async function resolveOrgId(): Promise<string> {
             }
         }
     } catch {
-        // auth() may throw in non-request contexts — fall through to dev override
+        // auth() may throw in non-request contexts — fail hard
     }
 
-    // 2. Development / demo override — ONLY used when Clerk auth is unavailable
-    const envOrgId = process.env.DEMO_ORG_ID;
-    if (envOrgId) return envOrgId;
-
-    // 3. No auth, no env — cannot resolve
+    // No auth context available — cannot resolve
     throw new Error(
-        '[resolveOrgId] Unable to resolve organization. No Clerk session found and no DEMO_ORG_ID configured.',
+        '[resolveOrgId] Unable to resolve organization. No Clerk session found. ' +
+        'Ensure the request has a valid Clerk session or use API key authentication.',
     );
 }
 

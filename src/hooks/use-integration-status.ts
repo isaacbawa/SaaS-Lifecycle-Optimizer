@@ -82,14 +82,14 @@ export function useIntegrationStatus(): IntegrationStatus {
 
     const fetchStatus = useCallback(async () => {
         try {
-            // Use a single hardcoded key for the status check (same as SDK page)
-            const authHeader = 'Bearer lcos_live_a1b2c3d4e5f6g7h8i9j0';
+            // Dashboard client calls — no API key needed, Clerk session cookies
+            // are sent automatically and handled by the authenticate() fallback.
 
             // Fetch health endpoint to check if events are flowing
             const [healthRes, keysRes, webhooksRes] = await Promise.all([
-                fetch('/api/v1/health', { headers: { Authorization: authHeader } }).catch(() => null),
-                fetch('/api/v1/keys', { headers: { Authorization: authHeader } }).catch(() => null),
-                fetch('/api/v1/webhooks', { headers: { Authorization: authHeader } }).catch(() => null),
+                fetch('/api/v1/health').catch(() => null),
+                fetch('/api/v1/keys').catch(() => null),
+                fetch('/api/v1/webhooks').catch(() => null),
             ]);
 
             const healthData = healthRes?.ok ? await healthRes.json().catch(() => ({})) : {};

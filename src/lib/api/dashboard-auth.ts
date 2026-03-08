@@ -47,11 +47,7 @@ export async function requireDashboardAuth(): Promise<DashboardAuthResult> {
     try {
         session = await auth();
     } catch {
-        // Clerk unavailable — fall through to dev override
-        const demoOrgId = process.env.DEMO_ORG_ID;
-        if (demoOrgId) {
-            return { success: true, orgId: demoOrgId, userId: 'demo-user' };
-        }
+        // Clerk unavailable — fail hard
         return {
             success: false,
             response: NextResponse.json(
@@ -62,11 +58,6 @@ export async function requireDashboardAuth(): Promise<DashboardAuthResult> {
     }
 
     if (!session?.userId) {
-        // No Clerk session — check dev override
-        const demoOrgId = process.env.DEMO_ORG_ID;
-        if (demoOrgId) {
-            return { success: true, orgId: demoOrgId, userId: 'demo-user' };
-        }
         return {
             success: false,
             response: NextResponse.json(

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     const includes = searchParams.getAll('include');
     const campaignId = searchParams.get('campaignId');
 
-    const status = await getEmailSystemStatus();
+    const status = await getEmailSystemStatus(authResult.orgId);
 
     const response: Record<string, unknown> = {
         success: true,
@@ -46,15 +46,15 @@ export async function GET(request: NextRequest): Promise<Response> {
     };
 
     if (includes.includes('sendLog')) {
-        response.sendLog = getSendLog(50);
+        response.sendLog = getSendLog(50, 0, authResult.orgId);
     }
 
     if (includes.includes('dlq')) {
-        response.dlq = getEmailDLQ();
+        response.dlq = getEmailDLQ(authResult.orgId);
     }
 
     if (includes.includes('tracking')) {
-        response.trackingEvents = getTrackingEvents(50);
+        response.trackingEvents = getTrackingEvents(50, 0, authResult.orgId);
     }
 
     if (campaignId) {

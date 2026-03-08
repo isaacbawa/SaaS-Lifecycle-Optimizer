@@ -51,7 +51,9 @@ const ALLOWED_ORIGINS = new Set([
     'https://sdk.lifecycleos.app',
 ]);
 
-const ALLOW_ALL_ORIGINS = process.env.NODE_ENV !== 'production';
+// Additional origins from environment (comma-separated)
+const extraOrigins = process.env.CORS_ALLOWED_ORIGINS?.split(',').map(s => s.trim()).filter(Boolean) ?? [];
+for (const o of extraOrigins) ALLOWED_ORIGINS.add(o);
 
 const CORS_HEADERS: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
@@ -85,7 +87,9 @@ export default clerkMiddleware(async (auth, request) => {
     /* ── CORS origin check ────────────────────────────────────────────── */
     let allowedOrigin = '';
     if (isApiRoute) {
-        if (ALLOW_ALL_ORIGINS) {
+        if (isExternalApiRoute(request)) {
+            // SDK/API routes: allow any origin (SDK runs on customer domains)
+            // Auth is handled by Bearer tokens, not CORS
             allowedOrigin = origin ?? '*';
         } else if (origin && ALLOWED_ORIGINS.has(origin)) {
             allowedOrigin = origin;

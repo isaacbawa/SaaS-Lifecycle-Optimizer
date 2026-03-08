@@ -74,17 +74,14 @@ export async function POST(request: NextRequest) {
 
   const { url, events } = validation.data;
 
-  // Generate a crypto-secure secret and hash it for storage
+  // Generate a crypto-secure secret — stored as-is for HMAC signing
   const rawSecret = `whsec_${crypto.randomUUID().replace(/-/g, '')}`;
-  const encoder = new TextEncoder();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(rawSecret));
-  const secretHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 
   const dbWebhook = await upsertWebhook(result.orgId, {
     url,
     events,
     status: 'active',
-    secretHash,
+    secretHash: rawSecret,
     secretPrefix: rawSecret.substring(0, 10),
     successRate: 100,
   });

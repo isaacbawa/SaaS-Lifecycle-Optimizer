@@ -83,7 +83,7 @@ export async function POST(request: NextRequest): Promise<Response> {
                 const bounceType = (item.bounceType as 'hard' | 'soft' | 'undetermined') ?? 'undetermined';
                 const diagnosticCode = item.diagnosticCode as string | undefined;
                 const source = (item.source as string) ?? 'bounce_webhook';
-                recordBounce(email, bounceType, diagnosticCode, source);
+                recordBounce(email, bounceType, diagnosticCode, source, authResult.orgId);
                 results.push({ email, action: 'bounced', reason: `${bounceType} bounce` });
                 break;
             }
@@ -91,13 +91,13 @@ export async function POST(request: NextRequest): Promise<Response> {
             case 'complaint': {
                 const feedbackType = item.feedbackType as string | undefined;
                 const source = (item.source as string) ?? 'complaint_webhook';
-                recordComplaint(email, feedbackType, source);
+                recordComplaint(email, feedbackType, source, authResult.orgId);
                 results.push({ email, action: 'complained', reason: feedbackType ?? 'abuse' });
                 break;
             }
 
             case 'invalid': {
-                addSuppression(email, 'invalid_address', (item.source as string) ?? 'validation');
+                addSuppression(email, 'invalid_address', (item.source as string) ?? 'validation', undefined, authResult.orgId);
                 results.push({ email, action: 'invalidated', reason: 'invalid_address' });
                 break;
             }
@@ -126,11 +126,11 @@ export async function GET(request: NextRequest): Promise<Response> {
     const { searchParams } = new URL(request.url);
     const includeList = searchParams.get('list') === 'true';
 
-    const stats = getSuppressionStats();
+    const stats = getSuppressionStats(authResult.orgId);
 
     return NextResponse.json({
         success: true,
         stats,
-        ...(includeList ? { suppressions: getAllSuppressions() } : {}),
+        ...(includeList ? { suppressions: getAllSuppressions(authResult.orgId) } : {}),
     });
 }

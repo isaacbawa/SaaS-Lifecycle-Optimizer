@@ -143,8 +143,12 @@ export async function checkRateLimit(
             resetAt: dbResetAt,
             retryAfterMs,
         };
-    } catch {
-        // Fallback to in-memory if DB fails
+    } catch (err) {
+        // Fallback to in-memory if DB fails — log for visibility
+        console.warn(
+            `[rate-limit] DB rate-limit check failed for ${bucketKey}, falling back to in-memory:`,
+            (err as Error).message,
+        );
         return checkRateLimitFallback(bucketKey, limits, now);
     }
 }
