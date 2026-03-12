@@ -464,3 +464,34 @@ export function setRateLimit(rate: number): void {
     rt.rateLimit = Math.max(1, Math.min(100, rate));
     console.log(`[email-queue] Rate limit set to ${rt.rateLimit}/s`);
 }
+
+/**
+ * Update a queue record's status after an inline send attempt.
+ * Used by sendEmail() to record the SMTP result directly.
+ */
+export async function updateQueueStatus(
+    id: string,
+    result: { success: boolean; messageId?: string; error?: string },
+): Promise<void> {
+    if (result.success) {
+        await db.update(schema.emailQueue)
+            .set({
+                status: 'sent',
+                attempts: 1,
+                sentAt: new Date(),
+                providerMessageId: result.messageId ?? null,
+                lastError: null,
+            })
+            .where(eq(schema.emailQueue.id, id));
+    } else {
+        // First attempt failed — leave as 'queued' for cron-based retry
+        const delay = 1000 + Math.random() * 1000; // ~1-2s backoff
+        await db.update(schema.emailQueue)
+            .set({
+                attempts: 1,
+                nextAttemptAt: new Date(Date.now() + delay),
+                lastError: result.error ?? 'Send failed',
+            })
+            .where(eq(schema.emailQueue.id, id));
+    }
+}

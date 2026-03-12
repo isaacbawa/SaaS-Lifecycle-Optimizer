@@ -30,6 +30,9 @@
  * ═══════════════════════════════════════════════════════════════════════ */
 
 import { getTransport, getTransportConfig, checkTransportHealth, closeTransport } from './transport';
+import { db } from '@/lib/db';
+import * as schema from '@/lib/db/schema';
+import { eq, and, lte, asc } from 'drizzle-orm';
 import {
     enqueue,
     enqueueBatch,
@@ -43,6 +46,7 @@ import {
     removeDLQEntry as removeQueueDLQEntry,
     getSendRecord,
     setRateLimit,
+    updateQueueStatus,
     type QueuedEmail,
     type EmailPriority,
     type SendRecord,
@@ -140,6 +144,11 @@ function markInitialized(): void {
 /**
  * Initialize the email system. Safe to call multiple times (idempotent).
  * Wires the SMTP transport into the queue and starts processing.
+ *
+ * NOTE: On Vercel serverless, the setInterval tick loop will only live
+ * for the duration of a single request. The primary delivery path is
+ * the inline send in sendEmail(). The queue tick + cron exist only to
+ * retry failed/queued items that didn't deliver on the first attempt.
  */
 export function initEmailSystem(): void {
     if (isInitialized()) return;
@@ -147,9 +156,8 @@ export function initEmailSystem(): void {
     const transport = getTransport();
     const config = getTransportConfig();
 
-    // Wire the queue send handler
+    // Wire the queue send handler (used by tick-based retry processing)
     if (transport) {
-        // Production: send via SMTP
         setSendHandler(async (email: QueuedEmail) => {
             const fromLine = email.fromName
                 ? `${email.fromName} <${email.fromEmail ?? config.fromEmail}>`
@@ -181,7 +189,6 @@ export function initEmailSystem(): void {
                     message.includes('553') ||
                     message.includes('554')
                 ) {
-                    // 5xx = permanent failure → hard bounce
                     await recordBounce(email.to, 'hard', message, 'smtp_response', email.orgId);
                 } else if (
                     message.includes('421') ||
@@ -189,7 +196,6 @@ export function initEmailSystem(): void {
                     message.includes('451') ||
                     message.includes('452')
                 ) {
-                    // 4xx = temporary failure → soft bounce
                     await recordBounce(email.to, 'soft', message, 'smtp_response', email.orgId);
                 }
 
@@ -201,9 +207,6 @@ export function initEmailSystem(): void {
             `[email-system] SMTP mode → ${config.host}:${config.port} (DKIM: ${!!config.dkim})`,
         );
     } else {
-        // Production: SMTP_HOST is required. Fail loudly instead of silently
-        // dropping emails. The system will throw on send attempts so operators
-        // notice the misconfiguration immediately.
         setSendHandler(async (email: QueuedEmail) => {
             console.error(
                 `[email-system] SMTP_HOST is not configured. Email to ${email.to} (subject: "${email.subject}") was NOT delivered. ` +
@@ -215,11 +218,75 @@ export function initEmailSystem(): void {
         console.warn('[email-system] WARNING: SMTP_HOST is not configured. All emails will FAIL until SMTP credentials are provided.');
     }
 
-    // Start queue processing
+    // Start queue processing (handles retries for items that failed inline send)
     const rateLimit = parseInt(process.env.EMAIL_RATE_LIMIT ?? '10', 10);
     startQueue(rateLimit);
 
     markInitialized();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Inline SMTP Send — delivers immediately within the request lifecycle
+ *
+ * On Vercel (serverless), the background tick loop dies when the
+ * function terminates. Emails MUST be sent inline within the request,
+ * not deferred to setInterval. The queue DB record is created for
+ * tracking, and actual SMTP delivery happens here synchronously.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Send a single email via SMTP immediately (not deferred).
+ * Returns the SMTP result directly.
+ */
+async function sendInline(params: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+    fromName?: string;
+    fromEmail?: string;
+    replyTo?: string;
+    headers?: Record<string, string>;
+    orgId?: string;
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const transport = getTransport();
+    const config = getTransportConfig();
+
+    if (!transport) {
+        console.error(
+            `[email-system] SMTP_HOST not configured. Email to ${params.to} was NOT delivered.`,
+        );
+        return { success: false, error: 'SMTP not configured — set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.' };
+    }
+
+    const fromLine = params.fromName
+        ? `${params.fromName} <${params.fromEmail ?? config.fromEmail}>`
+        : `${config.fromName} <${params.fromEmail ?? config.fromEmail}>`;
+
+    try {
+        const info = await transport.sendMail({
+            from: fromLine,
+            to: params.to,
+            subject: params.subject,
+            html: params.html,
+            text: params.text,
+            replyTo: params.replyTo ?? process.env.EMAIL_REPLY_TO,
+            headers: params.headers,
+        });
+
+        return { success: true, messageId: info.messageId };
+    } catch (err) {
+        const message = (err as Error).message;
+
+        // Classify SMTP errors for bounce handling
+        if (/^5[5-9]\d|^5[0-4]\d/.test(message) || /\b55[0-4]\b/.test(message)) {
+            await recordBounce(params.to, 'hard', message, 'smtp_response', params.orgId);
+        } else if (/\b4[25][0-2]\b|\b421\b/.test(message)) {
+            await recordBounce(params.to, 'soft', message, 'smtp_response', params.orgId);
+        }
+
+        return { success: false, error: message };
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -232,9 +299,14 @@ export function initEmailSystem(): void {
  * This is the main entry point. It:
  *   1. Checks suppression list
  *   2. Injects tracking (open pixel, click wrapping, unsubscribe)
- *   3. Enqueues for rate-limited delivery
+ *   3. Records the email in the queue DB (for audit/metrics)
+ *   4. Sends IMMEDIATELY via SMTP inline (not deferred to background)
+ *   5. Updates the queue record with the delivery result
  *
- * Returns immediately — actual delivery is async via the queue.
+ * On Vercel serverless, the function is killed after the response.
+ * Background setInterval loops cannot process queued emails. Therefore,
+ * the first delivery attempt MUST happen inline within the request.
+ * Failed sends remain in the queue DB for cron-based retry.
  */
 export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
     // Auto-initialize on first use
@@ -272,7 +344,7 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
             html = injectTracking(html, messageId, payload.to, payload.campaignId);
         }
 
-        // 4. Build headers (RFC 8058 unsubscribe)
+        // Build headers (RFC 8058 unsubscribe)
         unsubHeaders = getUnsubscribeHeaders(messageId, payload.to, payload.campaignId);
     } catch (trackingErr) {
         // Tracking must never block email delivery — send without tracking
@@ -282,7 +354,7 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
         );
     }
 
-    // 5. Enqueue
+    // 4. Record in queue DB for audit trail
     const queueId = await enqueue({
         to: payload.to,
         subject: payload.subject,
@@ -300,12 +372,41 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
         tags: payload.tags,
     });
 
-    return {
-        success: true,
-        provider,
-        queueId,
-        messageId,
-    };
+    // 5. Send IMMEDIATELY via SMTP (inline, not deferred)
+    const smtpResult = await sendInline({
+        to: payload.to,
+        subject: payload.subject,
+        html,
+        text: payload.text,
+        fromName: payload.fromName,
+        fromEmail: payload.fromEmail,
+        replyTo: payload.replyTo,
+        headers: unsubHeaders,
+        orgId: payload.orgId,
+    });
+
+    // 6. Update queue record with delivery result
+    try {
+        await updateQueueStatus(queueId, smtpResult);
+    } catch (dbErr) {
+        console.error('[email-system] Failed to update queue status:', dbErr);
+    }
+
+    if (smtpResult.success) {
+        return {
+            success: true,
+            provider,
+            queueId,
+            messageId: smtpResult.messageId ?? messageId,
+        };
+    } else {
+        return {
+            success: false,
+            provider,
+            queueId,
+            error: smtpResult.error,
+        };
+    }
 }
 
 /**
@@ -362,6 +463,92 @@ export function shutdownEmailSystem(): void {
     closeTransport();
     (globalThis as unknown as Record<string, boolean>)[initKey] = false;
     console.log('[email-system] Shut down');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * Retry Queue Processor — called by cron scheduler
+ *
+ * Processes emails that failed their initial inline send attempt.
+ * These remain in the queue DB with status 'queued' and attempts >= 1.
+ * The cron runs every minute to pick up and retry them via SMTP.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+export async function processRetryQueue(): Promise<{ processed: number; sent: number; failed: number }> {
+    initEmailSystem();
+
+    const now = new Date();
+    const BATCH_LIMIT = 50;
+
+    // Fetch queued items whose next retry time has elapsed
+    const rows = await db.select().from(schema.emailQueue)
+        .where(
+            and(
+                eq(schema.emailQueue.status, 'queued'),
+                lte(schema.emailQueue.nextAttemptAt, now),
+            ),
+        )
+        .orderBy(asc(schema.emailQueue.nextAttemptAt))
+        .limit(BATCH_LIMIT);
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const row of rows) {
+        const newAttempts = row.attempts + 1;
+
+        const result = await sendInline({
+            to: row.to,
+            subject: row.subject,
+            html: row.html,
+            text: row.text ?? undefined,
+            fromName: row.fromName ?? undefined,
+            fromEmail: row.fromEmail ?? undefined,
+            replyTo: row.replyTo ?? undefined,
+            headers: row.headers ?? undefined,
+            orgId: row.organizationId,
+        });
+
+        if (result.success) {
+            await db.update(schema.emailQueue)
+                .set({
+                    status: 'sent',
+                    attempts: newAttempts,
+                    sentAt: new Date(),
+                    providerMessageId: result.messageId ?? null,
+                    lastError: null,
+                })
+                .where(eq(schema.emailQueue.id, row.id));
+            sent++;
+        } else if (newAttempts >= row.maxAttempts) {
+            // Exhausted retries → DLQ
+            await db.update(schema.emailQueue)
+                .set({
+                    status: 'dlq',
+                    attempts: newAttempts,
+                    lastError: `Exhausted ${row.maxAttempts} attempts: ${result.error}`,
+                })
+                .where(eq(schema.emailQueue.id, row.id));
+            failed++;
+        } else {
+            // Schedule next retry with exponential backoff
+            const delay = Math.min(60_000, 1000 * Math.pow(2, newAttempts - 1) + Math.random() * 1000);
+            await db.update(schema.emailQueue)
+                .set({
+                    status: 'queued',
+                    attempts: newAttempts,
+                    nextAttemptAt: new Date(Date.now() + delay),
+                    lastError: `Retry ${newAttempts}/${row.maxAttempts}: ${result.error}`,
+                })
+                .where(eq(schema.emailQueue.id, row.id));
+            failed++;
+        }
+    }
+
+    if (rows.length > 0) {
+        console.log(`[email-system] Retry queue: ${rows.length} processed, ${sent} sent, ${failed} failed`);
+    }
+
+    return { processed: rows.length, sent, failed };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

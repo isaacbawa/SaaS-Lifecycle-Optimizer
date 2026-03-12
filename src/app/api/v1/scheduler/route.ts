@@ -20,6 +20,7 @@ import { processScheduledEnrollments } from '@/lib/engine/event-pipeline';
 import { resolveOrgId } from '@/lib/auth/resolve-org';
 import { authenticate } from '@/lib/api/auth';
 import { getActiveEnrollmentsDue, getAllFlowDefinitions, getFlowEnrollments } from '@/lib/db/operations';
+import { processRetryQueue } from '@/lib/engine/email';
 
 /* ── Scheduler State (survives HMR) ──────────────────────────────────── */
 
@@ -113,7 +114,17 @@ export async function POST(request: NextRequest) {
     const start = Date.now();
 
     try {
+        // 1. Process flow enrollments
         const result = await processScheduledEnrollments();
+
+        // 2. Process email retry queue (failed inline sends)
+        let emailRetries = { processed: 0, sent: 0, failed: 0 };
+        try {
+            emailRetries = await processRetryQueue();
+        } catch (emailErr) {
+            console.error('[scheduler] Email retry queue error:', emailErr);
+        }
+
         const durationMs = Date.now() - start;
 
         // Update scheduler state
@@ -132,6 +143,7 @@ export async function POST(request: NextRequest) {
                 completed: result.completed,
                 errors: result.errors,
                 actionsDispatched: result.actionsDispatched,
+                emailRetries,
                 durationMs,
                 scheduler: state,
             },

@@ -293,8 +293,8 @@ export default function CampaignsPage() {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="rounded-full p-2 bg-purple-100 dark:bg-purple-900/30">
-                                        <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                    <div className="rounded-full p-2 bg-gray-100 dark:bg-gray-800">
+                                        <Clock className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                                     </div>
                                     <div>
                                         <p className="text-2xl font-bold">{scheduledCampaigns}</p>
@@ -302,8 +302,8 @@ export default function CampaignsPage() {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="rounded-full p-2 bg-green-100 dark:bg-green-900/30">
-                                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                    <div className="rounded-full p-2 bg-gray-100 dark:bg-gray-800">
+                                        <CheckCircle2 className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                                     </div>
                                     <div>
                                         <p className="text-2xl font-bold">{activeCampaigns}</p>
@@ -311,8 +311,8 @@ export default function CampaignsPage() {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="rounded-full p-2 bg-blue-100 dark:bg-blue-900/30">
-                                        <Megaphone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                    <div className="rounded-full p-2 bg-gray-100 dark:bg-gray-800">
+                                        <Megaphone className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                                     </div>
                                     <div>
                                         <p className="text-2xl font-bold">{totalCampaigns}</p>

@@ -16,6 +16,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Check, ArrowRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const tiers = [
   {
@@ -82,11 +83,14 @@ export default function PricingPage() {
       <MarketingHeader />
       <main className="flex-1">
         {/* Pricing Hero */}
-        <section className="py-20 md:py-28">
-          <div className="container">
+        <section className="relative overflow-hidden py-20 md:py-28">
+          <div className="absolute inset-0 gradient-mesh" />
+          <div className="container relative">
             <div className="text-center max-w-3xl mx-auto mb-16">
+              <Badge variant="secondary" className="mb-4 text-sm font-medium px-4 py-1.5">Simple Pricing</Badge>
               <h1 className="text-4xl md:text-5xl font-bold tracking-tighter">
-                One price. Full lifecycle infrastructure.
+                One price. Full lifecycle{' '}
+                <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">infrastructure</span>
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground mt-4 leading-relaxed">
                 No per-email charges. No hidden fees for &ldquo;premium&rdquo; features. Every plan includes the SDK, event streaming, lifecycle engine, email infrastructure, and revenue attribution. Pick the scale that fits.
@@ -245,20 +249,24 @@ export default function PricingPage() {
         </section>
 
         {/* Bottom CTA */}
-        <section className="py-16 md:py-20 bg-secondary/50">
-          <div className="container text-center max-w-3xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
-              Not sure which plan? Start with Growth.
-            </h2>
-            <p className="text-muted-foreground mt-3 mb-6 leading-relaxed">
-              Every trial starts with full Growth features for 14 days. Experience churn scoring, expansion detection, and unlimited flows — then pick the plan that fits.
-            </p>
-            <Button size="lg" asChild>
-              <Link href="/dashboard">
-                Start your free trial
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+        <section className="py-16 md:py-20">
+          <div className="container">
+            <div className="relative rounded-3xl gradient-dark-card overflow-hidden px-8 py-12 md:px-16 md:py-16">
+              <div className="relative z-10 text-center max-w-3xl mx-auto">
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+                  Not sure which plan? Start with Growth.
+                </h2>
+                <p className="text-white/70 mt-3 mb-6 leading-relaxed">
+                  Every trial starts with full Growth features for 14 days. Experience churn scoring, expansion detection, and unlimited flows — then pick the plan that fits.
+                </p>
+                <Button size="lg" className="text-base" asChild>
+                  <Link href="/sign-up">
+                    Start your free trial
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
           </div>
         </section>
       </main>

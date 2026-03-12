@@ -20,6 +20,18 @@ export function MarketingHeader() {
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
           <Link
+            href="/#features"
+            className="text-foreground/60 transition-colors hover:text-foreground/80"
+          >
+            Features
+          </Link>
+          <Link
+            href="/#how-it-works"
+            className="text-foreground/60 transition-colors hover:text-foreground/80"
+          >
+            How It Works
+          </Link>
+          <Link
             href="/pricing"
             className="text-foreground/60 transition-colors hover:text-foreground/80"
           >
@@ -58,6 +70,20 @@ export function MarketingHeader() {
       {mobileOpen && (
         <div className="md:hidden border-t bg-background">
           <div className="container py-4 flex flex-col gap-3">
+            <Link
+              href="/#features"
+              className="text-sm font-medium text-foreground/80 py-2"
+              onClick={() => setMobileOpen(false)}
+            >
+              Features
+            </Link>
+            <Link
+              href="/#how-it-works"
+              className="text-sm font-medium text-foreground/80 py-2"
+              onClick={() => setMobileOpen(false)}
+            >
+              How It Works
+            </Link>
             <Link
               href="/pricing"
               className="text-sm font-medium text-foreground/80 py-2"
