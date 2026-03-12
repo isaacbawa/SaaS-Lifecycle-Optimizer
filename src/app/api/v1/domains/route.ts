@@ -2,15 +2,25 @@
  * GET/POST /api/v1/domains — Sending Domain Management
  *
  * Handles domain registration, DNS verification, and listing.
+ * When AWS SES is configured, domains are registered as SES email
+ * identities behind the scenes — SES handles DKIM signing and the
+ * customer never interacts with SES directly.
+ *
  * POST actions:
- *   - add: Register a new sending domain
- *   - verify: Run DNS verification checks (SPF, DKIM, DMARC, MX)
+ *   - add: Register a new sending domain (+ SES identity if configured)
+ *   - verify: Run DNS verification checks (SPF, DKIM, DMARC, MX) + SES status
  *   - verify-all: Re-verify all domains for the organization
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSendingDomains, upsertSendingDomain } from '@/lib/db/operations';
 import { verifyDomain, generateRequiredRecords } from '@/lib/engine/dns-verification';
+import {
+    registerDomainIdentity,
+    getDomainIdentityStatus,
+    configureMailFromDomain,
+    isSesConfigured,
+} from '@/lib/engine/ses-identity';
 import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 
 export async function GET(request: NextRequest) {

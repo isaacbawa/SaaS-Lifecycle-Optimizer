@@ -78,6 +78,15 @@ const PLATFORM_SENDING_DOMAIN = process.env.PLATFORM_SENDING_DOMAIN ?? 'mail.lif
 /** Return-path subdomain */
 const RETURN_PATH_SUBDOMAIN = 'bounce';
 
+/**
+ * SPF include values accepted during verification.
+ * When SES is used, customers include amazonses.com instead of the platform domain.
+ */
+const ACCEPTED_SPF_INCLUDES = [
+    PLATFORM_SENDING_DOMAIN,
+    'amazonses.com',
+];
+
 /* ═══════════════════════════════════════════════════════════════════════
  * Generate Required DNS Records
  *
@@ -85,35 +94,86 @@ const RETURN_PATH_SUBDOMAIN = 'bounce';
  * for full email authentication.
  * ═══════════════════════════════════════════════════════════════════════ */
 
-export function generateRequiredRecords(domain: string): DomainDnsRecords {
+/**
+ * Generate the required DNS records for a domain.
+ *
+ * @param domain     The customer's sending domain
+ * @param sesDkimTokens  Optional SES DKIM tokens from SES CreateEmailIdentity.
+ *                        When provided, generates SES-specific CNAME records.
+ *                        When absent, generates fallback CNAME to platform DKIM key.
+ * @param sesRegion  AWS SES region (for MAIL FROM MX record)
+ */
+export function generateRequiredRecords(
+    domain: string,
+    sesDkimTokens?: Array<{ host: string; value: string }>,
+    sesRegion?: string,
+): DomainDnsRecords {
     const dkimSelector = DKIM_SELECTOR;
+    const hasSesTokens = sesDkimTokens && sesDkimTokens.length > 0;
+    const records: DnsRecord[] = [];
 
-    const records: DnsRecord[] = [
-        {
-            type: 'TXT',
-            host: domain,
-            value: `v=spf1 include:${PLATFORM_SENDING_DOMAIN} ~all`,
-            purpose: 'SPF',
-        },
-        {
+    // DKIM: Use SES CNAME records when available, otherwise fallback to platform CNAME
+    if (hasSesTokens) {
+        for (const token of sesDkimTokens) {
+            records.push({
+                type: 'CNAME',
+                host: token.host,
+                value: token.value,
+                purpose: 'DKIM',
+            });
+        }
+    } else {
+        records.push({
             type: 'CNAME',
             host: `${dkimSelector}._domainkey.${domain}`,
             value: `${dkimSelector}._domainkey.${PLATFORM_SENDING_DOMAIN}`,
             purpose: 'DKIM',
-        },
-        {
+        });
+    }
+
+    // SPF: Include amazonses.com when SES-managed, otherwise platform domain
+    records.push({
+        type: 'TXT',
+        host: domain,
+        value: hasSesTokens
+            ? 'v=spf1 include:amazonses.com ~all'
+            : `v=spf1 include:${PLATFORM_SENDING_DOMAIN} ~all`,
+        purpose: 'SPF',
+    });
+
+    // DMARC: Standard record
+    records.push({
+        type: 'TXT',
+        host: `_dmarc.${domain}`,
+        value: 'v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@' + domain + '; pct=100; adkim=r; aspf=r',
+        purpose: 'DMARC',
+    });
+
+    // Return-Path / Custom MAIL FROM:
+    // SES mode → MX + SPF on bounce subdomain
+    // Non-SES → CNAME to platform bounce subdomain
+    if (hasSesTokens) {
+        const region = sesRegion ?? process.env.AWS_SES_REGION ?? process.env.AWS_REGION ?? 'us-east-1';
+        records.push({
+            type: 'MX' as 'TXT',  // DnsRecord type is limited, store as TXT with MX prefix
+            host: `${RETURN_PATH_SUBDOMAIN}.${domain}`,
+            value: `10 feedback-smtp.${region}.amazonses.com`,
+            purpose: 'Return-Path',
+        });
+        records.push({
             type: 'TXT',
-            host: `_dmarc.${domain}`,
-            value: 'v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@' + domain + '; pct=100; adkim=r; aspf=r',
-            purpose: 'DMARC',
-        },
-        {
+            host: `${RETURN_PATH_SUBDOMAIN}.${domain}`,
+            value: 'v=spf1 include:amazonses.com ~all',
+            purpose: 'Return-Path',
+        });
+    } else {
+        records.push({
             type: 'CNAME',
             host: `${RETURN_PATH_SUBDOMAIN}.${domain}`,
             value: `${RETURN_PATH_SUBDOMAIN}.${PLATFORM_SENDING_DOMAIN}`,
             purpose: 'Return-Path',
-        },
-    ];
+        });
+    }
 
     return { domain, dkimSelector, records };
 }
@@ -143,9 +203,9 @@ async function verifySPF(domain: string): Promise<DnsCheckResult> {
             };
         }
 
-        // Check if our platform is included
+        // Check if our platform (or SES) is included
         const spfRecord = spfRecords[0];
-        const includesUs = spfRecord.includes(PLATFORM_SENDING_DOMAIN);
+        const includesUs = ACCEPTED_SPF_INCLUDES.some(inc => spfRecord.includes(inc));
 
         if (!includesUs) {
             return {
@@ -154,7 +214,7 @@ async function verifySPF(domain: string): Promise<DnsCheckResult> {
                 record: spfRecord,
                 expectedHost,
                 expectedValue: `v=spf1 ${platformInclude} ~all`,
-                details: `SPF record found but does not include "${PLATFORM_SENDING_DOMAIN}". Add "${platformInclude}" to your existing SPF record.`,
+                details: `SPF record found but does not include our sending infrastructure. Add "${platformInclude}" or "include:amazonses.com" to your existing SPF record.`,
             };
         }
 
@@ -205,14 +265,51 @@ async function verifyDKIM(domain: string): Promise<DnsCheckResult> {
     const dkimHost = `${selector}._domainkey.${domain}`;
     const expectedCname = `${selector}._domainkey.${PLATFORM_SENDING_DOMAIN}`;
 
+    // SES uses 3 DKIM CNAME records with random token selectors.
+    // We check all possible DKIM hosts: our platform selector + any SES token selectors.
+    // If at least one valid DKIM record is found, DKIM passes.
+
+    // First check our platform DKIM selector
+    const result = await checkDkimAtHost(dkimHost, expectedCname);
+    if (result.verified) return result;
+
+    // Then check for SES-managed DKIM records (multiple selectors possible)
+    // SES uses random tokens like "abc123._domainkey.domain" with CNAME to "abc123.dkim.amazonses.com"
+    // We can detect SES DKIM by looking for any _domainkey TXT/CNAME that resolves via *.dkim.amazonses.com
+    // For efficiency, run a TXT lookup on the platform selector — if not found, it might be SES-managed
+    // The actual SES selectors are stored in our DB, but since this is a generic DNS check,
+    // we verify by confirming any _domainkey record exists with a valid DKIM public key or SES CNAME
+    if (!result.found) {
+        // If our selector isn't found, check if there's a DKIM record at any known SES pattern
+        // SES DKIM records resolve to *.dkim.amazonses.com
+        // We can't enumerate all selectors, but we can trust SES verification via the API
+        // Return a specific message about SES-managed DKIM
+        return {
+            ...result,
+            details: result.details + ' If you are using SES-managed DKIM, the verification will be confirmed via the SES API.',
+        };
+    }
+
+    return result;
+}
+
+/**
+ * Check for a DKIM record at a specific host.
+ * Accepts both CNAME to our platform AND CNAME to SES (*.dkim.amazonses.com).
+ */
+async function checkDkimAtHost(dkimHost: string, expectedCname: string): Promise<DnsCheckResult> {
+
     try {
         // First try CNAME (our preferred setup)
         try {
             const cnames = await resolveCname(dkimHost);
             if (cnames.length > 0) {
                 const cnameValue = cnames[0].replace(/\.$/, '');
-                const matches = cnameValue.toLowerCase() === expectedCname.toLowerCase()
+                // Accept CNAME to our platform OR to SES DKIM servers
+                const matchesPlatform = cnameValue.toLowerCase() === expectedCname.toLowerCase()
                     || cnameValue.toLowerCase().includes(PLATFORM_SENDING_DOMAIN.toLowerCase());
+                const matchesSes = cnameValue.toLowerCase().endsWith('.dkim.amazonses.com');
+                const matches = matchesPlatform || matchesSes;
 
                 return {
                     verified: matches,
