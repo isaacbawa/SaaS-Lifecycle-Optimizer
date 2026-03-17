@@ -372,6 +372,66 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
     updateBlocks(newBlocks);
   }, [blocks, updateBlocks]);
 
+  const sanitizeInlineHtml = useCallback((html: string): string => {
+    if (typeof window === 'undefined') return html;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
+    const root = doc.body.firstElementChild as HTMLDivElement | null;
+    if (!root) return html;
+
+    root.querySelectorAll('script, style, iframe, object, embed, link, meta').forEach((node) => node.remove());
+    root.querySelectorAll('*').forEach((node) => {
+      for (const attr of Array.from(node.attributes)) {
+        const name = attr.name.toLowerCase();
+        const value = attr.value.trim().toLowerCase();
+
+        if (name.startsWith('on')) {
+          node.removeAttribute(attr.name);
+          continue;
+        }
+
+        if ((name === 'href' || name === 'src') && (value.startsWith('javascript:') || value.startsWith('data:text/html'))) {
+          node.removeAttribute(attr.name);
+        }
+      }
+    });
+
+    return root.innerHTML;
+  }, []);
+
+  const handleInlineTextEdit = useCallback((blockId: string, field: 'html' | 'text', value: string) => {
+    const nextValue = field === 'html' ? sanitizeInlineHtml(value) : value;
+
+    const newBlocks = blocks.map((b) => {
+      if (b.id !== blockId) return b;
+
+      if (field === 'html' && b.type === 'text') {
+        return { ...b, content: { ...b.content, html: nextValue } };
+      }
+
+      if (field === 'html' && b.type === 'footer') {
+        return { ...b, content: { ...b.content, html: nextValue } };
+      }
+
+      if (field === 'text' && b.type === 'heading') {
+        return { ...b, content: { ...b.content, text: nextValue } };
+      }
+
+      if (field === 'text' && b.type === 'button') {
+        return { ...b, content: { ...b.content, text: nextValue } };
+      }
+
+      if (field === 'text' && b.type === 'quote') {
+        return { ...b, content: { ...b.content, text: nextValue } };
+      }
+
+      return b;
+    });
+
+    updateBlocks(newBlocks);
+  }, [blocks, updateBlocks, sanitizeInlineHtml]);
+
   /* ── Template loading ──────────────────────────── */
 
   const loadTemplate = useCallback((template: EmailTemplate) => {
@@ -879,6 +939,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                 onDuplicateBlock={handleDuplicateBlock}
                 onMoveBlock={handleMoveBlock}
                 onDropNewBlock={handleDropNewBlock}
+                onInlineTextEdit={handleInlineTextEdit}
               />
 
               {/* Right Panel: Block Editor / Global Styles */}

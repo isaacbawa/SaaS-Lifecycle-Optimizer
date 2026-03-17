@@ -9,7 +9,7 @@
  * including social variations, footer variations, video, quote, and list.
  * ========================================================================== */
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     GripVertical, Trash2, Copy, ChevronUp, ChevronDown,
     Type, Heading, ImageIcon, MousePointerClick, Minus,
@@ -45,7 +45,143 @@ const BLOCK_ICONS: Record<BlockType, React.ElementType> = {
 
 /* ── Block Preview Renderers ─────────────────────────────────────────── */
 
-function PreviewText({ c }: { c: TextBlockContent }) {
+function PreviewText({
+    c,
+    isEditing,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: TextBlockContent;
+    isEditing?: boolean;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
+    const editableRef = useRef<HTMLDivElement>(null);
+
+    const applyCommand = useCallback((command: string, value?: string) => {
+        document.execCommand(command, false, value);
+        const nextHtml = editableRef.current?.innerHTML ?? '';
+        onDraftChange?.(nextHtml);
+        editableRef.current?.focus();
+    }, [onDraftChange]);
+
+    useEffect(() => {
+        if (!isEditing || !editableRef.current) return;
+        const nextHtml = draftValue ?? c.html;
+        if (editableRef.current.innerHTML !== nextHtml) {
+            editableRef.current.innerHTML = nextHtml;
+        }
+        editableRef.current.focus();
+    }, [isEditing, draftValue, c.html]);
+
+    if (isEditing) {
+        return (
+            <div
+                style={{
+                    padding: `${c.padding.top}px ${c.padding.right}px ${c.padding.bottom}px ${c.padding.left}px`,
+                    backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
+                    fontFamily: c.fontFamily,
+                    fontSize: c.fontSize,
+                    lineHeight: c.lineHeight,
+                    color: c.color,
+                    textAlign: c.textAlign,
+                }}
+            >
+                <div className="mb-2 inline-flex items-center gap-1 rounded-md border bg-white/90 p-1">
+                    <button
+                        type="button"
+                        className="rounded px-2 py-1 text-xs font-semibold hover:bg-muted"
+                        title="Bold (Ctrl+B)"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applyCommand('bold')}
+                    >
+                        B
+                    </button>
+                    <button
+                        type="button"
+                        className="rounded px-2 py-1 text-xs italic hover:bg-muted"
+                        title="Italic (Ctrl+I)"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applyCommand('italic')}
+                    >
+                        I
+                    </button>
+                    <button
+                        type="button"
+                        className="rounded px-2 py-1 text-xs underline hover:bg-muted"
+                        title="Underline (Ctrl+U)"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applyCommand('underline')}
+                    >
+                        U
+                    </button>
+                    <button
+                        type="button"
+                        className="rounded px-2 py-1 text-xs hover:bg-muted"
+                        title="Insert link (Ctrl+K)"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                            const url = window.prompt('Enter link URL (https://...)', 'https://');
+                            if (url && url.trim()) applyCommand('createLink', url.trim());
+                        }}
+                    >
+                        Link
+                    </button>
+                    <button
+                        type="button"
+                        className="rounded px-2 py-1 text-xs hover:bg-muted"
+                        title="Bullet list"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applyCommand('insertUnorderedList')}
+                    >
+                        • List
+                    </button>
+                </div>
+                <div
+                    ref={editableRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    className="min-h-[48px] rounded-md ring-2 ring-blue-500/40 px-1 outline-none"
+                    onInput={(e) => onDraftChange?.((e.currentTarget as HTMLDivElement).innerHTML)}
+                    onBlur={() => onCommit?.()}
+                    onKeyDown={(e) => {
+                        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+                            e.preventDefault();
+                            applyCommand('bold');
+                            return;
+                        }
+                        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+                            e.preventDefault();
+                            applyCommand('italic');
+                            return;
+                        }
+                        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u') {
+                            e.preventDefault();
+                            applyCommand('underline');
+                            return;
+                        }
+                        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                            e.preventDefault();
+                            const url = window.prompt('Enter link URL (https://...)', 'https://');
+                            if (url && url.trim()) applyCommand('createLink', url.trim());
+                            return;
+                        }
+                        if (e.key === 'Escape') {
+                            e.preventDefault();
+                            onCommit?.();
+                        }
+                        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                            e.preventDefault();
+                            onCommit?.();
+                        }
+                    }}
+                />
+            </div>
+        );
+    }
+
     return (
         <div
             style={{
@@ -62,9 +198,54 @@ function PreviewText({ c }: { c: TextBlockContent }) {
     );
 }
 
-function PreviewHeading({ c }: { c: HeadingBlockContent }) {
+function PreviewHeading({
+    c,
+    isEditing,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: HeadingBlockContent;
+    isEditing?: boolean;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
     const sizes = { 1: 28, 2: 22, 3: 18 } as const;
     const Tag = `h${c.level}` as 'h1' | 'h2' | 'h3';
+
+    if (isEditing) {
+        return (
+            <div style={{
+                padding: `${c.padding.top}px ${c.padding.right}px ${c.padding.bottom}px ${c.padding.left}px`,
+                backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
+            }}>
+                <input
+                    autoFocus
+                    value={draftValue ?? c.text}
+                    onChange={(e) => onDraftChange?.(e.target.value)}
+                    onBlur={() => onCommit?.()}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'Escape') {
+                            e.preventDefault();
+                            onCommit?.();
+                        }
+                    }}
+                    className="w-full rounded-md ring-2 ring-blue-500/40 px-2 py-1 outline-none bg-transparent"
+                    style={{
+                        margin: 0,
+                        fontFamily: c.fontFamily,
+                        fontSize: sizes[c.level],
+                        fontWeight: 700,
+                        color: c.color,
+                        textAlign: c.textAlign,
+                        lineHeight: 1.3,
+                    }}
+                />
+            </div>
+        );
+    }
+
     return (
         <div style={{
             padding: `${c.padding.top}px ${c.padding.right}px ${c.padding.bottom}px ${c.padding.left}px`,
@@ -103,29 +284,70 @@ function PreviewImage({ c }: { c: ImageBlockContent }) {
     );
 }
 
-function PreviewButton({ c }: { c: ButtonBlockContent }) {
+function PreviewButton({
+    c,
+    isEditing,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: ButtonBlockContent;
+    isEditing?: boolean;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
     return (
         <div style={{
             padding: `${c.containerPadding.top}px ${c.containerPadding.right}px ${c.containerPadding.bottom}px ${c.containerPadding.left}px`,
             backgroundColor: c.containerBg === 'transparent' ? undefined : c.containerBg,
             textAlign: c.align,
         }}>
-            <span style={{
-                display: 'inline-block',
-                width: c.fullWidth ? '100%' : undefined,
-                padding: `${c.paddingV}px ${c.paddingH}px`,
-                backgroundColor: c.backgroundColor,
-                color: c.textColor,
-                fontFamily: c.fontFamily,
-                fontSize: c.fontSize,
-                fontWeight: 600,
-                borderRadius: c.borderRadius,
-                textDecoration: 'none',
-                textAlign: 'center',
-                cursor: 'pointer',
-            }}>
-                {c.text}
-            </span>
+            {isEditing ? (
+                <input
+                    autoFocus
+                    value={draftValue ?? c.text}
+                    onChange={(e) => onDraftChange?.(e.target.value)}
+                    onBlur={() => onCommit?.()}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'Escape') {
+                            e.preventDefault();
+                            onCommit?.();
+                        }
+                    }}
+                    style={{
+                        display: 'inline-block',
+                        width: c.fullWidth ? '100%' : undefined,
+                        padding: `${c.paddingV}px ${c.paddingH}px`,
+                        backgroundColor: c.backgroundColor,
+                        color: c.textColor,
+                        fontFamily: c.fontFamily,
+                        fontSize: c.fontSize,
+                        fontWeight: 600,
+                        borderRadius: c.borderRadius,
+                        textAlign: 'center',
+                        border: 'none',
+                        outline: '2px solid rgba(59,130,246,0.5)',
+                    }}
+                />
+            ) : (
+                <span style={{
+                    display: 'inline-block',
+                    width: c.fullWidth ? '100%' : undefined,
+                    padding: `${c.paddingV}px ${c.paddingH}px`,
+                    backgroundColor: c.backgroundColor,
+                    color: c.textColor,
+                    fontFamily: c.fontFamily,
+                    fontSize: c.fontSize,
+                    fontWeight: 600,
+                    borderRadius: c.borderRadius,
+                    textDecoration: 'none',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                }}>
+                    {c.text}
+                </span>
+            )}
         </div>
     );
 }
@@ -276,8 +498,49 @@ function PreviewSocial({ c }: { c: SocialBlockContent }) {
 
 /* ── Footer Block Preview with Variants ──────────────────────────────── */
 
-function PreviewFooter({ c }: { c: FooterBlockContent }) {
+function PreviewFooter({
+    c,
+    isEditing,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: FooterBlockContent;
+    isEditing?: boolean;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
     const variant = c.variant ?? 'centered';
+
+    const footerMainText = draftValue ?? c.html;
+
+    if (isEditing) {
+        return (
+            <div style={{
+                padding: `${c.padding.top}px ${c.padding.right}px ${c.padding.bottom}px ${c.padding.left}px`,
+                backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
+            }}>
+                <textarea
+                    autoFocus
+                    value={footerMainText}
+                    onChange={(e) => onDraftChange?.(e.target.value)}
+                    onBlur={() => onCommit?.()}
+                    className="w-full rounded-md px-2 py-1 outline-none"
+                    style={{
+                        margin: 0,
+                        fontSize: c.fontSize,
+                        color: c.color,
+                        textAlign: c.textAlign,
+                        lineHeight: 1.5,
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        outline: '2px solid rgba(59,130,246,0.5)',
+                    }}
+                />
+            </div>
+        );
+    }
 
     if (variant === 'minimal') {
         return (
@@ -286,7 +549,7 @@ function PreviewFooter({ c }: { c: FooterBlockContent }) {
                 backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
             }}>
                 <p style={{ margin: 0, fontSize: c.fontSize, color: c.color, textAlign: c.textAlign, lineHeight: 1.5 }}>
-                    {c.html}
+                    {footerMainText}
                     {c.showUnsubscribe && (
                         <> &mdash; <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>{c.unsubscribeText}</span></>
                     )}
@@ -302,7 +565,7 @@ function PreviewFooter({ c }: { c: FooterBlockContent }) {
                 backgroundColor: '#1f2937',
             }}>
                 <p style={{ margin: '0 0 8px', fontSize: c.fontSize, color: '#d1d5db', textAlign: c.textAlign, lineHeight: 1.5 }}>
-                    {c.html}
+                    {footerMainText}
                 </p>
                 {c.showUnsubscribe && (
                     <p style={{ margin: 0, fontSize: c.fontSize, color: '#9ca3af', textAlign: c.textAlign }}>
@@ -327,7 +590,7 @@ function PreviewFooter({ c }: { c: FooterBlockContent }) {
                         {'{{company.name}}'}
                     </p>
                     <p style={{ margin: 0, fontSize: c.fontSize, color: c.color, lineHeight: 1.5 }}>
-                        {c.html}
+                        {footerMainText}
                     </p>
                 </div>
                 <div style={{ textAlign: c.textAlign, borderTop: '1px solid #f3f4f6', paddingTop: 12 }}>
@@ -353,7 +616,7 @@ function PreviewFooter({ c }: { c: FooterBlockContent }) {
                 borderTop: '3px solid #2563eb',
             }}>
                 <p style={{ margin: '0 0 8px', fontSize: c.fontSize, color: c.color, textAlign: c.textAlign, lineHeight: 1.5 }}>
-                    {c.html}
+                    {footerMainText}
                 </p>
                 {c.showUnsubscribe && (
                     <p style={{ margin: 0, fontSize: c.fontSize, color: '#2563eb', textAlign: c.textAlign }}>
@@ -371,7 +634,7 @@ function PreviewFooter({ c }: { c: FooterBlockContent }) {
             backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
         }}>
             <p style={{ margin: '0 0 8px', fontSize: c.fontSize, color: c.color, textAlign: c.textAlign, lineHeight: 1.5 }}>
-                {c.html}
+                {footerMainText}
             </p>
             {c.showUnsubscribe && (
                 <p style={{ margin: 0, fontSize: c.fontSize, color: c.color, textAlign: c.textAlign }}>
@@ -435,7 +698,21 @@ function PreviewVideo({ c }: { c: VideoBlockContent }) {
 
 /* ── Quote Block Preview ─────────────────────────────────────────────── */
 
-function PreviewQuote({ c }: { c: QuoteBlockContent }) {
+function PreviewQuote({
+    c,
+    isEditing,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: QuoteBlockContent;
+    isEditing?: boolean;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
+    const quoteText = draftValue ?? c.text;
+
     if (c.style === 'large-quote') {
         return (
             <div style={{
@@ -444,12 +721,33 @@ function PreviewQuote({ c }: { c: QuoteBlockContent }) {
                 textAlign: c.textAlign,
             }}>
                 <div style={{ fontSize: 48, lineHeight: 1, color: c.accentColor, fontFamily: 'Georgia, serif', marginBottom: -8 }}>&ldquo;</div>
-                <p style={{
-                    margin: '0 0 12px', fontFamily: c.fontFamily, fontSize: c.fontSize,
-                    fontStyle: 'italic', lineHeight: 1.6, color: c.color,
-                }}>
-                    {c.text}
-                </p>
+                {isEditing ? (
+                    <textarea
+                        autoFocus
+                        value={quoteText}
+                        onChange={(e) => onDraftChange?.(e.target.value)}
+                        onBlur={() => onCommit?.()}
+                        className="w-full rounded-md px-2 py-1 outline-none"
+                        style={{
+                            margin: '0 0 12px',
+                            fontFamily: c.fontFamily,
+                            fontSize: c.fontSize,
+                            fontStyle: 'italic',
+                            lineHeight: 1.6,
+                            color: c.color,
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            outline: '2px solid rgba(59,130,246,0.5)',
+                        }}
+                    />
+                ) : (
+                    <p style={{
+                        margin: '0 0 12px', fontFamily: c.fontFamily, fontSize: c.fontSize,
+                        fontStyle: 'italic', lineHeight: 1.6, color: c.color,
+                    }}>
+                        {quoteText}
+                    </p>
+                )}
                 {(c.attribution || c.attributionTitle) && (
                     <div>
                         {c.attribution && (
@@ -476,12 +774,33 @@ function PreviewQuote({ c }: { c: QuoteBlockContent }) {
                     border: `1px solid ${c.accentColor}20`,
                     textAlign: c.textAlign,
                 }}>
-                    <p style={{
-                        margin: '0 0 16px', fontFamily: c.fontFamily, fontSize: c.fontSize,
-                        fontStyle: 'italic', lineHeight: 1.6, color: c.color,
-                    }}>
-                        &ldquo;{c.text}&rdquo;
-                    </p>
+                    {isEditing ? (
+                        <textarea
+                            autoFocus
+                            value={quoteText}
+                            onChange={(e) => onDraftChange?.(e.target.value)}
+                            onBlur={() => onCommit?.()}
+                            className="w-full rounded-md px-2 py-1 outline-none"
+                            style={{
+                                margin: '0 0 16px',
+                                fontFamily: c.fontFamily,
+                                fontSize: c.fontSize,
+                                fontStyle: 'italic',
+                                lineHeight: 1.6,
+                                color: c.color,
+                                border: 'none',
+                                backgroundColor: 'transparent',
+                                outline: '2px solid rgba(59,130,246,0.5)',
+                            }}
+                        />
+                    ) : (
+                        <p style={{
+                            margin: '0 0 16px', fontFamily: c.fontFamily, fontSize: c.fontSize,
+                            fontStyle: 'italic', lineHeight: 1.6, color: c.color,
+                        }}>
+                            &ldquo;{quoteText}&rdquo;
+                        </p>
+                    )}
                     {(c.attribution || c.attributionTitle) && (
                         <div style={{ borderTop: `1px solid ${c.accentColor}15`, paddingTop: 12 }}>
                             {c.attribution && (
@@ -508,12 +827,33 @@ function PreviewQuote({ c }: { c: QuoteBlockContent }) {
                 paddingLeft: 20,
                 textAlign: c.textAlign,
             }}>
-                <p style={{
-                    margin: '0 0 12px', fontFamily: c.fontFamily, fontSize: c.fontSize,
-                    fontStyle: 'italic', lineHeight: 1.6, color: c.color,
-                }}>
-                    &ldquo;{c.text}&rdquo;
-                </p>
+                {isEditing ? (
+                    <textarea
+                        autoFocus
+                        value={quoteText}
+                        onChange={(e) => onDraftChange?.(e.target.value)}
+                        onBlur={() => onCommit?.()}
+                        className="w-full rounded-md px-2 py-1 outline-none"
+                        style={{
+                            margin: '0 0 12px',
+                            fontFamily: c.fontFamily,
+                            fontSize: c.fontSize,
+                            fontStyle: 'italic',
+                            lineHeight: 1.6,
+                            color: c.color,
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            outline: '2px solid rgba(59,130,246,0.5)',
+                        }}
+                    />
+                ) : (
+                    <p style={{
+                        margin: '0 0 12px', fontFamily: c.fontFamily, fontSize: c.fontSize,
+                        fontStyle: 'italic', lineHeight: 1.6, color: c.color,
+                    }}>
+                        &ldquo;{quoteText}&rdquo;
+                    </p>
+                )}
                 {(c.attribution || c.attributionTitle) && (
                     <div>
                         {c.attribution && (
@@ -573,19 +913,31 @@ function PreviewList({ c }: { c: ListBlockContent }) {
 
 /* ── Block Preview Dispatcher ────────────────────────────────────────── */
 
-function BlockPreview({ block }: { block: EmailBlock }) {
+function BlockPreview({
+    block,
+    isEditing,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    block: EmailBlock;
+    isEditing?: boolean;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
     switch (block.type) {
-        case 'text': return <PreviewText c={block.content} />;
-        case 'heading': return <PreviewHeading c={block.content} />;
+        case 'text': return <PreviewText c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
+        case 'heading': return <PreviewHeading c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
         case 'image': return <PreviewImage c={block.content} />;
-        case 'button': return <PreviewButton c={block.content} />;
+        case 'button': return <PreviewButton c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
         case 'divider': return <PreviewDivider c={block.content} />;
         case 'spacer': return <PreviewSpacer c={block.content} />;
         case 'columns': return <PreviewColumns c={block.content} />;
         case 'social': return <PreviewSocial c={block.content} />;
-        case 'footer': return <PreviewFooter c={block.content} />;
+        case 'footer': return <PreviewFooter c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
         case 'video': return <PreviewVideo c={block.content} />;
-        case 'quote': return <PreviewQuote c={block.content} />;
+        case 'quote': return <PreviewQuote c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
         case 'list': return <PreviewList c={block.content} />;
     }
 }
@@ -603,6 +955,7 @@ interface CanvasProps {
     onDuplicateBlock: (id: string) => void;
     onMoveBlock: (id: string, direction: 'up' | 'down') => void;
     onDropNewBlock: (type: BlockType, index: number) => void;
+    onInlineTextEdit: (blockId: string, field: 'html' | 'text', value: string) => void;
 }
 
 /* ── Canvas Component ────────────────────────────────────────────────── */
@@ -618,12 +971,66 @@ export function BuilderCanvas({
     onDuplicateBlock,
     onMoveBlock,
     onDropNewBlock,
+    onInlineTextEdit,
 }: CanvasProps) {
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
     const dragOverIndexRef = useRef<number | null>(null);
     const dragItemIndex = useRef<number | null>(null);
     const dragIsPalette = useRef(false);
     const dragPaletteType = useRef<BlockType | null>(null);
+    const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+    const [editingField, setEditingField] = useState<'html' | 'text' | null>(null);
+    const [inlineDrafts, setInlineDrafts] = useState<Record<string, string>>({});
+
+    const getEditableField = useCallback((block: EmailBlock): 'html' | 'text' | null => {
+        if (block.type === 'text') return 'html';
+        if (block.type === 'footer') return 'html';
+        if (block.type === 'heading') return 'text';
+        if (block.type === 'button' || block.type === 'quote') return 'text';
+        return null;
+    }, []);
+
+    const getInlineValue = useCallback((block: EmailBlock, field: 'html' | 'text'): string => {
+        if (field === 'html' && block.type === 'text') return block.content.html;
+        if (field === 'html' && block.type === 'footer') return block.content.html;
+        if (field === 'text' && (block.type === 'heading' || block.type === 'button' || block.type === 'quote')) return block.content.text;
+        return '';
+    }, []);
+
+    const getDraftKey = useCallback((blockId: string, field: 'html' | 'text') => `${blockId}:${field}`, []);
+
+    const beginInlineEdit = useCallback((block: EmailBlock) => {
+        const field = getEditableField(block);
+        if (!field) return;
+
+        const draftKey = getDraftKey(block.id, field);
+        const initialValue = getInlineValue(block, field);
+        setEditingBlockId(block.id);
+        setEditingField(field);
+        setInlineDrafts((prev) => (prev[draftKey] !== undefined ? prev : { ...prev, [draftKey]: initialValue }));
+        onSelectBlock(block.id);
+    }, [getDraftKey, getEditableField, getInlineValue, onSelectBlock]);
+
+    const commitInlineEdit = useCallback((block: EmailBlock) => {
+        const field = editingField ?? getEditableField(block);
+        if (!field) return;
+
+        const draftKey = getDraftKey(block.id, field);
+        const fallbackValue = getInlineValue(block, field);
+        const nextValue = inlineDrafts[draftKey] ?? fallbackValue;
+
+        if (nextValue !== fallbackValue) {
+            onInlineTextEdit(block.id, field, nextValue);
+        }
+
+        setInlineDrafts((prev) => {
+            const next = { ...prev };
+            delete next[draftKey];
+            return next;
+        });
+        setEditingBlockId(null);
+        setEditingField(null);
+    }, [editingField, getDraftKey, getEditableField, getInlineValue, inlineDrafts, onInlineTextEdit]);
 
     const updateDragOverIndex = useCallback((value: number | null) => {
         dragOverIndexRef.current = value;
@@ -686,7 +1093,11 @@ export function BuilderCanvas({
     return (
         <div
             className="flex-1 overflow-y-auto bg-[#f8f9fc] dark:bg-muted/20 p-6 sm:p-8"
-            onClick={() => onSelectBlock(null)}
+            onClick={() => {
+                setEditingBlockId(null);
+                setEditingField(null);
+                onSelectBlock(null);
+            }}
             style={{
                 backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 1px, transparent 0)',
                 backgroundSize: '24px 24px',
@@ -730,6 +1141,9 @@ export function BuilderCanvas({
 
                     {blocks.map((block, index) => {
                         const isSelected = block.id === selectedBlockId;
+                        const editableField = getEditableField(block);
+                        const isEditing = editingBlockId === block.id && !!editableField;
+                        const draftKey = editableField ? getDraftKey(block.id, editableField) : null;
                         const Icon = BLOCK_ICONS[block.type];
 
                         return (
@@ -745,7 +1159,12 @@ export function BuilderCanvas({
                                         !isSelected && 'hover:ring-1 hover:ring-blue-300 dark:hover:ring-blue-700 hover:ring-inset',
                                     )}
                                     onClick={(e) => { e.stopPropagation(); onSelectBlock(block.id); }}
-                                    draggable
+                                    onDoubleClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!editableField) return;
+                                        beginInlineEdit(block);
+                                    }}
+                                    draggable={!isEditing}
                                     onDragStart={(e) => handleBlockDragStart(e, index)}
                                     onDragOver={(e) => handleBlockDragOver(e, index)}
                                     onDrop={(e) => handleBlockDrop(e, index)}
@@ -802,7 +1221,22 @@ export function BuilderCanvas({
                                         </button>
                                     </div>
 
-                                    <BlockPreview block={block} />
+                                    <BlockPreview
+                                        block={block}
+                                        isEditing={isEditing}
+                                        draftValue={draftKey ? inlineDrafts[draftKey] : undefined}
+                                        onDraftChange={(value) => {
+                                            if (!editableField || !draftKey) return;
+                                            setInlineDrafts((prev) => ({ ...prev, [draftKey]: value }));
+                                        }}
+                                        onCommit={() => commitInlineEdit(block)}
+                                    />
+
+                                    {editableField && isSelected && !isEditing && (
+                                        <div className="pointer-events-none absolute bottom-1 right-2 rounded bg-black/65 px-1.5 py-0.5 text-[10px] text-white">
+                                            Double-click to edit text
+                                        </div>
+                                    )}
                                 </div>
                             </React.Fragment>
                         );
