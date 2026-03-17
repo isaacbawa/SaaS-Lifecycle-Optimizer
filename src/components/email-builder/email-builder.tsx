@@ -426,6 +426,22 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
         return { ...b, content: { ...b.content, text: nextValue } };
       }
 
+      if (field === 'text' && b.type === 'list') {
+        const items = nextValue
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((text) => ({ text }));
+
+        return {
+          ...b,
+          content: {
+            ...b.content,
+            items: items.length > 0 ? items : [{ text: 'List item' }],
+          },
+        };
+      }
+
       return b;
     });
 

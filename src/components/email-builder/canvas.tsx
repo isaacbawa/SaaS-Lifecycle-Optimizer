@@ -911,6 +911,46 @@ function PreviewList({ c }: { c: ListBlockContent }) {
     );
 }
 
+function PreviewListEditable({
+    c,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: ListBlockContent;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
+    const value = draftValue ?? c.items.map((item) => item.text).join('\n');
+
+    return (
+        <div style={{
+            padding: `${c.padding.top}px ${c.padding.right}px ${c.padding.bottom}px ${c.padding.left}px`,
+            backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
+        }}>
+            <textarea
+                autoFocus
+                value={value}
+                onChange={(e) => onDraftChange?.(e.target.value)}
+                onBlur={() => onCommit?.()}
+                className="w-full rounded-md px-2 py-1 outline-none"
+                style={{
+                    minHeight: 120,
+                    fontSize: c.fontSize,
+                    lineHeight: 1.5,
+                    color: c.color,
+                    fontFamily: c.fontFamily,
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    outline: '2px solid rgba(59,130,246,0.5)',
+                }}
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">One list item per line.</p>
+        </div>
+    );
+}
+
 /* ── Block Preview Dispatcher ────────────────────────────────────────── */
 
 function BlockPreview({
@@ -938,7 +978,9 @@ function BlockPreview({
         case 'footer': return <PreviewFooter c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
         case 'video': return <PreviewVideo c={block.content} />;
         case 'quote': return <PreviewQuote c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
-        case 'list': return <PreviewList c={block.content} />;
+        case 'list': return isEditing
+            ? <PreviewListEditable c={block.content} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />
+            : <PreviewList c={block.content} />;
     }
 }
 
@@ -986,7 +1028,7 @@ export function BuilderCanvas({
         if (block.type === 'text') return 'html';
         if (block.type === 'footer') return 'html';
         if (block.type === 'heading') return 'text';
-        if (block.type === 'button' || block.type === 'quote') return 'text';
+        if (block.type === 'button' || block.type === 'quote' || block.type === 'list') return 'text';
         return null;
     }, []);
 
@@ -994,6 +1036,7 @@ export function BuilderCanvas({
         if (field === 'html' && block.type === 'text') return block.content.html;
         if (field === 'html' && block.type === 'footer') return block.content.html;
         if (field === 'text' && (block.type === 'heading' || block.type === 'button' || block.type === 'quote')) return block.content.text;
+        if (field === 'text' && block.type === 'list') return block.content.items.map((item) => item.text).join('\n');
         return '';
     }, []);
 
@@ -1158,11 +1201,12 @@ export function BuilderCanvas({
                                         isSelected && 'ring-2 ring-blue-500 ring-inset z-10',
                                         !isSelected && 'hover:ring-1 hover:ring-blue-300 dark:hover:ring-blue-700 hover:ring-inset',
                                     )}
-                                    onClick={(e) => { e.stopPropagation(); onSelectBlock(block.id); }}
-                                    onDoubleClick={(e) => {
+                                    onClick={(e) => {
                                         e.stopPropagation();
-                                        if (!editableField) return;
-                                        beginInlineEdit(block);
+                                        onSelectBlock(block.id);
+                                        if (editableField) {
+                                            beginInlineEdit(block);
+                                        }
                                     }}
                                     draggable={!isEditing}
                                     onDragStart={(e) => handleBlockDragStart(e, index)}
@@ -1234,7 +1278,7 @@ export function BuilderCanvas({
 
                                     {editableField && isSelected && !isEditing && (
                                         <div className="pointer-events-none absolute bottom-1 right-2 rounded bg-black/65 px-1.5 py-0.5 text-[10px] text-white">
-                                            Double-click to edit text
+                                            Click to edit
                                         </div>
                                     )}
                                 </div>
