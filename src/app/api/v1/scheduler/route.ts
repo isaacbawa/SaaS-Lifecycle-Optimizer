@@ -4,8 +4,8 @@
  * Processes flow enrollments whose nextProcessAt timestamp has elapsed.
  * This endpoint should be called periodically:
  *
- *   • Vercel Cron: vercel.json → {"crons": [{"path": "/api/v1/scheduler", "schedule": "* * * * *"}]}
  *   • External cron: curl -X POST https://your-app.com/api/v1/scheduler -H "Authorization: Bearer <CRON_SECRET>"
+ *   • Optional Vercel Cron (paid plans): add /api/v1/scheduler in vercel.json
  *   • Self-polling: the endpoint can also be triggered from the UI/admin panel
  *
  * Security: Protected by CRON_SECRET env var (for Vercel Cron) or

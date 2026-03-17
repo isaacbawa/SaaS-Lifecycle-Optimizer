@@ -30,6 +30,7 @@
  * ═══════════════════════════════════════════════════════════════════════ */
 
 import { getTransport, getTransportConfig, checkTransportHealth, closeTransport } from './transport';
+import { isDomainVerifiedInSes, isSesConfigured } from '@/lib/engine/ses-identity';
 import { db } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
 import { eq, and, lte, asc } from 'drizzle-orm';
@@ -263,6 +264,13 @@ async function sendInline(params: {
         ? `${params.fromName} <${params.fromEmail ?? config.fromEmail}>`
         : `${config.fromName} <${params.fromEmail ?? config.fromEmail}>`;
 
+    // When using SES SMTP with custom MAIL FROM, set Return-Path envelope from
+    // the bounce subdomain for SPF alignment under DMARC.
+    const sendingDomain = (params.fromEmail ?? config.fromEmail).split('@')[1] ?? '';
+    const envelopeFrom = config.isSesSmtp && sendingDomain
+        ? `bounce@${sendingDomain}`
+        : undefined;
+
     try {
         const info = await transport.sendMail({
             from: fromLine,
@@ -272,6 +280,7 @@ async function sendInline(params: {
             text: params.text,
             replyTo: params.replyTo ?? process.env.EMAIL_REPLY_TO,
             headers: params.headers,
+            ...(envelopeFrom ? { envelope: { from: envelopeFrom, to: params.to } } : {}),
         });
 
         return { success: true, messageId: info.messageId };
@@ -372,7 +381,19 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
         tags: payload.tags,
     });
 
-    // 5. Send IMMEDIATELY via SMTP (inline, not deferred)
+    // 5. Pre-send SES domain verification check (non-blocking — warns but allows send)
+    const fromDomain = (payload.fromEmail ?? getTransportConfig().fromEmail).split('@')[1] ?? '';
+    if (fromDomain && isSesConfigured()) {
+        const sesOk = await isDomainVerifiedInSes(fromDomain);
+        if (!sesOk) {
+            console.warn(
+                `[email-system] Domain "${fromDomain}" is not verified in SES. ` +
+                `Email to ${payload.to} (campaign: ${payload.campaignId ?? 'none'}) may be rejected by SES.`,
+            );
+        }
+    }
+
+    // 6. Send IMMEDIATELY via SMTP (inline, not deferred)
     const smtpResult = await sendInline({
         to: payload.to,
         subject: payload.subject,
@@ -385,7 +406,7 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
         orgId: payload.orgId,
     });
 
-    // 6. Update queue record with delivery result
+    // 7. Update queue record with delivery result
     try {
         await updateQueueStatus(queueId, smtpResult);
     } catch (dbErr) {

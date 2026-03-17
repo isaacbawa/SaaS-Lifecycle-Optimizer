@@ -27,6 +27,24 @@ npm run build
 npm start
 ```
 
+## Production Scheduler (Vercel Hobby Safe)
+
+This project exposes a secure scheduler endpoint at `/api/v1/scheduler`.
+
+- Set `CRON_SECRET` in Vercel environment variables.
+- Trigger the endpoint from an external scheduler:
+
+```bash
+curl -X POST https://your-domain.com/api/v1/scheduler \
+	-H "Authorization: Bearer $CRON_SECRET"
+```
+
+Recommended interval:
+- Every 5 minutes for flow/event processing.
+- Every 1-5 minutes for high-volume email retry workloads.
+
+This avoids deployment failures tied to plan-limited built-in cron features.
+
 ## Project Structure
 
 ```

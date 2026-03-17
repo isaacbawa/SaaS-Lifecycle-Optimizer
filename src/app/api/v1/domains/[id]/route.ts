@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSendingDomainById, deleteSendingDomain } from '@/lib/db/operations';
 import { verifyDomain } from '@/lib/engine/dns-verification';
+import { deleteDomainIdentity } from '@/lib/engine/ses-identity';
 import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 
 export async function GET(
@@ -46,6 +47,16 @@ export async function DELETE(
         const { orgId } = authResult;
 
         const { id } = await params;
+
+        // Fetch the domain name before deletion so we can also remove it from SES
+        const domainRecord = await getSendingDomainById(orgId, id);
+        if (domainRecord) {
+            // Remove from SES transparently (best-effort, non-blocking)
+            await deleteDomainIdentity(domainRecord.domain).catch((err) => {
+                console.warn(`[domains] Could not remove "${domainRecord.domain}" from SES:`, err);
+            });
+        }
+
         await deleteSendingDomain(orgId, id);
         return NextResponse.json({ success: true });
     } catch (err) {

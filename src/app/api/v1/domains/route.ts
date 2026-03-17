@@ -3,25 +3,52 @@
  *
  * Handles domain registration, DNS verification, and listing.
  * When AWS SES is configured, domains are registered as SES email
- * identities behind the scenes — SES handles DKIM signing and the
- * customer never interacts with SES directly.
- *
- * POST actions:
- *   - add: Register a new sending domain (+ SES identity if configured)
- *   - verify: Run DNS verification checks (SPF, DKIM, DMARC, MX) + SES status
- *   - verify-all: Re-verify all domains for the organization
- * ========================================================================== */
+ * identities behind the scenes so SES can sign DKIM automatically.
+ * ==========================================================================
+ */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSendingDomains, upsertSendingDomain } from '@/lib/db/operations';
-import { verifyDomain, generateRequiredRecords } from '@/lib/engine/dns-verification';
+import { generateRequiredRecords, verifyDomain } from '@/lib/engine/dns-verification';
 import {
-    registerDomainIdentity,
-    getDomainIdentityStatus,
     configureMailFromDomain,
+    getDomainIdentityStatus,
     isSesConfigured,
+    registerDomainIdentity,
 } from '@/lib/engine/ses-identity';
 import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
+
+function normalizeDomain(input: string): string {
+    return input
+        .toLowerCase()
+        .trim()
+        .replace(/^https?:\/\//, '')
+        .replace(/\/.*$/, '')
+        .replace(/^www\./, '');
+}
+
+function computeStatus(params: {
+    sesEnabled: boolean;
+    sesVerified: boolean;
+    dkimVerified: boolean;
+    spfVerified: boolean;
+    dmarcVerified: boolean;
+    mxVerified: boolean;
+}): 'verified' | 'partial' | 'pending' | 'failed' {
+    const { sesEnabled, sesVerified, dkimVerified, spfVerified, dmarcVerified, mxVerified } = params;
+
+    const hasAny = dkimVerified || spfVerified || dmarcVerified || mxVerified;
+
+    if (sesEnabled) {
+        if (sesVerified && dkimVerified && spfVerified && dmarcVerified) return 'verified';
+        if (hasAny) return 'partial';
+        return 'pending';
+    }
+
+    if (dkimVerified && spfVerified && dmarcVerified) return 'verified';
+    if (hasAny) return 'partial';
+    return 'pending';
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -34,15 +61,18 @@ export async function GET(request: NextRequest) {
 
         const domains = await getSendingDomains(orgId);
 
-        // If a specific domain is requested, filter
         if (domain) {
-            const found = domains.find(d => d.domain === domain);
+            const normalized = normalizeDomain(domain);
+            const found = domains.find((d) => d.domain === normalized);
             return NextResponse.json({ success: true, data: found ?? null });
         }
 
         return NextResponse.json({ success: true, data: domains });
     } catch (err) {
-        return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });
+        return NextResponse.json(
+            { success: false, error: err instanceof Error ? err.message : 'Internal error' },
+            { status: 500 },
+        );
     }
 }
 
@@ -53,111 +83,215 @@ export async function POST(request: NextRequest) {
         const { orgId } = authResult;
 
         const body = await request.json();
-        const { action } = body;
+        const action = body?.action;
+        const sesEnabled = isSesConfigured();
 
-        /* ── Add new domain ──────────────────────────────────── */
         if (action === 'add') {
-            let { domain } = body;
-            if (!domain || typeof domain !== 'string') {
+            if (!body?.domain || typeof body.domain !== 'string') {
                 return NextResponse.json({ success: false, error: 'Domain is required' }, { status: 400 });
             }
 
-            // Normalize domain
-            domain = domain.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '');
-
+            const domain = normalizeDomain(body.domain);
             if (!domain.includes('.') || domain.length < 3) {
                 return NextResponse.json({ success: false, error: 'Invalid domain format' }, { status: 400 });
             }
 
-            // Generate the DNS records the user needs to add
-            const requiredRecords = generateRequiredRecords(domain);
+            const sesResult = await registerDomainIdentity(domain);
+            if (sesEnabled && !sesResult.success) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: `Failed to register domain in SES: ${sesResult.error ?? 'Unknown SES error'}`,
+                    },
+                    { status: 502 },
+                );
+            }
 
-            // Save to DB
+            const requiredRecords = generateRequiredRecords(
+                domain,
+                sesResult.dkimTokens.length > 0 ? sesResult.dkimTokens : undefined,
+                process.env.AWS_SES_REGION ?? process.env.AWS_REGION,
+            );
+
+            if (sesEnabled && sesResult.success) {
+                await configureMailFromDomain(domain, 'bounce');
+            }
+
             const saved = await upsertSendingDomain(orgId, {
                 domain,
                 status: 'pending',
-                dkimVerified: false,
+                dkimVerified: sesResult.dkimVerified,
                 spfVerified: false,
                 dmarcVerified: false,
                 mxVerified: false,
                 authScore: 0,
                 dkimSelector: requiredRecords.dkimSelector,
-                requiredRecords: requiredRecords.records.map(r => ({
-                    type: r.type,
-                    host: r.host,
-                    value: r.value,
-                    purpose: r.purpose,
-                })),
+                requiredRecords: requiredRecords.records,
+                verificationDetails: {
+                    sesManaged: sesEnabled,
+                    sesDkimTokens: sesResult.dkimTokens,
+                    sesIdentityVerified: sesResult.identityVerified,
+                    sesDkimVerified: sesResult.dkimVerified,
+                },
             });
 
-            return NextResponse.json({
-                success: true,
-                data: {
-                    domain: saved,
-                    requiredRecords: requiredRecords.records,
+            return NextResponse.json(
+                {
+                    success: true,
+                    data: {
+                        domain: saved,
+                        requiredRecords: requiredRecords.records,
+                        sesManaged: sesEnabled,
+                    },
                 },
-            }, { status: 201 });
+                { status: 201 },
+            );
         }
 
-        /* ── Verify a domain ─────────────────────────────────── */
         if (action === 'verify') {
-            let { domain } = body;
-            if (!domain || typeof domain !== 'string') {
+            if (!body?.domain || typeof body.domain !== 'string') {
                 return NextResponse.json({ success: false, error: 'Domain is required' }, { status: 400 });
             }
-            domain = domain.toLowerCase().trim();
 
-            // Run full DNS verification
-            const result = await verifyDomain(domain);
+            const domain = normalizeDomain(body.domain);
+            const [dnsResult, sesStatus] = await Promise.all([
+                verifyDomain(domain),
+                getDomainIdentityStatus(domain),
+            ]);
 
-            // Update DB with verification results
+            if (sesEnabled && !sesStatus.exists) {
+                await registerDomainIdentity(domain);
+            }
+
+            const dkimVerified = sesEnabled ? sesStatus.dkimVerified : dnsResult.dkim.verified;
+            const spfVerified = dnsResult.spf.verified;
+            const dmarcVerified = dnsResult.dmarc.verified;
+            const mxVerified = dnsResult.mx.verified;
+            const sesVerified = !sesEnabled || sesStatus.verified;
+
+            const score =
+                (dkimVerified ? 35 : 0) +
+                (spfVerified ? 30 : 0) +
+                (dmarcVerified ? 25 : 0) +
+                (mxVerified ? 10 : 0);
+
+            const status = computeStatus({
+                sesEnabled,
+                sesVerified,
+                dkimVerified,
+                spfVerified,
+                dmarcVerified,
+                mxVerified,
+            });
+
             const saved = await upsertSendingDomain(orgId, {
                 domain,
-                status: result.overallStatus,
-                dkimVerified: result.dkim.verified,
-                spfVerified: result.spf.verified,
-                dmarcVerified: result.dmarc.verified,
-                mxVerified: result.mx.verified,
-                authScore: result.score,
-                verificationDetails: result as unknown as Record<string, unknown>,
+                status,
+                dkimVerified,
+                spfVerified,
+                dmarcVerified,
+                mxVerified,
+                authScore: score,
+                verificationDetails: {
+                    dns: dnsResult as unknown as Record<string, unknown>,
+                    ses: sesStatus as unknown as Record<string, unknown>,
+                },
                 lastCheckedAt: new Date(),
             });
 
+            const recommendations = [...dnsResult.recommendations];
+            if (sesEnabled && !sesStatus.exists) {
+                recommendations.unshift('Domain was not yet registered with SES. Re-run verification in a few minutes.');
+            } else if (sesEnabled && !sesStatus.verified) {
+                recommendations.unshift('SES identity is not verified yet. Wait for DNS propagation, then verify again.');
+            }
+
             return NextResponse.json({
                 success: true,
                 data: {
                     domain: saved,
-                    verification: result,
+                    verification: {
+                        ...dnsResult,
+                        dkim: { ...dnsResult.dkim, verified: dkimVerified },
+                        overallStatus: status,
+                        score,
+                        sesManaged: sesEnabled,
+                        sesVerified,
+                        sesDkimStatus: sesStatus.dkimStatus,
+                        recommendations,
+                    },
                 },
             });
         }
 
-        /* ── Verify all domains ──────────────────────────────── */
         if (action === 'verify-all') {
             const domains = await getSendingDomains(orgId);
-            const verifications = [];
+            const verifications: Array<Record<string, unknown>> = [];
 
             for (const d of domains) {
-                const result = await verifyDomain(d.domain);
+                const [dnsResult, sesStatus] = await Promise.all([
+                    verifyDomain(d.domain),
+                    getDomainIdentityStatus(d.domain),
+                ]);
+
+                const dkimVerified = sesEnabled ? sesStatus.dkimVerified : dnsResult.dkim.verified;
+                const spfVerified = dnsResult.spf.verified;
+                const dmarcVerified = dnsResult.dmarc.verified;
+                const mxVerified = dnsResult.mx.verified;
+                const sesVerified = !sesEnabled || sesStatus.verified;
+
+                const score =
+                    (dkimVerified ? 35 : 0) +
+                    (spfVerified ? 30 : 0) +
+                    (dmarcVerified ? 25 : 0) +
+                    (mxVerified ? 10 : 0);
+
+                const status = computeStatus({
+                    sesEnabled,
+                    sesVerified,
+                    dkimVerified,
+                    spfVerified,
+                    dmarcVerified,
+                    mxVerified,
+                });
+
                 await upsertSendingDomain(orgId, {
                     domain: d.domain,
-                    status: result.overallStatus,
-                    dkimVerified: result.dkim.verified,
-                    spfVerified: result.spf.verified,
-                    dmarcVerified: result.dmarc.verified,
-                    mxVerified: result.mx.verified,
-                    authScore: result.score,
-                    verificationDetails: result as unknown as Record<string, unknown>,
+                    status,
+                    dkimVerified,
+                    spfVerified,
+                    dmarcVerified,
+                    mxVerified,
+                    authScore: score,
+                    verificationDetails: {
+                        dns: dnsResult as unknown as Record<string, unknown>,
+                        ses: sesStatus as unknown as Record<string, unknown>,
+                    },
                     lastCheckedAt: new Date(),
                 });
-                verifications.push({ domain: d.domain, result });
+
+                verifications.push({
+                    domain: d.domain,
+                    result: {
+                        ...dnsResult,
+                        dkim: { ...dnsResult.dkim, verified: dkimVerified },
+                        overallStatus: status,
+                        score,
+                        sesManaged: sesEnabled,
+                        sesVerified,
+                        sesDkimStatus: sesStatus.dkimStatus,
+                    },
+                });
             }
 
             return NextResponse.json({ success: true, data: verifications });
         }
 
-        return NextResponse.json({ success: false, error: `Unknown action: ${action}` }, { status: 400 });
+        return NextResponse.json({ success: false, error: `Unknown action: ${String(action)}` }, { status: 400 });
     } catch (err) {
-        return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });
+        return NextResponse.json(
+            { success: false, error: err instanceof Error ? err.message : 'Internal error' },
+            { status: 500 },
+        );
     }
 }
