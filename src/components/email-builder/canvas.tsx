@@ -284,6 +284,65 @@ function PreviewImage({ c }: { c: ImageBlockContent }) {
     );
 }
 
+function PreviewImageEditable({
+    c,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: ImageBlockContent;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
+    const parsed = (() => {
+        try {
+            return draftValue ? JSON.parse(draftValue) as { src?: string; alt?: string; href?: string } : {};
+        } catch {
+            return {};
+        }
+    })();
+
+    const next = {
+        src: parsed.src ?? c.src,
+        alt: parsed.alt ?? c.alt,
+        href: parsed.href ?? c.href,
+    };
+
+    const update = (patch: Partial<typeof next>) => {
+        onDraftChange?.(JSON.stringify({ ...next, ...patch }));
+    };
+
+    return (
+        <div style={{
+            padding: `${c.padding.top}px ${c.padding.right}px ${c.padding.bottom}px ${c.padding.left}px`,
+            backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
+        }}>
+            <div className="rounded-md border bg-white/90 p-2 space-y-2" onBlur={() => onCommit?.()}>
+                <input
+                    autoFocus
+                    value={next.src}
+                    onChange={(e) => update({ src: e.target.value })}
+                    placeholder="Image URL"
+                    className="w-full rounded border px-2 py-1 text-xs"
+                />
+                <input
+                    value={next.alt}
+                    onChange={(e) => update({ alt: e.target.value })}
+                    placeholder="Alt text"
+                    className="w-full rounded border px-2 py-1 text-xs"
+                />
+                <input
+                    value={next.href}
+                    onChange={(e) => update({ href: e.target.value })}
+                    placeholder="Click-through URL"
+                    className="w-full rounded border px-2 py-1 text-xs"
+                />
+            </div>
+        </div>
+    );
+}
+
 function PreviewButton({
     c,
     isEditing,
@@ -368,6 +427,57 @@ function PreviewDivider({ c }: { c: DividerBlockContent }) {
     );
 }
 
+function PreviewDividerEditable({
+    c,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: DividerBlockContent;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
+    const parsed = (() => {
+        try {
+            return draftValue ? JSON.parse(draftValue) as { thickness?: number; width?: number; style?: 'solid' | 'dashed' | 'dotted'; color?: string } : {};
+        } catch {
+            return {};
+        }
+    })();
+
+    const next = {
+        thickness: parsed.thickness ?? c.thickness,
+        width: parsed.width ?? c.width,
+        style: parsed.style ?? c.style,
+        color: parsed.color ?? c.color,
+    };
+
+    const update = (patch: Partial<typeof next>) => onDraftChange?.(JSON.stringify({ ...next, ...patch }));
+
+    return (
+        <div style={{
+            padding: `${c.padding.top}px ${c.padding.right}px ${c.padding.bottom}px ${c.padding.left}px`,
+            backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
+        }}>
+            <div className="rounded-md border bg-white/90 p-2 space-y-2" onBlur={() => onCommit?.()}>
+                <div className="grid grid-cols-2 gap-2">
+                    <input type="number" value={next.thickness} onChange={(e) => update({ thickness: Number(e.target.value) || 1 })} className="rounded border px-2 py-1 text-xs" />
+                    <input type="number" value={next.width} onChange={(e) => update({ width: Number(e.target.value) || 100 })} className="rounded border px-2 py-1 text-xs" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    <select value={next.style} onChange={(e) => update({ style: e.target.value as 'solid' | 'dashed' | 'dotted' })} className="rounded border px-2 py-1 text-xs bg-white">
+                        <option value="solid">solid</option>
+                        <option value="dashed">dashed</option>
+                        <option value="dotted">dotted</option>
+                    </select>
+                    <input value={next.color} onChange={(e) => update({ color: e.target.value })} className="rounded border px-2 py-1 text-xs" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function PreviewSpacer({ c }: { c: SpacerBlockContent }) {
     return (
         <div style={{
@@ -377,6 +487,37 @@ function PreviewSpacer({ c }: { c: SpacerBlockContent }) {
             <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[10px] text-muted-foreground opacity-0 group-hover/spacer:opacity-100 transition-opacity">
                 {c.height}px
             </span>
+        </div>
+    );
+}
+
+function PreviewSpacerEditable({
+    c,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: SpacerBlockContent;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
+    const parsedHeight = Number(draftValue ?? c.height);
+    const height = Number.isFinite(parsedHeight) ? parsedHeight : c.height;
+
+    return (
+        <div style={{ backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor }} className="p-3">
+            <div className="rounded-md border bg-white/90 p-2" onBlur={() => onCommit?.()}>
+                <label className="text-[11px] text-muted-foreground">Spacer Height (px)</label>
+                <input
+                    autoFocus
+                    type="number"
+                    min={0}
+                    value={height}
+                    onChange={(e) => onDraftChange?.(e.target.value)}
+                    className="mt-1 w-full rounded border px-2 py-1 text-xs"
+                />
+            </div>
         </div>
     );
 }
@@ -696,6 +837,47 @@ function PreviewVideo({ c }: { c: VideoBlockContent }) {
     );
 }
 
+function PreviewVideoEditable({
+    c,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: VideoBlockContent;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
+    const parsed = (() => {
+        try {
+            return draftValue ? JSON.parse(draftValue) as { thumbnailUrl?: string; href?: string; alt?: string } : {};
+        } catch {
+            return {};
+        }
+    })();
+
+    const next = {
+        thumbnailUrl: parsed.thumbnailUrl ?? c.thumbnailUrl,
+        href: parsed.href ?? c.href,
+        alt: parsed.alt ?? c.alt,
+    };
+
+    const update = (patch: Partial<typeof next>) => onDraftChange?.(JSON.stringify({ ...next, ...patch }));
+
+    return (
+        <div style={{
+            padding: `${c.padding.top}px ${c.padding.right}px ${c.padding.bottom}px ${c.padding.left}px`,
+            backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
+        }}>
+            <div className="rounded-md border bg-white/90 p-2 space-y-2" onBlur={() => onCommit?.()}>
+                <input autoFocus value={next.thumbnailUrl} onChange={(e) => update({ thumbnailUrl: e.target.value })} placeholder="Thumbnail URL" className="w-full rounded border px-2 py-1 text-xs" />
+                <input value={next.href} onChange={(e) => update({ href: e.target.value })} placeholder="Video URL" className="w-full rounded border px-2 py-1 text-xs" />
+                <input value={next.alt} onChange={(e) => update({ alt: e.target.value })} placeholder="Alt text" className="w-full rounded border px-2 py-1 text-xs" />
+            </div>
+        </div>
+    );
+}
+
 /* ── Quote Block Preview ─────────────────────────────────────────────── */
 
 function PreviewQuote({
@@ -969,14 +1151,22 @@ function BlockPreview({
     switch (block.type) {
         case 'text': return <PreviewText c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
         case 'heading': return <PreviewHeading c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
-        case 'image': return <PreviewImage c={block.content} />;
+        case 'image': return isEditing
+            ? <PreviewImageEditable c={block.content} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />
+            : <PreviewImage c={block.content} />;
         case 'button': return <PreviewButton c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
-        case 'divider': return <PreviewDivider c={block.content} />;
-        case 'spacer': return <PreviewSpacer c={block.content} />;
+        case 'divider': return isEditing
+            ? <PreviewDividerEditable c={block.content} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />
+            : <PreviewDivider c={block.content} />;
+        case 'spacer': return isEditing
+            ? <PreviewSpacerEditable c={block.content} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />
+            : <PreviewSpacer c={block.content} />;
         case 'columns': return <PreviewColumns c={block.content} />;
         case 'social': return <PreviewSocial c={block.content} />;
         case 'footer': return <PreviewFooter c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
-        case 'video': return <PreviewVideo c={block.content} />;
+        case 'video': return isEditing
+            ? <PreviewVideoEditable c={block.content} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />
+            : <PreviewVideo c={block.content} />;
         case 'quote': return <PreviewQuote c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
         case 'list': return isEditing
             ? <PreviewListEditable c={block.content} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />
@@ -1027,6 +1217,10 @@ export function BuilderCanvas({
     const getEditableField = useCallback((block: EmailBlock): 'html' | 'text' | null => {
         if (block.type === 'text') return 'html';
         if (block.type === 'footer') return 'html';
+        if (block.type === 'image') return 'text';
+        if (block.type === 'divider') return 'text';
+        if (block.type === 'spacer') return 'text';
+        if (block.type === 'video') return 'text';
         if (block.type === 'heading') return 'text';
         if (block.type === 'button' || block.type === 'quote' || block.type === 'list') return 'text';
         return null;
@@ -1035,6 +1229,10 @@ export function BuilderCanvas({
     const getInlineValue = useCallback((block: EmailBlock, field: 'html' | 'text'): string => {
         if (field === 'html' && block.type === 'text') return block.content.html;
         if (field === 'html' && block.type === 'footer') return block.content.html;
+        if (field === 'text' && block.type === 'image') return JSON.stringify({ src: block.content.src, alt: block.content.alt, href: block.content.href });
+        if (field === 'text' && block.type === 'divider') return JSON.stringify({ thickness: block.content.thickness, width: block.content.width, style: block.content.style, color: block.content.color });
+        if (field === 'text' && block.type === 'spacer') return String(block.content.height);
+        if (field === 'text' && block.type === 'video') return JSON.stringify({ thumbnailUrl: block.content.thumbnailUrl, href: block.content.href, alt: block.content.alt });
         if (field === 'text' && (block.type === 'heading' || block.type === 'button' || block.type === 'quote')) return block.content.text;
         if (field === 'text' && block.type === 'list') return block.content.items.map((item) => item.text).join('\n');
         return '';

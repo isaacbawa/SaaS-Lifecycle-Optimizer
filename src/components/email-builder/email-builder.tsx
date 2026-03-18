@@ -426,6 +426,75 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
         return { ...b, content: { ...b.content, text: nextValue } };
       }
 
+      if (field === 'text' && b.type === 'image') {
+        try {
+          const parsed = JSON.parse(nextValue) as { src?: string; alt?: string; href?: string };
+          return {
+            ...b,
+            content: {
+              ...b.content,
+              src: parsed.src ?? b.content.src,
+              alt: parsed.alt ?? b.content.alt,
+              href: parsed.href ?? b.content.href,
+            },
+          };
+        } catch {
+          return b;
+        }
+      }
+
+      if (field === 'text' && b.type === 'video') {
+        try {
+          const parsed = JSON.parse(nextValue) as { thumbnailUrl?: string; href?: string; alt?: string };
+          return {
+            ...b,
+            content: {
+              ...b.content,
+              thumbnailUrl: parsed.thumbnailUrl ?? b.content.thumbnailUrl,
+              href: parsed.href ?? b.content.href,
+              alt: parsed.alt ?? b.content.alt,
+            },
+          };
+        } catch {
+          return b;
+        }
+      }
+
+      if (field === 'text' && b.type === 'divider') {
+        try {
+          const parsed = JSON.parse(nextValue) as {
+            thickness?: number;
+            width?: number;
+            style?: 'solid' | 'dashed' | 'dotted';
+            color?: string;
+          };
+          return {
+            ...b,
+            content: {
+              ...b.content,
+              thickness: typeof parsed.thickness === 'number' ? parsed.thickness : b.content.thickness,
+              width: typeof parsed.width === 'number' ? parsed.width : b.content.width,
+              style: parsed.style ?? b.content.style,
+              color: parsed.color ?? b.content.color,
+            },
+          };
+        } catch {
+          return b;
+        }
+      }
+
+      if (field === 'text' && b.type === 'spacer') {
+        const height = Number(nextValue);
+        if (!Number.isFinite(height)) return b;
+        return {
+          ...b,
+          content: {
+            ...b.content,
+            height: Math.max(0, height),
+          },
+        };
+      }
+
       if (field === 'text' && b.type === 'list') {
         const items = nextValue
           .split(/\r?\n/)
