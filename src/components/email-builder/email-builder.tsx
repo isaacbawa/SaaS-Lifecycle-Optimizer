@@ -511,11 +511,80 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
         };
       }
 
+      if (field === 'text' && b.type === 'columns') {
+        try {
+          const parsed = JSON.parse(nextValue) as {
+            gap?: number;
+            cells?: Array<{
+              imageUrl: string;
+              imageAlt: string;
+              heading: string;
+              text: string;
+              buttonLabel: string;
+              buttonUrl: string;
+              buttonColor: string;
+            }>;
+          };
+
+          return {
+            ...b,
+            content: {
+              ...b.content,
+              gap: typeof parsed.gap === 'number' ? parsed.gap : b.content.gap,
+              cells: parsed.cells ?? b.content.cells,
+            },
+          };
+        } catch {
+          return b;
+        }
+      }
+
+      if (field === 'text' && b.type === 'social') {
+        try {
+          const parsed = JSON.parse(nextValue) as {
+            iconSize?: number;
+            links?: Array<{ platform: string; url: string; label: string }>;
+          };
+
+          return {
+            ...b,
+            content: {
+              ...b.content,
+              iconSize: typeof parsed.iconSize === 'number' ? parsed.iconSize : b.content.iconSize,
+              links: parsed.links ?? b.content.links,
+            },
+          };
+        } catch {
+          return b;
+        }
+      }
+
       return b;
     });
 
     updateBlocks(newBlocks);
   }, [blocks, updateBlocks, sanitizeInlineHtml]);
+
+  const handleInlineBlockPatch = useCallback((blockId: string, patch: Record<string, unknown>) => {
+    const newBlocks = blocks.map((b) => {
+      if (b.id !== blockId) return b;
+
+      const nextContent = { ...(b.content as Record<string, unknown>) };
+      for (const [key, rawValue] of Object.entries(patch)) {
+        const value = key === 'html' && typeof rawValue === 'string'
+          ? sanitizeInlineHtml(rawValue)
+          : rawValue;
+        nextContent[key] = value;
+      }
+
+      return {
+        ...b,
+        content: nextContent,
+      } as EmailBlock;
+    });
+
+    updateBlocks(newBlocks);
+  }, [blocks, sanitizeInlineHtml, updateBlocks]);
 
   /* ── Template loading ──────────────────────────── */
 
@@ -1025,6 +1094,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                 onMoveBlock={handleMoveBlock}
                 onDropNewBlock={handleDropNewBlock}
                 onInlineTextEdit={handleInlineTextEdit}
+                onInlineBlockPatch={handleInlineBlockPatch}
               />
 
               {/* Right Panel: Block Editor / Global Styles */}

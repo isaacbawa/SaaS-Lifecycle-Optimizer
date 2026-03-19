@@ -558,6 +558,79 @@ function PreviewColumns({ c }: { c: ColumnsBlockContent }) {
     );
 }
 
+function PreviewColumnsEditable({
+    c,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: ColumnsBlockContent;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
+    const parsed = (() => {
+        try {
+            return draftValue
+                ? JSON.parse(draftValue) as { gap?: number; cells?: ColumnsBlockContent['cells'] }
+                : {};
+        } catch {
+            return {};
+        }
+    })();
+
+    const next = {
+        gap: parsed.gap ?? c.gap,
+        cells: parsed.cells ?? c.cells,
+    };
+
+    const update = (patch: Partial<typeof next>) => onDraftChange?.(JSON.stringify({ ...next, ...patch }));
+
+    return (
+        <div style={{
+            padding: `${c.padding.top}px ${c.padding.right}px ${c.padding.bottom}px ${c.padding.left}px`,
+            backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
+        }}>
+            <div className="rounded-md border bg-white/90 p-2 space-y-2" onBlur={() => onCommit?.()}>
+                <div className="flex items-center gap-2">
+                    <label className="text-[11px] text-muted-foreground">Gap</label>
+                    <input
+                        type="number"
+                        min={0}
+                        className="w-20 rounded border px-2 py-1 text-xs"
+                        value={next.gap}
+                        onChange={(e) => update({ gap: Number(e.target.value) || 0 })}
+                    />
+                </div>
+                {next.cells.map((cell, i) => (
+                    <div key={i} className="rounded border p-2 space-y-1.5">
+                        <input
+                            className="w-full rounded border px-2 py-1 text-xs"
+                            value={cell.heading}
+                            placeholder={`Column ${i + 1} heading`}
+                            onChange={(e) => {
+                                const cells = [...next.cells];
+                                cells[i] = { ...cells[i], heading: e.target.value };
+                                update({ cells });
+                            }}
+                        />
+                        <textarea
+                            className="w-full min-h-[48px] rounded border px-2 py-1 text-xs"
+                            value={cell.text}
+                            placeholder={`Column ${i + 1} text`}
+                            onChange={(e) => {
+                                const cells = [...next.cells];
+                                cells[i] = { ...cells[i], text: e.target.value };
+                                update({ cells });
+                            }}
+                        />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 /* ── Social Block Preview with Variants ──────────────────────────────── */
 
 function PreviewSocial({ c }: { c: SocialBlockContent }) {
@@ -632,6 +705,78 @@ function PreviewSocial({ c }: { c: SocialBlockContent }) {
                         </span>
                     );
                 })}
+            </div>
+        </div>
+    );
+}
+
+function PreviewSocialEditable({
+    c,
+    draftValue,
+    onDraftChange,
+    onCommit,
+}: {
+    c: SocialBlockContent;
+    draftValue?: string;
+    onDraftChange?: (value: string) => void;
+    onCommit?: () => void;
+}) {
+    const parsed = (() => {
+        try {
+            return draftValue
+                ? JSON.parse(draftValue) as { iconSize?: number; links?: SocialBlockContent['links'] }
+                : {};
+        } catch {
+            return {};
+        }
+    })();
+
+    const next = {
+        iconSize: parsed.iconSize ?? c.iconSize,
+        links: parsed.links ?? c.links,
+    };
+
+    const update = (patch: Partial<typeof next>) => onDraftChange?.(JSON.stringify({ ...next, ...patch }));
+
+    return (
+        <div style={{
+            padding: `${c.padding.top}px ${c.padding.right}px ${c.padding.bottom}px ${c.padding.left}px`,
+            backgroundColor: c.backgroundColor === 'transparent' ? undefined : c.backgroundColor,
+        }}>
+            <div className="rounded-md border bg-white/90 p-2 space-y-2" onBlur={() => onCommit?.()}>
+                <div className="flex items-center gap-2">
+                    <label className="text-[11px] text-muted-foreground">Icon Size</label>
+                    <input
+                        type="number"
+                        min={10}
+                        max={48}
+                        className="w-20 rounded border px-2 py-1 text-xs"
+                        value={next.iconSize}
+                        onChange={(e) => update({ iconSize: Number(e.target.value) || c.iconSize })}
+                    />
+                </div>
+                {next.links.map((link, i) => (
+                    <div key={`${link.platform}-${i}`} className="grid grid-cols-[96px_1fr] gap-1">
+                        <input
+                            className="rounded border px-2 py-1 text-xs"
+                            value={link.label}
+                            onChange={(e) => {
+                                const links = [...next.links];
+                                links[i] = { ...links[i], label: e.target.value };
+                                update({ links });
+                            }}
+                        />
+                        <input
+                            className="rounded border px-2 py-1 text-xs"
+                            value={link.url}
+                            onChange={(e) => {
+                                const links = [...next.links];
+                                links[i] = { ...links[i], url: e.target.value };
+                                update({ links });
+                            }}
+                        />
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -1161,8 +1306,12 @@ function BlockPreview({
         case 'spacer': return isEditing
             ? <PreviewSpacerEditable c={block.content} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />
             : <PreviewSpacer c={block.content} />;
-        case 'columns': return <PreviewColumns c={block.content} />;
-        case 'social': return <PreviewSocial c={block.content} />;
+        case 'columns': return isEditing
+            ? <PreviewColumnsEditable c={block.content} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />
+            : <PreviewColumns c={block.content} />;
+        case 'social': return isEditing
+            ? <PreviewSocialEditable c={block.content} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />
+            : <PreviewSocial c={block.content} />;
         case 'footer': return <PreviewFooter c={block.content} isEditing={isEditing} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />;
         case 'video': return isEditing
             ? <PreviewVideoEditable c={block.content} draftValue={draftValue} onDraftChange={onDraftChange} onCommit={onCommit} />
@@ -1221,6 +1370,8 @@ export function BuilderCanvas({
         if (block.type === 'divider') return 'text';
         if (block.type === 'spacer') return 'text';
         if (block.type === 'video') return 'text';
+        if (block.type === 'columns') return 'text';
+        if (block.type === 'social') return 'text';
         if (block.type === 'heading') return 'text';
         if (block.type === 'button' || block.type === 'quote' || block.type === 'list') return 'text';
         return null;
@@ -1233,6 +1384,8 @@ export function BuilderCanvas({
         if (field === 'text' && block.type === 'divider') return JSON.stringify({ thickness: block.content.thickness, width: block.content.width, style: block.content.style, color: block.content.color });
         if (field === 'text' && block.type === 'spacer') return String(block.content.height);
         if (field === 'text' && block.type === 'video') return JSON.stringify({ thumbnailUrl: block.content.thumbnailUrl, href: block.content.href, alt: block.content.alt });
+        if (field === 'text' && block.type === 'columns') return JSON.stringify({ gap: block.content.gap, cells: block.content.cells });
+        if (field === 'text' && block.type === 'social') return JSON.stringify({ iconSize: block.content.iconSize, links: block.content.links });
         if (field === 'text' && (block.type === 'heading' || block.type === 'button' || block.type === 'quote')) return block.content.text;
         if (field === 'text' && block.type === 'list') return block.content.items.map((item) => item.text).join('\n');
         return '';
