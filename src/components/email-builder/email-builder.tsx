@@ -565,27 +565,6 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
     updateBlocks(newBlocks);
   }, [blocks, updateBlocks, sanitizeInlineHtml]);
 
-  const handleInlineBlockPatch = useCallback((blockId: string, patch: Record<string, unknown>) => {
-    const newBlocks = blocks.map((b) => {
-      if (b.id !== blockId) return b;
-
-      const nextContent = { ...b.content };
-      for (const [key, rawValue] of Object.entries(patch)) {
-        const value = key === 'html' && typeof rawValue === 'string'
-          ? sanitizeInlineHtml(rawValue)
-          : rawValue;
-        (nextContent as unknown as Record<string, unknown>)[key] = value;
-      }
-
-      return {
-        ...b,
-        content: nextContent,
-      } as EmailBlock;
-    });
-
-    updateBlocks(newBlocks);
-  }, [blocks, sanitizeInlineHtml, updateBlocks]);
-
   /* ── Template loading ──────────────────────────── */
 
   const loadTemplate = useCallback((template: EmailTemplate) => {
@@ -1094,7 +1073,6 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                 onMoveBlock={handleMoveBlock}
                 onDropNewBlock={handleDropNewBlock}
                 onInlineTextEdit={handleInlineTextEdit}
-                onInlineBlockPatch={handleInlineBlockPatch}
               />
 
               {/* Right Panel: Block Editor / Global Styles */}
