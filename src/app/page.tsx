@@ -51,7 +51,7 @@ export default function HomePage() {
             ================================================================ */}
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 gradient-mesh" />
-          <div className="container relative py-14 md:py-20 lg:py-28">
+          <div className="container relative py-12 md:py-16 lg:py-20">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               <div className="flex flex-col gap-6">
                 <Badge variant="secondary" className="w-fit text-sm font-medium px-4 py-1.5 gap-2">
