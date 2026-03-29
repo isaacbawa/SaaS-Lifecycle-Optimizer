@@ -55,7 +55,7 @@ export default function HomePage() {
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               <div className="flex flex-col gap-6">
                 <Badge variant="secondary" className="w-fit text-sm font-medium px-4 py-1.5 gap-2">
-                  <Sparkles className="h-3.5 w-3.5" />
+                  {/* <Sparkles className="h-3.5 w-3.5" /> */}
                   The SaaS Email Marketing Platform
                 </Badge>
                 <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1]">
