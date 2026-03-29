@@ -569,12 +569,12 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
     const newBlocks = blocks.map((b) => {
       if (b.id !== blockId) return b;
 
-      const nextContent = { ...(b.content as unknown as Record<string, unknown>) };
+      const nextContent = { ...b.content };
       for (const [key, rawValue] of Object.entries(patch)) {
         const value = key === 'html' && typeof rawValue === 'string'
           ? sanitizeInlineHtml(rawValue)
           : rawValue;
-        nextContent[key] = value;
+        (nextContent as unknown as Record<string, unknown>)[key] = value;
       }
 
       return {
