@@ -216,7 +216,7 @@ export default function HomePage() {
             ================================================================ */}
         <section id="how-it-works" className="container py-20 md:py-28">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <Badge variant="outline" className="mb-4">How It Works</Badge>
+            {/* +<Badge variant="outline" className="mb-4">How It Works</Badge> */}
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
               From raw product data to automated revenue growth
             </h2>
@@ -328,7 +328,7 @@ export default function HomePage() {
           <div className="container">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               <div className="flex flex-col gap-5">
-                <Badge variant="outline" className="w-fit">Lifecycle Engine</Badge>
+                {/* <Badge variant="outline" className="w-fit">Lifecycle Engine</Badge> */}
                 <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
                   Classify every user{' '}
                   <span className="text-primary">automatically</span>
@@ -509,7 +509,7 @@ export default function HomePage() {
               </div>
 
               <div className="flex flex-col gap-5 order-1 lg:order-2">
-                <Badge variant="outline" className="w-fit">Visual Flow Builder</Badge>
+                {/* <Badge variant="outline" className="w-fit">Visual Flow Builder</Badge> */}
                 <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
                   Automated flows{' '}
                   <span className="text-primary">that convert</span>
@@ -549,7 +549,7 @@ export default function HomePage() {
           <div className="container">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               <div className="flex flex-col gap-5">
-                <Badge variant="outline" className="w-fit">Expansion Intelligence</Badge>
+                {/* <Badge variant="outline" className="w-fit">Expansion Intelligence</Badge> */}
                 <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
                   Detect upgrade opportunities{' '}
                   <span className="text-primary">automatically</span>
@@ -744,7 +744,7 @@ export default function HomePage() {
             ================================================================ */}
         <section className="container py-20 md:py-28">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <Badge variant="outline" className="mb-4">Results</Badge>
+            {/* <Badge variant="outline" className="mb-4">Results</Badge> */}
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
               The numbers speak for themselves
             </h2>
@@ -781,7 +781,7 @@ export default function HomePage() {
         <section className="border-t bg-muted/30 py-20 md:py-28">
           <div className="container">
             <div className="text-center max-w-2xl mx-auto mb-16">
-              <Badge variant="outline" className="mb-4">Customer Stories</Badge>
+              {/* <Badge variant="outline" className="mb-4">Customer Stories</Badge> */}
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
                 Real results from SaaS teams like yours
               </h2>
@@ -849,7 +849,7 @@ export default function HomePage() {
             ================================================================ */}
         <section className="container py-20 md:py-28">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <Badge variant="outline" className="mb-4">Pricing</Badge>
+            {/* <Badge variant="outline" className="mb-4">Pricing</Badge> */}
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
               Simple, transparent pricing
             </h2>
@@ -908,7 +908,7 @@ export default function HomePage() {
         <section className="border-t bg-muted/30 py-20 md:py-28">
           <div className="container max-w-3xl">
             <div className="text-center mb-12">
-              <Badge variant="outline" className="mb-4">FAQ</Badge>
+              {/* <Badge variant="outline" className="mb-4">FAQ</Badge> */}
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
                 Frequently asked questions
               </h2>
