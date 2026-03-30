@@ -60,7 +60,7 @@ export default function HomePage() {
                 </Badge>
                 <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1]">
                   Turn product usage into{' '}
-                  <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-primary to-primary bg-clip-text text-transparent">
                     recurring revenue
                   </span>
                 </h1>

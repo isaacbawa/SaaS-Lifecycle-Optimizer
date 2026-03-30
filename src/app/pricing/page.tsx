@@ -87,10 +87,10 @@ export default function PricingPage() {
           <div className="absolute inset-0 gradient-mesh" />
           <div className="container relative">
             <div className="text-center max-w-3xl mx-auto mb-16">
-              <Badge variant="secondary" className="mb-4 text-sm font-medium px-4 py-1.5">Simple Pricing</Badge>
+              {/* <Badge variant="secondary" className="mb-4 text-sm font-medium px-4 py-1.5">Simple Pricing</Badge> */}
               <h1 className="text-4xl md:text-5xl font-bold tracking-tighter">
                 One price. Full lifecycle{' '}
-                <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">infrastructure</span>
+                <span className="text-4xl md:text-5xl font-bold tracking-tighter">infrastructure</span>
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground mt-4 leading-relaxed">
                 No per-email charges. No hidden fees for &ldquo;premium&rdquo; features. Every plan includes the SDK, event streaming, lifecycle engine, email infrastructure, and revenue attribution. Pick the scale that fits.
