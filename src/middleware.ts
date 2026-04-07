@@ -108,7 +108,7 @@ function buildCspHeader(nonce: string): string {
     return [
         "default-src 'self'",
         `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${clerkHttps}`,
-        `style-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+        `style-src 'self' 'nonce-${nonce}'`,
         `img-src 'self' data: blob: ${clerkHttps}`,
         "font-src 'self' data:",
         `connect-src 'self' ${connectOrigins}`,
@@ -130,7 +130,7 @@ export default clerkMiddleware(async (auth, request) => {
     const pathname = nextUrl.pathname;
     const origin = request.headers.get('origin');
     const requestId = request.headers.get('x-request-id') ?? crypto.randomUUID();
-    const nonce = btoa(crypto.randomUUID());
+    const nonce = crypto.randomUUID().replace(/-/g, '');
     const cspHeader = buildCspHeader(nonce);
 
     const isApiRoute = pathname.startsWith('/api/');
