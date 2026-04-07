@@ -16,9 +16,12 @@
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { and, count, eq, lte } from 'drizzle-orm';
 import { processScheduledEnrollments } from '@/lib/engine/event-pipeline';
 import { resolveOrgId } from '@/lib/auth/resolve-org';
 import { authenticate } from '@/lib/api/auth';
+import { db } from '@/lib/db';
+import * as schema from '@/lib/db/schema';
 import { getActiveEnrollmentsDue, getAllFlowDefinitions, getFlowEnrollments } from '@/lib/db/operations';
 import { processRetryQueue } from '@/lib/engine/email';
 
@@ -88,7 +91,7 @@ export async function GET(request: NextRequest) {
 
     const orgId = auth.orgId ?? null;
     const pendingEnrollments = await getActiveEnrollmentsDue();
-    const allEnrollments = orgId ? await getAllActiveEnrollmentCount(orgId) : pendingEnrollments.length;
+    const allEnrollments = await getAllActiveEnrollmentCount(orgId);
 
     return NextResponse.json({
         success: true,
@@ -161,13 +164,21 @@ export async function POST(request: NextRequest) {
 
 /* ── Helper ──────────────────────────────────────────────────────────── */
 
-async function getAllActiveEnrollmentCount(orgId: string): Promise<number> {
-    // Count enrollments across all flows
+async function getAllActiveEnrollmentCount(orgId?: string | null): Promise<number> {
+    if (!orgId) {
+        const [row] = await db
+            .select({ total: count() })
+            .from(schema.flowEnrollments)
+            .where(eq(schema.flowEnrollments.status, 'active'));
+        return Number(row?.total ?? 0);
+    }
+
+    // Count enrollments across all flows for the current tenant
     const allFlows = (await getAllFlowDefinitions(orgId)).items;
-    let count = 0;
+    let totalCount = 0;
     for (const flow of allFlows) {
         const enrollments = await getFlowEnrollments(orgId, flow.id, 'active');
-        count += enrollments.length;
+        totalCount += enrollments.length;
     }
-    return count;
+    return totalCount;
 }

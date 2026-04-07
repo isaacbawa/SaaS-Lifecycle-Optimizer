@@ -52,7 +52,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
         const { id } = await params;
         const deleted = await deleteEmailCampaign(orgId, id);
         if (!deleted) {
-            return NextResponse.json({ error: 'Not found' }, { status: 404 });
+            return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
         }
         return NextResponse.json({ success: true });
     } catch (err) {
