@@ -14,20 +14,6 @@ function clerkFrontendDomain(): string {
 
 const clerkDomain = clerkFrontendDomain();
 
-// Build a list of all Clerk-related origins that must be allowed by CSP.
-// This covers dev instances (*.clerk.accounts.dev), production proxy
-// domains (e.g. clerk.yourapp.vercel.app), and first-party Clerk CDN.
-const clerkOrigins = [
-  clerkDomain ? `https://${clerkDomain}` : '',
-  clerkDomain ? `wss://${clerkDomain}` : '',
-  'https://*.clerk.accounts.dev',
-  'wss://*.clerk.accounts.dev',
-  'https://*.clerk.com',
-  'wss://*.clerk.com',
-  'https://img.clerk.com',
-  'https://challenges.cloudflare.com',
-].filter(Boolean);
-
 const nextConfig: NextConfig = {  /* ── Clerk proxy: route /clerk through your own domain ───── */
   async rewrites() {
     if (!clerkDomain) return [];
@@ -58,32 +44,6 @@ const nextConfig: NextConfig = {  /* ── Clerk proxy: route /clerk through yo
     return config;
   },
 
-  /* ── Headers: CSP + Clerk origins ──────────────────────────── */
-  async headers() {
-    const clerkSrc = clerkOrigins.filter(o => o.startsWith('https://')).join(' ');
-    const clerkConnect = clerkOrigins.join(' ');
-
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${clerkSrc}`,
-              "style-src 'self' 'unsafe-inline'",
-              `img-src 'self' data: blob: ${clerkSrc}`,
-              "font-src 'self' data:",
-              `connect-src 'self' ${clerkConnect}`,
-              `frame-src 'self' ${clerkSrc}`,
-              "worker-src 'self' blob:",
-            ].join('; '),
-          },
-        ],
-      },
-    ];
-  },
 };
 
 export default nextConfig;
