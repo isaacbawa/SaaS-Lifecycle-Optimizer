@@ -39,7 +39,7 @@ export async function GET(
             offset: offsetParam ? parseInt(offsetParam, 10) : undefined,
         } : undefined;
 
-        const result = await getMailingListContacts(id, pagination);
+        const result = await getMailingListContacts(orgId, id, pagination);
         return NextResponse.json({
             success: true,
             data: result.items,

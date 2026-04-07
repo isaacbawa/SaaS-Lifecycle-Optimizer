@@ -1128,6 +1128,10 @@ export async function getSegment(orgId: string, id: string) {
     return seg ?? null;
 }
 
+async function ensureSegmentOwnership(orgId: string, segmentId: string): Promise<boolean> {
+    return (await getSegment(orgId, segmentId)) !== null;
+}
+
 export async function getSegmentByName(orgId: string, name: string) {
     const [seg] = await db
         .select()
@@ -1172,16 +1176,30 @@ export async function deleteSegment(orgId: string, id: string) {
     return result.length > 0;
 }
 
-export async function getSegmentMembers(segmentId: string, limit = 100) {
+export async function getSegmentMembers(orgId: string, segmentId: string, limit = 100) {
+    if (!(await ensureSegmentOwnership(orgId, segmentId))) return [];
     return db.select({ membership: schema.segmentMemberships, user: schema.trackedUsers })
         .from(schema.segmentMemberships)
-        .innerJoin(schema.trackedUsers, eq(schema.segmentMemberships.trackedUserId, schema.trackedUsers.id))
+        .innerJoin(
+            schema.trackedUsers,
+            and(
+                eq(schema.segmentMemberships.trackedUserId, schema.trackedUsers.id),
+                eq(schema.trackedUsers.organizationId, orgId),
+            ),
+        )
         .where(and(eq(schema.segmentMemberships.segmentId, segmentId), isNull(schema.segmentMemberships.exitedAt)))
         .orderBy(desc(schema.segmentMemberships.enteredAt))
         .limit(limit);
 }
 
-export async function upsertSegmentMembership(segmentId: string, trackedUserId: string) {
+export async function upsertSegmentMembership(orgId: string, segmentId: string, trackedUserId: string) {
+    if (!(await ensureSegmentOwnership(orgId, segmentId))) return undefined;
+    const user = await getTrackedUser(orgId, trackedUserId);
+    // Return undefined when the user cannot be resolved; callers use this to detect a no-op.
+    if (!user) {
+        console.debug('[upsertSegmentMembership] Tracked user not found', { orgId, trackedUserId });
+        return undefined;
+    }
     const [m] = await db.insert(schema.segmentMemberships)
         .values({ segmentId, trackedUserId })
         .onConflictDoNothing({ target: [schema.segmentMemberships.segmentId, schema.segmentMemberships.trackedUserId] })
@@ -1189,17 +1207,20 @@ export async function upsertSegmentMembership(segmentId: string, trackedUserId: 
     return m;
 }
 
-export async function removeSegmentMembership(segmentId: string, trackedUserId: string) {
+export async function removeSegmentMembership(orgId: string, segmentId: string, trackedUserId: string) {
+    if (!(await ensureSegmentOwnership(orgId, segmentId))) return;
     await db.update(schema.segmentMemberships)
         .set({ exitedAt: new Date() })
         .where(and(eq(schema.segmentMemberships.segmentId, segmentId), eq(schema.segmentMemberships.trackedUserId, trackedUserId), isNull(schema.segmentMemberships.exitedAt)));
 }
 
-export async function clearSegmentMemberships(segmentId: string) {
+export async function clearSegmentMemberships(orgId: string, segmentId: string) {
+    if (!(await ensureSegmentOwnership(orgId, segmentId))) return;
     await db.delete(schema.segmentMemberships).where(eq(schema.segmentMemberships.segmentId, segmentId));
 }
 
-export async function updateSegmentCount(segmentId: string, matchedCount: number) {
+export async function updateSegmentCount(orgId: string, segmentId: string, matchedCount: number) {
+    if (!(await ensureSegmentOwnership(orgId, segmentId))) return;
     await db.update(schema.segments).set({ matchedUserCount: matchedCount, lastEvaluatedAt: new Date() }).where(eq(schema.segments.id, segmentId));
 }
 
@@ -1285,6 +1306,16 @@ export async function getAllEmailCampaigns(orgId: string, status?: string, pagin
 }
 
 export async function upsertEmailCampaign(orgId: string, data: Omit<EmailCampaignInsert, 'organizationId'> | (Partial<Omit<EmailCampaignInsert, 'organizationId'>> & { id: string })) {
+    if (data.segmentId) {
+        const segment = await getSegment(orgId, data.segmentId);
+        if (!segment) return undefined;
+    }
+
+    if (data.mailingListId) {
+        const mailingList = await getMailingList(orgId, data.mailingListId);
+        if (!mailingList) return undefined;
+    }
+
     if (data.id) {
         const [c] = await db.update(schema.emailCampaigns)
             .set({ ...data, organizationId: orgId, updatedAt: new Date() })
@@ -1471,10 +1502,14 @@ export async function deleteMailingList(orgId: string, id: string) {
 }
 
 export async function getMailingListContacts(
+    orgId: string,
     listId: string,
     pagination?: PaginationOptions,
 ): Promise<PaginatedResult<MailingListContact>> {
-    const conditions = [eq(schema.mailingListContacts.mailingListId, listId)];
+    const conditions = [
+        eq(schema.mailingListContacts.organizationId, orgId),
+        eq(schema.mailingListContacts.mailingListId, listId),
+    ];
 
     if (!pagination) {
         const items = await db.select().from(schema.mailingListContacts).where(and(...conditions)).orderBy(desc(schema.mailingListContacts.createdAt));
@@ -1489,11 +1524,12 @@ export async function getMailingListContacts(
     return { items, total, limit, offset, hasMore: offset + items.length < total };
 }
 
-export async function getMailingListActiveContacts(listId: string, maxContacts: number = 10000) {
+export async function getMailingListActiveContacts(orgId: string, listId: string, maxContacts: number = 10000) {
     return db.select()
         .from(schema.mailingListContacts)
         .where(
             and(
+                eq(schema.mailingListContacts.organizationId, orgId),
                 eq(schema.mailingListContacts.mailingListId, listId),
                 eq(schema.mailingListContacts.unsubscribed, false),
             ),

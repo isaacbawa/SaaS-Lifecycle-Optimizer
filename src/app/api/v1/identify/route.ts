@@ -182,10 +182,10 @@ export async function POST(request: NextRequest) {
       const filterLogic = ((seg as Record<string, unknown>).filterLogic as string) ?? 'AND';
       const matched = evaluateSegmentFilters(filters, filterLogic, userRecord);
       if (matched) {
-        await upsertSegmentMembership(seg.id, dbUser.id);
+        await upsertSegmentMembership(orgId, seg.id, dbUser.id);
         segmentsEntered.push(seg.name);
       } else {
-        await removeSegmentMembership(seg.id, dbUser.id);
+        await removeSegmentMembership(orgId, seg.id, dbUser.id);
         segmentsExited.push(seg.name);
       }
     }

@@ -86,9 +86,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const orgId = auth.orgId ?? await resolveOrgId();
+    const orgId = auth.orgId ?? null;
     const pendingEnrollments = await getActiveEnrollmentsDue();
-    const allEnrollments = await getAllActiveEnrollmentCount(orgId);
+    const allEnrollments = orgId ? await getAllActiveEnrollmentCount(orgId) : pendingEnrollments.length;
 
     return NextResponse.json({
         success: true,

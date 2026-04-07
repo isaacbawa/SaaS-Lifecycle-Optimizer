@@ -87,6 +87,10 @@ function loadConfig(): TransportConfig {
     const dkimSelector = process.env.DKIM_SELECTOR ?? 'lifecycleos';
     const dkimKey = process.env.DKIM_PRIVATE_KEY;
 
+    if (process.env.NODE_ENV === 'production' && !host) {
+        throw new Error('SMTP_HOST must be configured in production');
+    }
+
     return {
         host,
         port,
@@ -118,7 +122,7 @@ let _health: TransportHealth = { connected: false, lastCheckAt: new Date().toISO
 export function getTransport(): Transporter<SMTPPool.SentMessageInfo> | null {
     const config = loadConfig();
 
-    // No SMTP configured → null triggers log-mode fallback
+    // No SMTP configured outside production → null triggers log-mode fallback
     if (!config.host) return null;
 
     // Reuse existing transport if config hasn't changed

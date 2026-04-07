@@ -8,7 +8,7 @@
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllEmailCampaigns, upsertEmailCampaign, getEmailTemplate, getSegmentMembers, getAllTrackedUsers, createEmailSend, getTrackedAccount, getSendingDomains, getMailingListActiveContacts } from '@/lib/db/operations';
+import { getAllEmailCampaigns, upsertEmailCampaign, getEmailTemplate, getSegment, getSegmentMembers, getAllTrackedUsers, createEmailSend, getTrackedAccount, getSendingDomains, getMailingList, getMailingListActiveContacts } from '@/lib/db/operations';
 import { prepareCampaignEmails } from '@/lib/engine/email-campaigns';
 import { sendEmail } from '@/lib/engine/email';
 import type { CampaignRecipient } from '@/lib/engine/email-campaigns';
@@ -62,7 +62,10 @@ export async function POST(request: NextRequest) {
             let recipients: CampaignRecipient[] = [];
             if (campaign.mailingListId) {
                 // Mailing list: external contacts (not tracked users)
-                const contacts = await getMailingListActiveContacts(campaign.mailingListId, 10000);
+                const mailingList = await getMailingList(orgId, campaign.mailingListId);
+                if (!mailingList) return NextResponse.json({ success: false, error: 'Mailing list not found' }, { status: 404 });
+
+                const contacts = await getMailingListActiveContacts(orgId, campaign.mailingListId, 10000);
                 for (const c of contacts) {
                     recipients.push({
                         trackedUserId: c.id, // use contact id as identifier
@@ -79,7 +82,10 @@ export async function POST(request: NextRequest) {
                     });
                 }
             } else if (campaign.segmentId) {
-                const members = await getSegmentMembers(campaign.segmentId, 10000);
+                const segment = await getSegment(orgId, campaign.segmentId);
+                if (!segment) return NextResponse.json({ success: false, error: 'Segment not found' }, { status: 404 });
+
+                const members = await getSegmentMembers(orgId, campaign.segmentId, 10000);
                 for (const m of members) {
                     let account: Record<string, unknown> | null = null;
                     if (m.user.accountId) {
@@ -210,28 +216,51 @@ export async function POST(request: NextRequest) {
             }
 
             // Update campaign status and metrics
-            await upsertEmailCampaign(orgId, {
-                id: campaign.id,
-                status: 'sent',
-                sentAt: new Date(),
-                completedAt: new Date(),
-                totalSent: successCount,
-            });
+            let campaignUpdateIssue: string | undefined;
+            try {
+                const updatedCampaign = await upsertEmailCampaign(orgId, {
+                    id: campaign.id,
+                    status: 'sent',
+                    sentAt: new Date(),
+                    completedAt: new Date(),
+                    totalSent: successCount,
+                });
+
+                if (!updatedCampaign) {
+                    campaignUpdateIssue = 'Campaign update returned no record after send';
+                    console.error('[email-campaigns] Campaign update returned no record after send', {
+                        campaignId: campaign.id,
+                    });
+                }
+            } catch (updateError) {
+                campaignUpdateIssue = updateError instanceof Error ? updateError.message : 'Unknown campaign update error';
+                console.error('[email-campaigns] Campaign update failed after send', {
+                    campaignId: campaign.id,
+                    error: updateError,
+                });
+            }
 
             return NextResponse.json({
                 success: true,
+                partial: Boolean(campaignUpdateIssue),
                 data: {
                     sent: successCount,
                     failed: failCount,
+                    successCount,
+                    failCount,
                     skipped: result.skipped,
                     errors: result.errors.length,
                     warnings,
                 },
+                warning: campaignUpdateIssue,
             });
         }
 
         // Create/update campaign
         const campaign = await upsertEmailCampaign(orgId, data);
+        if (!campaign) {
+            return NextResponse.json({ success: false, error: 'Referenced segment or mailing list not found' }, { status: 404 });
+        }
         return NextResponse.json({ success: true, data: campaign }, { status: data.id ? 200 : 201 });
     } catch (err) {
         return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });

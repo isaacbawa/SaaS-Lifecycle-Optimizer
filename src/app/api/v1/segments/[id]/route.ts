@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         if (!segment) return NextResponse.json({ success: false, error: 'Segment not found' }, { status: 404 });
 
         // Include members
-        const members = await getSegmentMembers(id, 100);
+        const members = await getSegmentMembers(orgId, id, 100);
         return NextResponse.json({
             success: true,
             data: {
@@ -47,6 +47,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
         const body = await request.json();
         const segment = await upsertSegment(orgId, { ...body, id });
+        if (!segment) return NextResponse.json({ success: false, error: 'Segment not found' }, { status: 404 });
         return NextResponse.json({ success: true, data: segment });
     } catch (err) {
         return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });

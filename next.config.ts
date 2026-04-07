@@ -62,6 +62,9 @@ const nextConfig: NextConfig = {  /* ── Clerk proxy: route /clerk through yo
   async headers() {
     const clerkSrc = clerkOrigins.filter(o => o.startsWith('https://')).join(' ');
     const clerkConnect = clerkOrigins.join(' ');
+    const scriptSrc = process.env.NODE_ENV === 'production'
+      ? [`'self'`, `'unsafe-inline'`, clerkSrc].filter(Boolean).join(' ')
+      : [`'self'`, `'unsafe-inline'`, `'unsafe-eval'`, clerkSrc].filter(Boolean).join(' ');
 
     return [
       {
@@ -71,7 +74,7 @@ const nextConfig: NextConfig = {  /* ── Clerk proxy: route /clerk through yo
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${clerkSrc}`,
+              `script-src ${scriptSrc}`,
               "style-src 'self' 'unsafe-inline'",
               `img-src 'self' data: blob: ${clerkSrc}`,
               "font-src 'self' data:",

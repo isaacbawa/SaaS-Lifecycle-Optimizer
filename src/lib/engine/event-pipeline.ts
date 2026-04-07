@@ -434,10 +434,10 @@ async function processEventInnerWithUser(
                 const filterLogic = ((seg as Record<string, unknown>).filterLogic as string) ?? 'AND';
                 const matched = evaluateSegmentFilters(filters, filterLogic, userRecord);
                 if (matched) {
-                    await upsertSegmentMembership(seg.id, internalId);
+                    await upsertSegmentMembership(orgId, seg.id, internalId);
                     segmentsEntered.push(seg.name);
                 } else {
-                    await removeSegmentMembership(seg.id, internalId);
+                    await removeSegmentMembership(orgId, seg.id, internalId);
                     segmentsExited.push(seg.name);
                 }
             }

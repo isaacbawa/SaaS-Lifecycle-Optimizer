@@ -36,6 +36,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         const { id } = await params;
         const body = await request.json();
         const campaign = await upsertEmailCampaign(orgId, { ...body, id });
+        if (!campaign) return NextResponse.json({ success: false, error: 'Referenced segment or mailing list not found' }, { status: 404 });
         return NextResponse.json({ success: true, data: campaign });
     } catch (err) {
         return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });
@@ -49,7 +50,10 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
         const { orgId } = authResult;
 
         const { id } = await params;
-        await deleteEmailCampaign(orgId, id);
+        const deleted = await deleteEmailCampaign(orgId, id);
+        if (!deleted) {
+            return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        }
         return NextResponse.json({ success: true });
     } catch (err) {
         return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'Internal error' }, { status: 500 });

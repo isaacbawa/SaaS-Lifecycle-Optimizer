@@ -37,7 +37,7 @@ const tiers = [
       'Deliverability monitoring & analytics',
       'Email support',
     ],
-    cta: 'Start 14 days trial',
+    cta: 'Start 14-day trial',
     popular: false,
   },
   {
@@ -56,7 +56,7 @@ const tiers = [
       'Dedicated IP for email sending',
       'Priority email support',
     ],
-    cta: 'Start 14 days trial',
+    cta: 'Start 14-day trial',
     popular: true,
   },
   {
@@ -77,7 +77,6 @@ const tiers = [
     popular: false,
   },
 ];
-``
 export default function PricingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">

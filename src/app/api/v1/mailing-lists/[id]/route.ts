@@ -33,7 +33,7 @@ export async function GET(
         const includeContacts = searchParams.get('includeContacts') === 'true';
 
         if (includeContacts) {
-            const contactResult = await getMailingListContacts(id, { limit: 100 });
+            const contactResult = await getMailingListContacts(orgId, id, { limit: 100 });
             return NextResponse.json({ success: true, data: { ...list, contacts: contactResult.items, contactsPagination: { total: contactResult.total, limit: contactResult.limit, offset: contactResult.offset, hasMore: contactResult.hasMore } } });
         }
 
