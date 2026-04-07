@@ -55,7 +55,7 @@ export async function GET(request: Request): Promise<Response> {
 
     if (token.type === 'open') {
         // ── Open Tracking ──────────────────────────────────────────
-        recordTrackingEvent({
+        await recordTrackingEvent({
             messageId: token.messageId,
             type: 'open',
             timestamp: new Date().toISOString(),
@@ -78,7 +78,7 @@ export async function GET(request: Request): Promise<Response> {
 
     if (token.type === 'click' && token.url) {
         // ── Click Tracking ─────────────────────────────────────────
-        recordTrackingEvent({
+        await recordTrackingEvent({
             messageId: token.messageId,
             type: 'click',
             timestamp: new Date().toISOString(),

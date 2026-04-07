@@ -62,15 +62,64 @@ const CORS_HEADERS: Record<string, string> = {
     'Access-Control-Max-Age': '86400',
 };
 
-/* ── Security Headers ────────────────────────────────────────────────── */
+/* ── Security Headers + CSP ──────────────────────────────────────────── */
 
-const SECURITY_HEADERS: Record<string, string> = {
+const BASE_SECURITY_HEADERS: Record<string, string> = {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'X-XSS-Protection': '0',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
+
+function clerkFrontendDomain(): string {
+    const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+    const encoded = key.replace(/^pk_(test|live)_/, '');
+
+    if (!encoded) return '';
+
+    try {
+        const raw = atob(encoded);
+        return raw.endsWith('$') ? raw.slice(0, -1) : raw;
+    } catch {
+        return '';
+    }
+}
+
+function getClerkOrigins(): string[] {
+    const clerkDomain = clerkFrontendDomain();
+    return [
+        clerkDomain ? `https://${clerkDomain}` : '',
+        clerkDomain ? `wss://${clerkDomain}` : '',
+        'https://*.clerk.accounts.dev',
+        'wss://*.clerk.accounts.dev',
+        'https://*.clerk.com',
+        'wss://*.clerk.com',
+        'https://img.clerk.com',
+        'https://challenges.cloudflare.com',
+    ].filter(Boolean);
+}
+
+function buildCspHeader(nonce: string): string {
+    const clerkOrigins = getClerkOrigins();
+    const clerkHttps = clerkOrigins.filter(origin => origin.startsWith('https://')).join(' ');
+    const connectOrigins = clerkOrigins.join(' ');
+
+    return [
+        "default-src 'self'",
+        `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${clerkHttps}`,
+        `style-src 'self' 'nonce-${nonce}'`,
+        `img-src 'self' data: blob: ${clerkHttps}`,
+        "font-src 'self' data:",
+        `connect-src 'self' ${connectOrigins}`,
+        `frame-src 'self' ${clerkHttps}`,
+        "worker-src 'self' blob:",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+    ].join('; ');
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
  * Middleware Handler (wrapped by Clerk)
@@ -81,6 +130,8 @@ export default clerkMiddleware(async (auth, request) => {
     const pathname = nextUrl.pathname;
     const origin = request.headers.get('origin');
     const requestId = request.headers.get('x-request-id') ?? crypto.randomUUID();
+    const nonce = crypto.randomUUID().replace(/-/g, '');
+    const cspHeader = buildCspHeader(nonce);
 
     const isApiRoute = pathname.startsWith('/api/');
 
@@ -103,8 +154,10 @@ export default clerkMiddleware(async (auth, request) => {
             headers: {
                 'Access-Control-Allow-Origin': allowedOrigin || 'null',
                 ...CORS_HEADERS,
-                ...SECURITY_HEADERS,
+                ...BASE_SECURITY_HEADERS,
+                'Content-Security-Policy': cspHeader,
                 'X-Request-ID': requestId,
+                'X-Nonce': nonce,
             },
         });
     }
@@ -116,7 +169,11 @@ export default clerkMiddleware(async (auth, request) => {
     }
 
     /* ── Build response ───────────────────────────────────────────────── */
-    const response = NextResponse.next();
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-nonce', nonce);
+    const response = NextResponse.next({
+        request: { headers: requestHeaders },
+    });
 
     response.headers.set('X-Request-ID', requestId);
 
@@ -127,9 +184,11 @@ export default clerkMiddleware(async (auth, request) => {
         }
     }
 
-    for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    for (const [key, value] of Object.entries(BASE_SECURITY_HEADERS)) {
         response.headers.set(key, value);
     }
+    response.headers.set('Content-Security-Policy', cspHeader);
+    response.headers.set('X-Nonce', nonce);
 
     return response;
 });

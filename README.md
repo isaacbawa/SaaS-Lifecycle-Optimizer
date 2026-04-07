@@ -16,6 +16,9 @@ A production-grade, SaaS-native growth system designed exclusively for SaaS comp
 # Install dependencies
 npm install
 
+# Configure environment
+cp .env.example .env.local
+
 # Run development server
 npm run dev
 

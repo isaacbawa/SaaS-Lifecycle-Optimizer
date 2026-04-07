@@ -99,10 +99,10 @@ export async function POST(request: Request): Promise<Response> {
     const orgId = await resolveOrgIdFromCampaign(token.campaignId);
 
     // Record in suppression list
-    recordUnsubscribe(token.email, 'unsubscribe_link', token.campaignId, orgId ?? undefined);
+    await recordUnsubscribe(token.email, 'unsubscribe_link', token.campaignId, orgId ?? undefined);
 
     // Record tracking event
-    recordTrackingEvent({
+    await recordTrackingEvent({
         messageId: token.messageId,
         type: 'unsubscribe',
         timestamp: new Date().toISOString(),
