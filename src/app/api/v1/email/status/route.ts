@@ -46,19 +46,19 @@ export async function GET(request: NextRequest): Promise<Response> {
     };
 
     if (includes.includes('sendLog')) {
-        response.sendLog = getSendLog(50, 0, authResult.orgId);
+        response.sendLog = await getSendLog(50, 0, authResult.orgId);
     }
 
     if (includes.includes('dlq')) {
-        response.dlq = getEmailDLQ(authResult.orgId);
+        response.dlq = await getEmailDLQ(authResult.orgId);
     }
 
     if (includes.includes('tracking')) {
-        response.trackingEvents = getTrackingEvents(50, 0, authResult.orgId);
+        response.trackingEvents = await getTrackingEvents(50, 0, authResult.orgId);
     }
 
     if (campaignId) {
-        response.campaignTracking = getCampaignTrackingStats(campaignId);
+        response.campaignTracking = await getCampaignTrackingStats(campaignId);
     }
 
     return NextResponse.json(response);

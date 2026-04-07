@@ -171,15 +171,6 @@ export async function authenticate(
       // body parse failed — try query param next
     }
 
-    // Also support ?key= query param (legacy sendBeacon fallback)
-    if (!token) {
-      const url = new URL(request.url);
-      const queryKey = url.searchParams.get('key');
-      if (queryKey && queryKey.length >= 10) {
-        token = queryKey;
-      }
-    }
-
     if (!token) {
       // ── Dashboard session fallback (same-origin console requests) ────
       // When no API key is provided, check for a valid Clerk dashboard
