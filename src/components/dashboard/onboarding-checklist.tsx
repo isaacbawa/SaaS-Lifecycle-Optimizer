@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Onboarding Checklist — Setup progress widget for the dashboard
+ * Onboarding Checklist - Setup progress widget for the dashboard
  *
  * A polished, visually distinct card that guides new users through
  * initial configuration.  Fetches real completion data from the
@@ -222,7 +222,7 @@ export function OnboardingChecklist() {
     const handleDismiss = useCallback(() => {
         setDismissed(true);
         if (status?.allDone) {
-            // Permanently dismiss — save to DB
+            // Permanently dismiss - save to DB
             fetch('/api/v1/preferences', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -418,7 +418,7 @@ export function OnboardingChecklist() {
                         <p className="text-sm text-muted-foreground">
                             <span className="font-medium text-foreground">{currentStep.title}</span>
                             {currentStep.detail && (
-                                <> — <span className="text-primary">{currentStep.detail}</span></>
+                                <> - <span className="text-primary">{currentStep.detail}</span></>
                             )}
                         </p>
                     </div>

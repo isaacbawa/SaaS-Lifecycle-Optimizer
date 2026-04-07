@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET /api/v1/analytics/revenue — Revenue analytics endpoint
+ * GET /api/v1/analytics/revenue - Revenue analytics endpoint
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';

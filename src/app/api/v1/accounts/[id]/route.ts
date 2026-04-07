@@ -1,6 +1,6 @@
 /* ==========================================================================
- * GET  /api/v1/accounts/[id]  — Retrieve account details + user breakdown
- * POST /api/v1/accounts/[id]  — Update account properties
+ * GET  /api/v1/accounts/[id]  - Retrieve account details + user breakdown
+ * POST /api/v1/accounts/[id]  - Update account properties
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';

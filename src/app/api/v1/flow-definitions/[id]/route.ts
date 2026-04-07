@@ -1,9 +1,9 @@
 /* ==========================================================================
  * /api/v1/flow-definitions/[id]
  *
- * GET    — Retrieve a single flow definition
- * PUT    — Update a flow definition (full or partial)
- * DELETE — Delete a flow definition and its enrollments
+ * GET    - Retrieve a single flow definition
+ * PUT    - Update a flow definition (full or partial)
+ * DELETE - Delete a flow definition and its enrollments
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';

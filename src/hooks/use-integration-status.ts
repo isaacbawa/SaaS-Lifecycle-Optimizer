@@ -1,11 +1,11 @@
 /* ==========================================================================
- * useIntegrationStatus — Auto-detects connection state from real signals
+ * useIntegrationStatus - Auto-detects connection state from real signals
  *
  * Instead of checking a separate "integrations" table, this hook queries
  * the actual API infrastructure (keys, health endpoint, webhooks) to
  * determine whether the SDK is installed, events are flowing, etc.
  *
- * This mirrors how Clerk detects whether your app is connected — no
+ * This mirrors how Clerk detects whether your app is connected - no
  * manual "Connect" button needed.
  * ========================================================================== */
 
@@ -82,7 +82,7 @@ export function useIntegrationStatus(): IntegrationStatus {
 
     const fetchStatus = useCallback(async () => {
         try {
-            // Dashboard client calls — no API key needed, Clerk session cookies
+            // Dashboard client calls - no API key needed, Clerk session cookies
             // are sent automatically and handled by the authenticate() fallback.
 
             // Fetch health endpoint to check if events are flowing
@@ -124,7 +124,7 @@ export function useIntegrationStatus(): IntegrationStatus {
                     eventsLast24h: eventsStored, isPrimary: true,
                 });
             } else if (hasApiKeys) {
-                // API key exists but no events yet — SDK installed but not sending
+                // API key exists but no events yet - SDK installed but not sending
                 syntheticIntegrations.push({
                     id: 'sdk-auto', name: 'LifecycleOS SDK', category: 'sdk',
                     provider: 'lifecycleos_sdk', status: 'pending',
@@ -154,7 +154,7 @@ export function useIntegrationStatus(): IntegrationStatus {
             catsRef.current = cats;
             setIntegrations(syntheticIntegrations);
         } catch {
-            // Silently fail — assume nothing connected
+            // Silently fail - assume nothing connected
         } finally {
             setLoading(false);
         }

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Segmentation Engine — Real-Time Audience Segment Evaluation
+ * Segmentation Engine - Real-Time Audience Segment Evaluation
  *
  * Evaluates segment filter rules against live tracked user and account
  * data sourced from the SDK.  Supports all property types including
@@ -108,7 +108,7 @@ export function resolveFieldValue(
 export function evaluateRule(filter: SegmentFilter, value: unknown): boolean {
     const { operator } = filter;
 
-    // is_set / is_not_set — work on any type
+    // is_set / is_not_set - work on any type
     if (operator === 'is_set') return value !== undefined && value !== null && value !== '';
     if (operator === 'is_not_set') return value === undefined || value === null || value === '';
 

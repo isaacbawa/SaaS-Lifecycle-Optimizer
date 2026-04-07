@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET/POST /api/v1/integrations — Integration CRUD + health check
+ * GET/POST /api/v1/integrations - Integration CRUD + health check
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -51,12 +51,12 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ success: false, error: 'integrationId required' }, { status: 400 });
             }
             // Simulate a health check (in production, this would ping the actual service)
-            const isHealthy = true; // Placeholder — would do actual connection test
+            const isHealthy = true; // Placeholder - would do actual connection test
             await updateIntegrationStatus(orgId, integrationId, isHealthy ? 'connected' : 'error', isHealthy ? undefined : 'Health check failed');
             return NextResponse.json({ success: true, data: { healthy: isHealthy } });
         }
 
-        // Connect action — sets up a new integration
+        // Connect action - sets up a new integration
         if (action === 'connect') {
             const { provider, name, category, config, capabilities } = data;
             if (!provider || !name || !category) {

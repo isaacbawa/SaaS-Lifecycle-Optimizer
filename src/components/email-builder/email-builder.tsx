@@ -1,12 +1,12 @@
 'use client';
 
 /* ==========================================================================
- * Email Builder — Dual-Mode Professional Email Editor
+ * Email Builder - Dual-Mode Professional Email Editor
  *
  * Modes:
- *   Visual  — Drag-and-drop block builder (palette + canvas + properties)
- *   Code    — Raw HTML editor with syntax-aware textarea + variable panel
- *   Preview — Rendered HTML in sandboxed iframe
+ *   Visual  - Drag-and-drop block builder (palette + canvas + properties)
+ *   Code    - Raw HTML editor with syntax-aware textarea + variable panel
+ *   Preview - Rendered HTML in sandboxed iframe
  *
  * Features:
  *  - Undo/redo with Ctrl+Z / Ctrl+Y shortcuts
@@ -1248,13 +1248,13 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                   <h4 className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Syntax</h4>
                   <div className="space-y-1">
                     <p className="text-[11px] text-muted-foreground">
-                      <code className="font-mono text-primary text-[10px] bg-muted px-1 rounded">{`{{user.firstName}}`}</code> — merge tag
+                      <code className="font-mono text-primary text-[10px] bg-muted px-1 rounded">{`{{user.firstName}}`}</code> - merge tag
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      <code className="font-mono text-primary text-[10px] bg-muted px-1 rounded">{`{{system.unsubscribeUrl}}`}</code> — unsubscribe
+                      <code className="font-mono text-primary text-[10px] bg-muted px-1 rounded">{`{{system.unsubscribeUrl}}`}</code> - unsubscribe
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      <code className="font-mono text-primary text-[10px] bg-muted px-1 rounded">{`{{company.name}}`}</code> — company
+                      <code className="font-mono text-primary text-[10px] bg-muted px-1 rounded">{`{{company.name}}`}</code> - company
                     </p>
                   </div>
                 </div>
@@ -1442,7 +1442,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                         {showInternalTemplates && <span className="ml-1 text-amber-600">(Internal)</span>}
                       </span>
                       <Button variant="ghost" size="sm" onClick={() => setShowTemplateDialog(false)}>
-                        Skip — Start Empty
+                        Skip - Start Empty
                       </Button>
                     </div>
                   </DialogFooter>

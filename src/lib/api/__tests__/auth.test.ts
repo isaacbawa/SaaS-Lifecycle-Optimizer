@@ -1,5 +1,5 @@
 /* ==========================================================================
- * API Auth Module — Unit Tests
+ * API Auth Module - Unit Tests
  *
  * Tests scope checking, response helpers, and validation behavior.
  * DB operations are mocked to isolate auth logic.
@@ -34,7 +34,7 @@ vi.mock('@/lib/db/operations', () => ({
 
 import { apiSuccess, apiError, apiValidationError } from '@/lib/api/auth';
 
-describe('API Auth — Response Helpers', () => {
+describe('API Auth - Response Helpers', () => {
     describe('apiSuccess', () => {
         it('returns success response with correct structure', () => {
             const response = apiSuccess({ items: [1, 2, 3] });

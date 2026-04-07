@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * @lifecycleos/sdk — Core Types
+ * @lifecycleos/sdk - Core Types
  *
  * All public type definitions for the LifecycleOS SDK.
  * ═══════════════════════════════════════════════════════════════════════ */

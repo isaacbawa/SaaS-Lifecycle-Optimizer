@@ -230,7 +230,7 @@ async function processEventInner(
         // This ensures tracking works even if SDK calls track() before identify().
         const autoCreated = await autoCreateUserFromEvent(orgId, event.userId, event);
         if (!autoCreated) {
-            // Truly could not create — dispatch webhook and bail
+            // Truly could not create - dispatch webhook and bail
             try {
                 void dispatchWebhooks('event.tracked', {
                     event: event.event,
@@ -274,7 +274,7 @@ async function processEventInnerWithUser(
      * THIS IS THE HEART OF THE TRACKING SYSTEM.
      * When events arrive, we must update the user's behavioral metrics
      * so the lifecycle engine, churn scoring, and expansion detection
-     * operate on accurate, real-time data — not stale initial values.
+     * operate on accurate, real-time data - not stale initial values.
      *
      * Supported event types:
      *   signup             → set signupDate
@@ -812,7 +812,7 @@ function buildTriggerEvent(
  * stale data and cannot accurately classify users.  Every behavioral
  * event type has specific metric side-effects defined here.
  *
- * The returned object only contains keys that need updating — callers
+ * The returned object only contains keys that need updating - callers
  * should merge it into a partial update (no full upsert).
  */
 function computeBehavioralMetricUpdates(
@@ -979,7 +979,7 @@ function computeBehavioralMetricUpdates(
 /**
  * Auto-create a tracked user when events arrive for an externalId
  * that has not yet been identify()'d.  This ensures no events are
- * silently dropped — the user is created in "Lead" state with
+ * silently dropped - the user is created in "Lead" state with
  * whatever information we can extract from the event properties.
  */
 async function autoCreateUserFromEvent(
@@ -1033,7 +1033,7 @@ async function autoCreateUserFromEvent(
     try {
         await linkOrphanedEvents(orgId, externalUserId, dbUser.id);
     } catch {
-        // Non-critical — events still exist, just not linked
+        // Non-critical - events still exist, just not linked
     }
 
     // Log the auto-creation

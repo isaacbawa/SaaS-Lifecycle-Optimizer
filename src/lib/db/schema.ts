@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Database Schema — LifecycleOS SaaS Infrastructure Platform
+ * Database Schema - LifecycleOS SaaS Infrastructure Platform
  *
  * Neon Serverless PostgreSQL + Drizzle ORM
  *
@@ -446,7 +446,7 @@ export const deliverabilityMetrics = pgTable('deliverability_metrics', {
 ]);
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Sending Domains — Email Authentication & DNS Verification
+ * Sending Domains - Email Authentication & DNS Verification
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export const sendingDomains = pgTable('sending_domains', {
@@ -558,11 +558,11 @@ export const emailTemplates = pgTable('email_templates', {
     name: varchar('name', { length: 500 }).notNull(),
     description: text('description').default(''),
     status: emailTemplateStatusEnum('status').default('draft').notNull(),
-    /** Subject line — supports {{variable}} personalization */
+    /** Subject line - supports {{variable}} personalization */
     subject: text('subject').notNull().default(''),
     /** Preview text */
     previewText: text('preview_text').default(''),
-    /** HTML body — supports {{variable}} personalization + conditional blocks */
+    /** HTML body - supports {{variable}} personalization + conditional blocks */
     bodyHtml: text('body_html').notNull().default(''),
     /** Plain text fallback */
     bodyText: text('body_text').default(''),
@@ -597,7 +597,7 @@ export type EmailTemplateVariable = {
     fallback: string;          // default if value not available
 };
 
-/** Conditional content block — show/hide content based on rules */
+/** Conditional content block - show/hide content based on rules */
 export type ConditionalBlock = {
     id: string;
     name: string;
@@ -721,14 +721,14 @@ export const personalizationRules = pgTable('personalization_rules', {
     name: varchar('name', { length: 500 }).notNull(),
     description: text('description').default(''),
     status: personalizationRuleStatusEnum('status').default('draft').notNull(),
-    /** Priority — higher number = evaluated first */
+    /** Priority - higher number = evaluated first */
     priority: integer('priority').default(0).notNull(),
     /**
      * Channel: where does this personalization apply?
      * 'email' | 'in_app' | 'webhook' | 'all'
      */
     channel: varchar('channel', { length: 50 }).default('all').notNull(),
-    /** Segment filter — which users does this rule apply to? */
+    /** Segment filter - which users does this rule apply to? */
     segmentId: uuid('segment_id').references(() => segments.id, { onDelete: 'set null' }),
     /** Inline filters (alternative to segment) */
     filters: jsonb('filters').$type<SegmentFilter[]>().default([]),
@@ -979,7 +979,7 @@ export const personalizationRulesRelations = relations(personalizationRules, ({ 
  * Integrations (SaaS product connections)
  *
  * Tracks whether the org has properly connected/configured their SaaS
- * product — SDK installed, events flowing, API keys set up, etc.
+ * product - SDK installed, events flowing, API keys set up, etc.
  * Flow builder nodes that require live SaaS data will check this.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -1002,7 +1002,7 @@ export const integrations = pgTable('integrations', {
     status: integrationStatusEnum('status').default('pending').notNull(),
     /** The provider/service key e.g. "lifecycleos_sdk", "stripe", "hubspot" */
     provider: varchar('provider', { length: 100 }).notNull(),
-    /** Config blob (API keys, endpoints, scopes, etc.) — encrypted at rest */
+    /** Config blob (API keys, endpoints, scopes, etc.) - encrypted at rest */
     config: jsonb('config').$type<Record<string, unknown>>().default({}).notNull(),
     /** Capabilities this integration provides */
     capabilities: jsonb('capabilities').$type<string[]>().default([]).notNull(),
@@ -1186,7 +1186,7 @@ export const INTEGRATION_CAPABILITY_MAP: Record<string, { capability: string; ca
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Mailing Lists — External contact lists for campaigns
+ * Mailing Lists - External contact lists for campaigns
  *
  * Allows SaaS owners to send campaigns to contacts who are NOT tracked
  * users of their product (newsletter subscribers, event leads, etc.).

@@ -332,7 +332,7 @@ export default function FlowsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {flow.trigger || '—'}
+                      {flow.trigger || '-'}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {flow.metrics.totalEnrolled.toLocaleString()}
@@ -409,7 +409,7 @@ export default function FlowsPage() {
         </CardContent>
       </Card>
 
-      {/* ── Create Flow Dialog — Template Picker & Config ──── */}
+      {/* ── Create Flow Dialog - Template Picker & Config ──── */}
       <Dialog open={createDialogOpen} onOpenChange={(open) => {
         setCreateDialogOpen(open);
         if (!open) {

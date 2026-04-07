@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Email Builder — HTML Renderer
+ * Email Builder - HTML Renderer
  *
  * Generates production-quality, email-client-compatible HTML from the
  * block array. Follows industry best practices:
@@ -55,7 +55,7 @@ function bgStyle(bg: string): string {
   return `background-color:${bg};`;
 }
 
-/* ── Social Icon SVGs — imported from social-icons.tsx ────────────────── */
+/* ── Social Icon SVGs - imported from social-icons.tsx ────────────────── */
 
 function renderSocialIcon(platform: string, color: string, size: number): string {
   const path = SOCIAL_SVG_PATHS[platform];
@@ -211,7 +211,7 @@ function renderQuoteBlock(c: QuoteBlockContent): string {
     quoteHtml = `<div style="text-align:${c.textAlign};">
       <span style="font-size:48px;line-height:1;color:${c.accentColor};font-family:Georgia,serif;">&ldquo;</span>
       <p style="margin:0 0 12px;font-family:${c.fontFamily};font-size:${px(c.fontSize)};font-style:italic;color:${c.color};line-height:1.6;">${esc(c.text)}</p>
-      <p style="margin:0;font-family:${c.fontFamily};font-size:14px;color:${c.accentColor};font-weight:600;">— ${esc(c.attribution)}</p>
+      <p style="margin:0;font-family:${c.fontFamily};font-size:14px;color:${c.accentColor};font-weight:600;">- ${esc(c.attribution)}</p>
       ${c.attributionTitle ? `<p style="margin:2px 0 0;font-family:${c.fontFamily};font-size:12px;color:#9ca3af;">${esc(c.attributionTitle)}</p>` : ''}
     </div>`;
   } else {

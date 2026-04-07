@@ -1,7 +1,7 @@
 'use client';
 
 /* ==========================================================================
- * Email Builder — Canvas
+ * Email Builder - Canvas
  *
  * The central editing surface. Renders email blocks in a styled container
  * with HTML5 drag-and-drop for reordering and palette drops. Blocks are

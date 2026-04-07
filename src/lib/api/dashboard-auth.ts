@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Dashboard API Authentication — Clerk Session Guard for Internal Routes
+ * Dashboard API Authentication - Clerk Session Guard for Internal Routes
  *
  * Internal dashboard API routes (segments, email-templates, campaigns, etc.)
  * are same-origin only and should verify the user has an active Clerk session.
@@ -42,12 +42,12 @@ export type DashboardAuthResult = DashboardAuthSuccess | DashboardAuthFailure;
  * DEMO_ORG_ID is only used as a development fallback when Clerk is unavailable.
  */
 export async function requireDashboardAuth(): Promise<DashboardAuthResult> {
-    // 1. Check Clerk session — this is the PRODUCTION path
+    // 1. Check Clerk session - this is the PRODUCTION path
     let session: Awaited<ReturnType<typeof auth>>;
     try {
         session = await auth();
     } catch {
-        // Clerk unavailable — fail hard
+        // Clerk unavailable - fail hard
         return {
             success: false,
             response: NextResponse.json(

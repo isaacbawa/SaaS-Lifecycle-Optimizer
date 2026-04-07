@@ -9,7 +9,7 @@ import type {
 } from '@/lib/definitions';
 
 /* ==========================================================================
- * Server Actions — production-grade lifecycle intelligence
+ * Server Actions - production-grade lifecycle intelligence
  *
  * In production these call into the Churn Risk Engine, Revenue Attribution
  * Engine, and Email Orchestrator microservices. Currently deterministic
@@ -62,7 +62,7 @@ export async function runChurnAnalysis(
   if (user.lifecycleState === 'AtRisk') {
     riskScore += 30;
     factors.push({
-      signal: 'User is in "At Risk" lifecycle state — engagement declining.',
+      signal: 'User is in "At Risk" lifecycle state - engagement declining.',
       weight: 30,
       category: 'engagement',
     });
@@ -72,7 +72,7 @@ export async function runChurnAnalysis(
   if (user.lastLoginDaysAgo > 21) {
     riskScore += 25;
     factors.push({
-      signal: `No login in ${user.lastLoginDaysAgo} days — severe disengagement.`,
+      signal: `No login in ${user.lastLoginDaysAgo} days - severe disengagement.`,
       weight: 25,
       category: 'engagement',
     });
@@ -85,7 +85,7 @@ export async function runChurnAnalysis(
   } else if (user.lastLoginDaysAgo > 14) {
     riskScore += 18;
     factors.push({
-      signal: `No login in ${user.lastLoginDaysAgo} days — disengagement starting.`,
+      signal: `No login in ${user.lastLoginDaysAgo} days - disengagement starting.`,
       weight: 18,
       category: 'engagement',
     });
@@ -98,7 +98,7 @@ export async function runChurnAnalysis(
   } else if (user.lastLoginDaysAgo > 7) {
     riskScore += 8;
     factors.push({
-      signal: `Login gap of ${user.lastLoginDaysAgo} days — watch for pattern.`,
+      signal: `Login gap of ${user.lastLoginDaysAgo} days - watch for pattern.`,
       weight: 8,
       category: 'engagement',
     });
@@ -144,7 +144,7 @@ export async function runChurnAnalysis(
   } else if (user.featureUsageLast30Days.length < 3) {
     riskScore += 8;
     factors.push({
-      signal: `Only ${user.featureUsageLast30Days.length} feature(s) used in 30 days — limited adoption.`,
+      signal: `Only ${user.featureUsageLast30Days.length} feature(s) used in 30 days - limited adoption.`,
       weight: 8,
       category: 'adoption',
     });
@@ -160,7 +160,7 @@ export async function runChurnAnalysis(
   if (user.sessionDepthMinutes !== undefined && user.sessionDepthMinutes < 5 && user.lifecycleState !== 'Lead' && user.lifecycleState !== 'Trial') {
     riskScore += 8;
     factors.push({
-      signal: `Average session depth is only ${user.sessionDepthMinutes} minutes — superficial engagement.`,
+      signal: `Average session depth is only ${user.sessionDepthMinutes} minutes - superficial engagement.`,
       weight: 8,
       category: 'engagement',
     });
@@ -176,7 +176,7 @@ export async function runChurnAnalysis(
   if (user.npsScore !== undefined && user.npsScore <= 5) {
     riskScore += 12;
     factors.push({
-      signal: `NPS score is ${user.npsScore} — user is a detractor.`,
+      signal: `NPS score is ${user.npsScore} - user is a detractor.`,
       weight: 12,
       category: 'satisfaction',
     });
@@ -192,7 +192,7 @@ export async function runChurnAnalysis(
   if (user.loginFrequencyLast30Days !== undefined && user.loginFrequencyLast30Days < 5 && user.lifecycleState !== 'Lead' && user.lifecycleState !== 'Trial') {
     riskScore += 5;
     factors.push({
-      signal: `Only ${user.loginFrequencyLast30Days} logins in 30 days — well below healthy threshold.`,
+      signal: `Only ${user.loginFrequencyLast30Days} logins in 30 days - well below healthy threshold.`,
       weight: 5,
       category: 'engagement',
     });
@@ -201,7 +201,7 @@ export async function runChurnAnalysis(
   // ── Default recommendations if none triggered ───────────────────
   if (recommendations.length === 0) {
     recommendations.push({
-      action: 'Continue monitoring — no immediate intervention needed.',
+      action: 'Continue monitoring - no immediate intervention needed.',
       priority: 'low',
       effort: 'Low',
       expectedImpact: 'Low',

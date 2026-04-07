@@ -5,11 +5,11 @@
  * resource utilization, feature gating, and behavioral signals.
  *
  * Detected signal types:
- *   • seat_cap      — Seat utilization ≥ 80%
- *   • plan_limit    — API calls approaching limit
- *   • heavy_usage   — Using most/all premium features
- *   • api_throttle  — API throttle events detected
- *   • feature_gate  — Attempted access to features not in plan
+ *   • seat_cap      - Seat utilization ≥ 80%
+ *   • plan_limit    - API calls approaching limit
+ *   • heavy_usage   - Using most/all premium features
+ *   • api_throttle  - API throttle events detected
+ *   • feature_gate  - Attempted access to features not in plan
  *
  * Each detection returns a confidence score, revenue uplift estimate,
  * and a suggested plan upgrade.
@@ -143,7 +143,7 @@ function detectApiThrottle(user: User): DetectedSignal | null {
 
   return {
     signal: 'api_throttle',
-    description: `API rate limit hit — usage at ${Math.round(utilization * 100)}% of ${user.apiLimit.toLocaleString()} limit`,
+    description: `API rate limit hit - usage at ${Math.round(utilization * 100)}% of ${user.apiLimit.toLocaleString()} limit`,
     confidence: Math.min(70 + Math.round((utilization - 0.95) * 500), 98),
     suggestedPlan: suggested,
     potentialMrr: PLAN_MRR[suggested],

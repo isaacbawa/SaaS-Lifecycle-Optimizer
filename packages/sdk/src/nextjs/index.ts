@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * @lifecycleos/sdk/nextjs — Server-Side Utilities for Next.js
+ * @lifecycleos/sdk/nextjs - Server-Side Utilities for Next.js
  *
  * Server-side helpers for identifying users, tracking events,
  * and verifying webhooks in Next.js API routes and Server Components.
@@ -339,6 +339,6 @@ export async function trackMiddlewarePageView(
             configOverride,
         );
     } catch {
-        // Best-effort — don't block middleware
+        // Best-effort - don't block middleware
     }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 /* ==========================================================================
- * Email Builder — Social Media Icons
+ * Email Builder - Social Media Icons
  *
  * Production-quality SVG icons for all major social platforms.
  * Includes brand colors and inline SVG paths for email rendering.

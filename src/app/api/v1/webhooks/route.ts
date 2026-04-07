@@ -1,6 +1,6 @@
 /* ==========================================================================
- * GET    /api/v1/webhooks     — List all configured webhooks
- * POST   /api/v1/webhooks     — Create a new webhook
+ * GET    /api/v1/webhooks     - List all configured webhooks
+ * POST   /api/v1/webhooks     - Create a new webhook
  *
  * Supports BOTH:
  *  - Bearer token (API key) auth for external SDK/API access
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
 
   const { url, events } = validation.data;
 
-  // Generate a crypto-secure secret — stored as-is for HMAC signing
+  // Generate a crypto-secure secret - stored as-is for HMAC signing
   const rawSecret = `whsec_${crypto.randomUUID().replace(/-/g, '')}`;
 
   const dbWebhook = await upsertWebhook(result.orgId, {

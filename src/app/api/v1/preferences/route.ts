@@ -1,12 +1,12 @@
 /* ==========================================================================
- * User Preferences API — /api/v1/preferences
+ * User Preferences API - /api/v1/preferences
  *
  * DB-backed per-user preferences (notification settings, alert rules,
  * timezone, onboarding dismiss state, email builder drafts, etc.).
  *
- * GET  — returns all preferences for the authenticated user
- * PUT  — upsert a single preference by key
- * DELETE — delete a single preference by key
+ * GET  - returns all preferences for the authenticated user
+ * PUT  - upsert a single preference by key
+ * DELETE - delete a single preference by key
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';

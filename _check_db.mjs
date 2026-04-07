@@ -4,7 +4,7 @@
  * Run: node _check_db.mjs
  *
  * This script applies the mailing lists migration idempotently.
- * Safe to run multiple times — it checks if objects already exist.
+ * Safe to run multiple times - it checks if objects already exist.
  * ========================================================================== */
 
 import { config } from 'dotenv';

@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET /api/v1/health — System Health Check
+ * GET /api/v1/health - System Health Check
  *
  * Returns system status and uptime. Detailed data (user counts, etc.)
  * is only included for authenticated requests.
@@ -17,7 +17,7 @@ const startedAt = Date.now();
 export async function GET(request: NextRequest) {
     const uptimeMs = Date.now() - startedAt;
 
-    // Try to authenticate — if it fails, return minimal health info
+    // Try to authenticate - if it fails, return minimal health info
     const authResult = await authenticate(request, ['read']);
     if (!authResult.success) {
         return NextResponse.json(

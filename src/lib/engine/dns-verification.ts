@@ -1,15 +1,15 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * DNS Verification Engine — SPF, DKIM & DMARC Authentication
+ * DNS Verification Engine - SPF, DKIM & DMARC Authentication
  *
  * Performs real DNS lookups to verify that a sending domain has the
  * correct email authentication records configured. This is critical
- * for email deliverability — messages sent without proper SPF, DKIM,
+ * for email deliverability - messages sent without proper SPF, DKIM,
  * and DMARC alignment are far more likely to land in spam.
  *
  * How it works:
- *  1. SPF — Checks for TXT record at domain root containing "v=spf1"
- *  2. DKIM — Checks for TXT record at {selector}._domainkey.{domain}
- *  3. DMARC — Checks for TXT record at _dmarc.{domain} containing "v=DMARC1"
+ *  1. SPF - Checks for TXT record at domain root containing "v=spf1"
+ *  2. DKIM - Checks for TXT record at {selector}._domainkey.{domain}
+ *  3. DMARC - Checks for TXT record at _dmarc.{domain} containing "v=DMARC1"
  *
  * For our platform, we generate the expected DNS records and the user
  * adds them to their domain. This engine then verifies they exist.
@@ -34,7 +34,7 @@ export interface DnsRecord {
     type: 'TXT' | 'CNAME' | 'MX';
     host: string;
     value: string;
-    /** For display — what we expect */
+    /** For display - what we expect */
     purpose: 'SPF' | 'DKIM' | 'DMARC' | 'Return-Path' | 'MX';
 }
 
@@ -276,7 +276,7 @@ async function verifyDKIM(domain: string): Promise<DnsCheckResult> {
     // Then check for SES-managed DKIM records (multiple selectors possible)
     // SES uses random tokens like "abc123._domainkey.domain" with CNAME to "abc123.dkim.amazonses.com"
     // We can detect SES DKIM by looking for any _domainkey TXT/CNAME that resolves via *.dkim.amazonses.com
-    // For efficiency, run a TXT lookup on the platform selector — if not found, it might be SES-managed
+    // For efficiency, run a TXT lookup on the platform selector - if not found, it might be SES-managed
     // The actual SES selectors are stored in our DB, but since this is a generic DNS check,
     // we verify by confirming any _domainkey record exists with a valid DKIM public key or SES CNAME
     if (!result.found) {
@@ -423,7 +423,7 @@ async function verifyDMARC(domain: string): Promise<DnsCheckResult> {
         } else if (policy === 'quarantine') {
             details = 'DMARC record verified with p=quarantine. Unauthenticated messages will be flagged as suspicious.';
         } else {
-            details = 'DMARC record verified with p=reject. Maximum protection — unauthenticated messages will be rejected.';
+            details = 'DMARC record verified with p=reject. Maximum protection - unauthenticated messages will be rejected.';
         }
 
         return {
@@ -551,7 +551,7 @@ export async function verifyDomain(domain: string): Promise<DomainVerificationRe
         if (!spf.found) {
             recommendations.push(`Add an SPF record: Create a TXT record at "${domain}" with value "v=spf1 include:${PLATFORM_SENDING_DOMAIN} ~all"`);
         } else {
-            recommendations.push(`Update your SPF record to include "${PLATFORM_SENDING_DOMAIN}" — add "include:${PLATFORM_SENDING_DOMAIN}" before the "~all" or "-all" mechanism.`);
+            recommendations.push(`Update your SPF record to include "${PLATFORM_SENDING_DOMAIN}" - add "include:${PLATFORM_SENDING_DOMAIN}" before the "~all" or "-all" mechanism.`);
         }
     }
 
@@ -589,7 +589,7 @@ export async function verifyDomain(domain: string): Promise<DomainVerificationRe
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Quick Domain Check (lightweight — just booleans)
+ * Quick Domain Check (lightweight - just booleans)
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export async function quickDomainCheck(domain: string): Promise<{

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * @lifecycleos/sdk — Core Client
+ * @lifecycleos/sdk - Core Client
  *
  * Framework-agnostic analytics client for SaaS applications.
  * Works in any JavaScript runtime: browser, Node.js, edge workers.
@@ -381,7 +381,7 @@ class LifecycleOSClientImpl implements LifecycleOSClient {
                 });
                 try {
                     const blob = new Blob([payload], { type: 'application/json' });
-                    // sendBeacon cannot set headers — _token is embedded in body
+                    // sendBeacon cannot set headers - _token is embedded in body
                     // for the server's beacon fallback auth path
                     navigator.sendBeacon(url, blob);
                     this.queue = [];

@@ -1,7 +1,7 @@
 'use client';
 
 /* ==========================================================================
- * Email Builder — Block Editor (Properties Panel)
+ * Email Builder - Block Editor (Properties Panel)
  *
  * Right-hand panel that shows block-specific settings when a block is
  * selected. Includes color pickers, alignment controls, padding editors,
@@ -411,9 +411,9 @@ export function BlockEditor({ block, onChange }: BlockEditorProps) {
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="1">H1 — Large</SelectItem>
-                                            <SelectItem value="2">H2 — Medium</SelectItem>
-                                            <SelectItem value="3">H3 — Small</SelectItem>
+                                            <SelectItem value="1">H1 - Large</SelectItem>
+                                            <SelectItem value="2">H2 - Medium</SelectItem>
+                                            <SelectItem value="3">H3 - Small</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

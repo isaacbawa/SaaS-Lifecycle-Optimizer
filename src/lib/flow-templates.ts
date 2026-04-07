@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Flow Templates — SaaS Customer Journey Automations
+ * Flow Templates - SaaS Customer Journey Automations
  *
  * Production-ready flow templates that SaaS owners can customize to
  * automate communications with THEIR end users across every stage of
@@ -19,15 +19,15 @@
  *  - Categorization for easy discovery
  *
  * Categories:
- *  onboarding   — Welcome, setup, team invite, getting started
- *  activation   — Feature adoption, aha moment, setup completion
- *  engagement   — Tips, usage reports, feature announcements, events
- *  retention    — Re-engagement, win-back, churn prevention
- *  expansion    — Upgrade, upsell, seat limit, annual plan
- *  revenue      — Trial conversion, dunning, renewal reminders
- *  feedback     — NPS, CSAT, review requests
- *  growth       — Referral, milestone celebrations
- *  transactional — Password reset, security alerts
+ *  onboarding   - Welcome, setup, team invite, getting started
+ *  activation   - Feature adoption, aha moment, setup completion
+ *  engagement   - Tips, usage reports, feature announcements, events
+ *  retention    - Re-engagement, win-back, churn prevention
+ *  expansion    - Upgrade, upsell, seat limit, annual plan
+ *  revenue      - Trial conversion, dunning, renewal reminders
+ *  feedback     - NPS, CSAT, review requests
+ *  growth       - Referral, milestone celebrations
+ *  transactional - Password reset, security alerts
  * ========================================================================== */
 
 import type {
@@ -107,7 +107,7 @@ const defaultSettings: FlowSettings = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  ONBOARDING — Welcome & Setup Flows
+ *  ONBOARDING - Welcome & Setup Flows
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── 1. Welcome & Getting Started Series ─────────────────────────────── */
@@ -301,7 +301,7 @@ const emailVerificationTemplate: FlowTemplate = {
             id: 'v1', type: 'trigger', position: { x: 400, y: 50 },
             data: {
                 label: 'User Signed Up',
-                description: 'New user created — email not yet verified',
+                description: 'New user created - email not yet verified',
                 nodeType: 'trigger',
                 triggerConfig: { kind: 'event_received', eventName: 'user_signed_up', allowReEntry: false },
             },
@@ -432,7 +432,7 @@ const teamInviteTemplate: FlowTemplate = {
                 actionConfig: {
                     kind: 'send_email',
                     emailSubject: '{{var.inviter_name}} is waiting for you on {{company.name}}',
-                    emailBody: 'Hi {{user.name}},\n\n{{var.inviter_name}} invited you to join {{account.name}} on {{company.name}}. Your invitation is still open — accept it to start collaborating.\n\nAccept invitation →',
+                    emailBody: 'Hi {{user.name}},\n\n{{var.inviter_name}} invited you to join {{account.name}} on {{company.name}}. Your invitation is still open - accept it to start collaborating.\n\nAccept invitation →',
                     emailFromName: '{{company.name}}',
                 },
             },
@@ -452,7 +452,7 @@ const teamInviteTemplate: FlowTemplate = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  ACTIVATION — Feature Adoption Flows
+ *  ACTIVATION - Feature Adoption Flows
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── 4. First Value / Aha Moment Flow ────────────────────────────────── */
@@ -676,7 +676,7 @@ const featureAdoptionTemplate: FlowTemplate = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  ENGAGEMENT — Keep Users Active
+ *  ENGAGEMENT - Keep Users Active
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── 6. Weekly Usage Digest ──────────────────────────────────────────── */
@@ -800,7 +800,7 @@ const newFeatureTemplate: FlowTemplate = {
                 actionConfig: {
                     kind: 'send_email',
                     emailSubject: 'New in {{company.name}}: {{var.feature_name}}',
-                    emailBody: 'Hi {{user.name}},\n\nWe just launched {{var.feature_name}} — and we think you\'ll love it. Here\'s what it does and why it matters for your workflow.\n\nLearn more →',
+                    emailBody: 'Hi {{user.name}},\n\nWe just launched {{var.feature_name}} - and we think you\'ll love it. Here\'s what it does and why it matters for your workflow.\n\nLearn more →',
                     emailFromName: '{{company.name}} Team',
                 },
             },
@@ -934,7 +934,7 @@ const eventInviteTemplate: FlowTemplate = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  RETENTION — Churn Prevention & Win-Back
+ *  RETENTION - Churn Prevention & Win-Back
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── 9. Inactivity Re-Engagement ─────────────────────────────────────── */
@@ -967,7 +967,7 @@ const inactivityReengagementTemplate: FlowTemplate = {
                 actionConfig: {
                     kind: 'send_email',
                     emailSubject: 'It\'s been a while, {{user.name}}',
-                    emailBody: 'Hi {{user.name}},\n\nWe noticed you haven\'t logged in to {{company.name}} recently. Your account and data are still here — here\'s what\'s new since your last visit:\n\n• [Update 1]\n• [Update 2]\n\nLog back in →',
+                    emailBody: 'Hi {{user.name}},\n\nWe noticed you haven\'t logged in to {{company.name}} recently. Your account and data are still here - here\'s what\'s new since your last visit:\n\n• [Update 1]\n• [Update 2]\n\nLog back in →',
                     emailFromName: '{{company.name}} Team',
                 },
             },
@@ -1017,7 +1017,7 @@ const inactivityReengagementTemplate: FlowTemplate = {
                 actionConfig: {
                     kind: 'send_email',
                     emailSubject: 'We\'d love to have you back, {{user.name}}',
-                    emailBody: 'Hi {{user.name}},\n\nWe understand things change. If something wasn\'t working for you in {{company.name}}, we\'d genuinely like to know. Reply to this email — it goes straight to our team.\n\nOr if you\'re ready to come back: Log in →',
+                    emailBody: 'Hi {{user.name}},\n\nWe understand things change. If something wasn\'t working for you in {{company.name}}, we\'d genuinely like to know. Reply to this email - it goes straight to our team.\n\nOr if you\'re ready to come back: Log in →',
                     emailFromName: '{{company.name}} Team',
                 },
             },
@@ -1106,7 +1106,7 @@ const churnPreventionTemplate: FlowTemplate = {
                 nodeType: 'action',
                 actionConfig: {
                     kind: 'create_task',
-                    taskTitle: '🚨 At-Risk: {{user.name}} ({{account.name}}) — MRR: ${{var.mrr}}',
+                    taskTitle: '🚨 At-Risk: {{user.name}} ({{account.name}}) - MRR: ${{var.mrr}}',
                     taskPriority: 'critical',
                 },
             },
@@ -1144,7 +1144,7 @@ const churnPreventionTemplate: FlowTemplate = {
                 nodeType: 'action',
                 actionConfig: {
                     kind: 'send_email',
-                    emailSubject: 'Before you go — a special offer for {{account.name}}',
+                    emailSubject: 'Before you go - a special offer for {{account.name}}',
                     emailBody: 'Hi {{user.name}},\n\nWe don\'t want to lose you. As a thank-you for being a {{company.name}} customer, here\'s 30% off your next month.\n\nUse code: STAYWITHUS\n\nClaim offer →',
                     emailFromName: '{{company.name}} Team',
                 },
@@ -1211,7 +1211,7 @@ const cancellationSaveTemplate: FlowTemplate = {
                 nodeType: 'action',
                 actionConfig: {
                     kind: 'send_email',
-                    emailSubject: 'Before you go, {{user.name}} — we have options',
+                    emailSubject: 'Before you go, {{user.name}} - we have options',
                     emailBody: 'Hi {{user.name}},\n\nWe received your cancellation request. Before your account closes, consider these alternatives:\n\n1. Pause your account for up to 3 months\n2. Downgrade to a smaller plan\n3. Talk to our team about what isn\'t working\n\nExplore options →',
                     emailFromName: '{{company.name}} Team',
                 },
@@ -1258,7 +1258,7 @@ const cancellationSaveTemplate: FlowTemplate = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  EXPANSION — Upgrade & Upsell Flows
+ *  EXPANSION - Upgrade & Upsell Flows
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── 12. Upgrade Offer (A/B Tested) ──────────────────────────────────── */
@@ -1402,7 +1402,7 @@ const usageLimitTemplate: FlowTemplate = {
                 actionConfig: {
                     kind: 'send_email',
                     emailSubject: '{{user.name}}, you\'re at {{var.usage_percent}}% of your plan limit',
-                    emailBody: 'Hi {{user.name}},\n\n{{account.name}} is approaching the usage limit on your current plan. This is a good sign — it means you\'re getting value from {{company.name}}.\n\nUpgrade to get more capacity and advanced features.\n\nView plans →',
+                    emailBody: 'Hi {{user.name}},\n\n{{account.name}} is approaching the usage limit on your current plan. This is a good sign - it means you\'re getting value from {{company.name}}.\n\nUpgrade to get more capacity and advanced features.\n\nView plans →',
                     emailFromName: '{{company.name}} Team',
                 },
             },
@@ -1448,7 +1448,7 @@ const usageLimitTemplate: FlowTemplate = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  REVENUE — Trial & Billing Flows
+ *  REVENUE - Trial & Billing Flows
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── 14. Trial-to-Paid Conversion ────────────────────────────────────── */
@@ -1655,7 +1655,7 @@ const dunningTemplate: FlowTemplate = {
         {
             id: 'dn8', type: 'action', position: { x: 100, y: 910 },
             data: {
-                label: 'Final Warning — Account Suspension',
+                label: 'Final Warning - Account Suspension',
                 nodeType: 'action',
                 actionConfig: {
                     kind: 'send_email',
@@ -1732,7 +1732,7 @@ const renewalReminderTemplate: FlowTemplate = {
                 nodeType: 'action',
                 actionConfig: {
                     kind: 'send_email',
-                    emailSubject: '2 weeks until renewal — {{account.name}}',
+                    emailSubject: '2 weeks until renewal - {{account.name}}',
                     emailBody: 'Hi {{user.name}},\n\nYour {{company.name}} contract renews in 14 days. Everything will auto-renew unless you make changes.\n\nManage billing →',
                     emailFromName: '{{company.name}} Billing',
                 },
@@ -1771,7 +1771,7 @@ const renewalReminderTemplate: FlowTemplate = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  FEEDBACK — Surveys & Review Requests
+ *  FEEDBACK - Surveys & Review Requests
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── 17. NPS Follow-Up ───────────────────────────────────────────────── */
@@ -1854,7 +1854,7 @@ const npsFollowUpTemplate: FlowTemplate = {
                 nodeType: 'action',
                 actionConfig: {
                     kind: 'create_task',
-                    taskTitle: '📊 NPS Detractor: {{user.name}} scored {{var.nps_score}} — follow up immediately',
+                    taskTitle: '📊 NPS Detractor: {{user.name}} scored {{var.nps_score}} - follow up immediately',
                     taskPriority: 'high',
                 },
             },
@@ -2004,7 +2004,7 @@ const reviewRequestTemplate: FlowTemplate = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  GROWTH — Referrals & Advocacy
+ *  GROWTH - Referrals & Advocacy
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── 20. Referral Program Campaign ───────────────────────────────────── */
@@ -2041,7 +2041,7 @@ const referralCampaignTemplate: FlowTemplate = {
                 actionConfig: {
                     kind: 'send_email',
                     emailSubject: 'Share {{company.name}} and get rewarded',
-                    emailBody: 'Hi {{user.name}},\n\nYou\'re one of our most active users — and we\'d love your help spreading the word. Refer a friend to {{company.name}} and you both get rewarded.\n\nGet your referral link →',
+                    emailBody: 'Hi {{user.name}},\n\nYou\'re one of our most active users - and we\'d love your help spreading the word. Refer a friend to {{company.name}} and you both get rewarded.\n\nGet your referral link →',
                     emailFromName: '{{company.name}} Team',
                 },
             },
@@ -2118,7 +2118,7 @@ const milestoneCelebrationTemplate: FlowTemplate = {
                 actionConfig: {
                     kind: 'send_email',
                     emailSubject: '🎉 Congratulations, {{user.name}}!',
-                    emailBody: 'Hi {{user.name}},\n\nYou just hit a milestone with {{company.name}} — {{var.milestone_type}}! Thank you for being part of our community.\n\nHere\'s to many more milestones together.\n\nBest,\nThe {{company.name}} Team',
+                    emailBody: 'Hi {{user.name}},\n\nYou just hit a milestone with {{company.name}} - {{var.milestone_type}}! Thank you for being part of our community.\n\nHere\'s to many more milestones together.\n\nBest,\nThe {{company.name}} Team',
                     emailFromName: '{{company.name}} Team',
                 },
             },
@@ -2135,7 +2135,7 @@ const milestoneCelebrationTemplate: FlowTemplate = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  TRANSACTIONAL — Security & Account Alerts
+ *  TRANSACTIONAL - Security & Account Alerts
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── 22. Security Alert Flow ─────────────────────────────────────────── */

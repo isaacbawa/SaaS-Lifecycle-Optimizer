@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'LifecycleOS — SaaS Lifecycle Infrastructure & Email Marketing',
+  title: 'LifecycleOS - SaaS Lifecycle Infrastructure & Email Marketing',
   description:
     'Increase activation, reduce churn, and expand recurring revenue with behavior-driven email marketing powered by real product data.',
 };

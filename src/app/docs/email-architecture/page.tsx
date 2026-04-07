@@ -46,7 +46,7 @@ import {
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Email Sending Architecture — Visual Sketch & SMTP Recommendation
+   Email Sending Architecture - Visual Sketch & SMTP Recommendation
    ═══════════════════════════════════════════════════════════════════════ */
 
 // ─── Architecture Nodes ────────────────────────────────────────────────
@@ -172,7 +172,7 @@ const smtpProviders = [
         ],
         pros: ['Industry-best inbox placement', 'Separated transactional/marketing streams', 'Excellent bounce handling', 'Great API & documentation'],
         cons: ['Higher cost per email', 'Anti-spam policy strict', 'No free tier at scale'],
-        bestFor: 'Products where every email MUST reach the inbox — onboarding flows, password resets, and lifecycle campaigns.',
+        bestFor: 'Products where every email MUST reach the inbox - onboarding flows, password resets, and lifecycle campaigns.',
         recommended: false,
     },
     {
@@ -278,12 +278,12 @@ export default function EmailArchitecturePage() {
                             <Badge className="mb-3">End-to-End Flow</Badge>
                             <h2 className="text-2xl sm:text-3xl font-bold">How an Email Gets Delivered</h2>
                             <p className="text-muted-foreground mt-2 max-w-xl mx-auto">
-                                From the moment a user triggers a campaign to the final delivery confirmation — every step visualized.
+                                From the moment a user triggers a campaign to the final delivery confirmation - every step visualized.
                             </p>
                         </div>
 
                         {/* Step 1: Trigger Sources */}
-                        <ArchSection title="Step 1 — Trigger Sources" subtitle="Where email sends originate from" color="blue">
+                        <ArchSection title="Step 1 - Trigger Sources" subtitle="Where email sends originate from" color="blue">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <ArchNode
                                     icon={<Mail className="h-5 w-5" />}
@@ -301,12 +301,12 @@ export default function EmailArchitecturePage() {
                                 <ArchNode
                                     icon={<Code2 className="h-5 w-5" />}
                                     title="REST API"
-                                    description="POST /api/v1/email-campaigns — programmatic sending from external integrations."
+                                    description="POST /api/v1/email-campaigns - programmatic sending from external integrations."
                                 />
                                 <ArchNode
                                     icon={<Send className="h-5 w-5" />}
                                     title="Test Send"
-                                    description="POST /api/v1/email/status — single email test from the dashboard."
+                                    description="POST /api/v1/email/status - single email test from the dashboard."
                                 />
                             </div>
                         </ArchSection>
@@ -314,7 +314,7 @@ export default function EmailArchitecturePage() {
                         <FlowArrow label="Trigger event received" />
 
                         {/* Step 2: Pre-Flight Checks */}
-                        <ArchSection title="Step 2 — Pre-Flight Checks" subtitle="Validate recipients, domain, and suppression status" color="sky">
+                        <ArchSection title="Step 2 - Pre-Flight Checks" subtitle="Validate recipients, domain, and suppression status" color="sky">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <ArchNode
                                     icon={<Target className="h-5 w-5" />}
@@ -344,7 +344,7 @@ export default function EmailArchitecturePage() {
                         <FlowArrow label="Validated recipients" />
 
                         {/* Step 3: Personalization */}
-                        <ArchSection title="Step 3 — Personalization Engine" subtitle="Template resolution, variable injection, and tracking setup" color="purple">
+                        <ArchSection title="Step 3 - Personalization Engine" subtitle="Template resolution, variable injection, and tracking setup" color="purple">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <ArchNode
                                     icon={<FileText className="h-5 w-5" />}
@@ -376,7 +376,7 @@ export default function EmailArchitecturePage() {
                         <FlowArrow label="Personalized & tracked email HTML" />
 
                         {/* Step 4: Queue System */}
-                        <ArchSection title="Step 4 — Queue System (PostgreSQL-Backed)" subtitle="Rate-limited, retryable email queue that survives serverless cold starts" color="blue">
+                        <ArchSection title="Step 4 - Queue System (PostgreSQL-Backed)" subtitle="Rate-limited, retryable email queue that survives serverless cold starts" color="blue">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-3">
                                     <ArchNode
@@ -423,7 +423,7 @@ export default function EmailArchitecturePage() {
                         <FlowArrow label="Rate-limited dispatch" />
 
                         {/* Step 5: SMTP Transport */}
-                        <ArchSection title="Step 5 — SMTP Transport (Nodemailer)" subtitle="Connection pooling, DKIM signing, and encrypted delivery" color="green">
+                        <ArchSection title="Step 5 - SMTP Transport (Nodemailer)" subtitle="Connection pooling, DKIM signing, and encrypted delivery" color="green">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <ArchNode
                                     icon={<Layers className="h-5 w-5" />}
@@ -462,7 +462,7 @@ export default function EmailArchitecturePage() {
                         <FlowArrow label="Signed & encrypted email" />
 
                         {/* Step 6: SMTP Provider → MX */}
-                        <ArchSection title="Step 6 — Provider Relay & MX Delivery" subtitle="Your SMTP provider routes the email to the recipient's mail server" color="amber">
+                        <ArchSection title="Step 6 - Provider Relay & MX Delivery" subtitle="Your SMTP provider routes the email to the recipient's mail server" color="amber">
                             <div className="flex flex-col sm:flex-row items-center gap-4">
                                 <div className="flex-1">
                                     <ArchNode
@@ -495,7 +495,7 @@ export default function EmailArchitecturePage() {
                         <FlowArrow label="User opens / clicks / unsubscribes" />
 
                         {/* Step 7: Tracking & Feedback */}
-                        <ArchSection title="Step 7 — Tracking & Feedback Loop" subtitle="Real-time engagement tracking and automatic list hygiene" color="purple">
+                        <ArchSection title="Step 7 - Tracking & Feedback Loop" subtitle="Real-time engagement tracking and automatic list hygiene" color="purple">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <ArchNode
                                     icon={<Eye className="h-5 w-5" />}
@@ -525,7 +525,7 @@ export default function EmailArchitecturePage() {
                         <FlowArrow label="Events persisted" />
 
                         {/* Step 8: Data Layer */}
-                        <ArchSection title="Step 8 — Data Layer (PostgreSQL)" subtitle="All email activity stored for analytics, auditing, and list management" color="slate">
+                        <ArchSection title="Step 8 - Data Layer (PostgreSQL)" subtitle="All email activity stored for analytics, auditing, and list management" color="slate">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <Card>
                                     <CardHeader className="pb-2">
@@ -713,7 +713,7 @@ export default function EmailArchitecturePage() {
                                     </div>
                                     <p className="text-sm text-white/70 leading-relaxed max-w-2xl">
                                         For a SaaS lifecycle optimization platform where users send onboarding sequences, churn prevention campaigns,
-                                        and expansion emails to their own users — <strong className="text-white">Amazon SES provides unbeatable cost efficiency at scale</strong> ($0.10/1,000 emails),
+                                        and expansion emails to their own users - <strong className="text-white">Amazon SES provides unbeatable cost efficiency at scale</strong> ($0.10/1,000 emails),
                                         excellent deliverability with dedicated IPs, native DKIM/SPF, and battle-tested infrastructure that handles
                                         millions of emails daily. Combined with your existing Nodemailer transport and PostgreSQL queue,
                                         it&apos;s the ideal backend.
@@ -845,7 +845,7 @@ export default function EmailArchitecturePage() {
                                             <tr className="border-b">
                                                 <td className="p-3 text-muted-foreground">Lowest cost at 100K+ emails/mo</td>
                                                 <td className="p-3 font-medium">Amazon SES</td>
-                                                <td className="p-3 text-muted-foreground">$0.10/1K — 10x cheaper than alternatives at scale</td>
+                                                <td className="p-3 text-muted-foreground">$0.10/1K - 10x cheaper than alternatives at scale</td>
                                             </tr>
                                             <tr className="border-b">
                                                 <td className="p-3 text-muted-foreground">Maximum inbox placement rate</td>
@@ -892,7 +892,7 @@ export default function EmailArchitecturePage() {
                                         </p>
                                         <ul className="list-disc pl-5 space-y-1">
                                             <li>Your queue system already handles rate limiting (SES has its own too, providing double protection)</li>
-                                            <li>DKIM signing is already implemented in your transport — SES adds a second DKIM layer</li>
+                                            <li>DKIM signing is already implemented in your transport - SES adds a second DKIM layer</li>
                                             <li>SES bounce/complaint notifications can POST to your <code className="rounded bg-muted px-1.5 py-0.5 text-xs">/api/v1/email/bounce</code> endpoint via SNS webhooks</li>
                                             <li>At 100K emails/month, SES costs ~$10 vs Postmark&apos;s ~$125 or SendGrid&apos;s ~$35</li>
                                             <li>Dedicated IPs ($24.95/mo) give you full reputation control</li>

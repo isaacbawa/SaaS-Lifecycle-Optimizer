@@ -1,8 +1,8 @@
 /* ==========================================================================
- * GET/POST /api/v1/mailing-lists — Mailing List CRUD
+ * GET/POST /api/v1/mailing-lists - Mailing List CRUD
  *
  * Manages external contact lists for campaigns. These lists contain
- * contacts who are NOT tracked SaaS users — newsletter subscribers,
+ * contacts who are NOT tracked SaaS users - newsletter subscribers,
  * event leads, imported contacts, etc.
  * ========================================================================== */
 
@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAllMailingLists, upsertMailingList } from '@/lib/db/operations';
 import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 
-/** Sanitize DB errors — never leak SQL queries or internal details to the client. */
+/** Sanitize DB errors - never leak SQL queries or internal details to the client. */
 function safeError(err: unknown): { message: string; status: number } {
     const msg = err instanceof Error ? err.message : '';
     if (msg.includes('mailing_lists_org_name_idx') || msg.includes('unique constraint')) {

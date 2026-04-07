@@ -6,7 +6,7 @@ import type {
 } from '@/lib/definitions';
 
 /* ==========================================================================
- * Seed / demo data — production-grade realistic dataset
+ * Seed / demo data - production-grade realistic dataset
  * In production, all data comes from PostgreSQL + ClickHouse + Kafka
  * ========================================================================== */
 
@@ -259,26 +259,26 @@ export const emailFlows: EmailFlow[] = [
     id: 'flow_1', name: 'Trial Welcome Series', description: 'Guides new trial users through setup, aha moment, and conversion.',
     trigger: 'User starts trial', triggerType: 'lifecycle_change', status: 'Active',
     steps: [
-      { id: 's1', type: 'email', name: 'Welcome & Quick Start', config: { subject: 'Welcome to LifecycleOS — here\'s your 5-min setup', delay: 0 }, sent: 1204, opened: 722, clicked: 168 },
+      { id: 's1', type: 'email', name: 'Welcome & Quick Start', config: { subject: 'Welcome to LifecycleOS - here\'s your 5-min setup', delay: 0 }, sent: 1204, opened: 722, clicked: 168 },
       { id: 's2', type: 'delay', name: 'Wait 1 day', config: { hours: 24 } },
       { id: 's3', type: 'condition', name: 'Completed setup?', config: { event: 'setup_completed', branch: 'yes/no' } },
       { id: 's4', type: 'email', name: 'Setup Reminder (No)', config: { subject: 'You\'re 2 steps away from your first lifecycle insight', delay: 0 }, sent: 340, opened: 180, clicked: 72 },
       { id: 's5', type: 'email', name: 'Aha Moment Guide (Yes)', config: { subject: 'Here\'s what top teams discover in their first week', delay: 0 }, sent: 864, opened: 542, clicked: 96 },
       { id: 's6', type: 'delay', name: 'Wait 3 days', config: { hours: 72 } },
-      { id: 's7', type: 'email', name: 'Conversion Nudge', config: { subject: 'Your trial data shows real results — keep them', delay: 0 }, sent: 1024, opened: 580, clicked: 210 },
+      { id: 's7', type: 'email', name: 'Conversion Nudge', config: { subject: 'Your trial data shows real results - keep them', delay: 0 }, sent: 1024, opened: 580, clicked: 210 },
     ],
     recipients: 1204, openRate: 58.4, clickRate: 12.1, conversionRate: 19.2, revenueGenerated: 8450,
     unsubscribeRate: 0.8, lastSentDate: '2026-02-23', createdDate: '2025-06-15', updatedDate: '2026-01-10',
   },
   {
-    id: 'flow_2', name: 'Churn Prevention — At Risk', description: 'Automatically engages users who enter the At Risk lifecycle state.',
+    id: 'flow_2', name: 'Churn Prevention - At Risk', description: 'Automatically engages users who enter the At Risk lifecycle state.',
     trigger: 'User enters "At Risk" state', triggerType: 'lifecycle_change', status: 'Active',
     steps: [
-      { id: 's1', type: 'email', name: 'We noticed you\'ve been away', config: { subject: 'We miss you — here\'s what\'s new', delay: 0 }, sent: 302, opened: 145, clicked: 38 },
+      { id: 's1', type: 'email', name: 'We noticed you\'ve been away', config: { subject: 'We miss you - here\'s what\'s new', delay: 0 }, sent: 302, opened: 145, clicked: 38 },
       { id: 's2', type: 'delay', name: 'Wait 2 days', config: { hours: 48 } },
       { id: 's3', type: 'condition', name: 'Logged in since?', config: { event: 'user_login', branch: 'yes/no' } },
       { id: 's4', type: 'email', name: 'Personal check-in (No)', config: { subject: 'Can we help? Quick 5-min call', delay: 0 }, sent: 180, opened: 72, clicked: 24 },
-      { id: 's5', type: 'email', name: 'Value reminder (Yes)', config: { subject: 'Welcome back — your latest insights are ready', delay: 0 }, sent: 122, opened: 73, clicked: 14 },
+      { id: 's5', type: 'email', name: 'Value reminder (Yes)', config: { subject: 'Welcome back - your latest insights are ready', delay: 0 }, sent: 122, opened: 73, clicked: 14 },
     ],
     recipients: 302, openRate: 42.9, clickRate: 8.3, conversionRate: 6.2, revenueGenerated: 14200,
     unsubscribeRate: 1.2, lastSentDate: '2026-02-22', createdDate: '2025-08-01', updatedDate: '2026-02-01',
@@ -287,7 +287,7 @@ export const emailFlows: EmailFlow[] = [
     id: 'flow_3', name: 'Expansion Nudge', description: 'Targets users hitting plan limits with contextual upgrade messaging.',
     trigger: 'User enters "Expansion Ready" state', triggerType: 'lifecycle_change', status: 'Active',
     steps: [
-      { id: 's1', type: 'email', name: 'You\'re outgrowing your plan', config: { subject: 'You\'re using {{usagePercent}}% of your {{limitType}} — here\'s what\'s next', delay: 0 }, sent: 156, opened: 102, clicked: 48 },
+      { id: 's1', type: 'email', name: 'You\'re outgrowing your plan', config: { subject: 'You\'re using {{usagePercent}}% of your {{limitType}} - here\'s what\'s next', delay: 0 }, sent: 156, opened: 102, clicked: 48 },
       { id: 's2', type: 'delay', name: 'Wait 3 days', config: { hours: 72 } },
       { id: 's3', type: 'email', name: 'Upgrade benefits', config: { subject: 'Teams like {{accountName}} get {{benefit}} on the next tier', delay: 0 }, sent: 143, opened: 88, clicked: 32 },
     ],
@@ -295,7 +295,7 @@ export const emailFlows: EmailFlow[] = [
     unsubscribeRate: 0.3, lastSentDate: '2026-02-21', createdDate: '2025-09-15', updatedDate: '2026-01-20',
   },
   {
-    id: 'flow_4', name: 'Feature Adoption — Analytics', description: 'Educates users on Analytics features they haven\'t explored yet.',
+    id: 'flow_4', name: 'Feature Adoption - Analytics', description: 'Educates users on Analytics features they haven\'t explored yet.',
     trigger: 'User activated but not using Analytics', triggerType: 'event', status: 'Active',
     steps: [
       { id: 's1', type: 'email', name: 'Discover Analytics', config: { subject: 'You\'re missing the most powerful feature in your plan', delay: 0 }, sent: 420, opened: 252, clicked: 92 },
@@ -320,9 +320,9 @@ export const emailFlows: EmailFlow[] = [
     id: 'flow_6', name: 'Win-Back Campaign', description: 'Re-engages churned users with special offers.',
     trigger: 'User churned (30+ days inactive)', triggerType: 'lifecycle_change', status: 'Active',
     steps: [
-      { id: 's1', type: 'email', name: 'We\'ve improved', config: { subject: 'A lot has changed — come see what\'s new', delay: 0 }, sent: 85, opened: 28, clicked: 8 },
+      { id: 's1', type: 'email', name: 'We\'ve improved', config: { subject: 'A lot has changed - come see what\'s new', delay: 0 }, sent: 85, opened: 28, clicked: 8 },
       { id: 's2', type: 'delay', name: 'Wait 7 days', config: { hours: 168 } },
-      { id: 's3', type: 'email', name: 'Special offer', config: { subject: '50% off for 3 months — welcome back offer', delay: 0 }, sent: 72, opened: 22, clicked: 12 },
+      { id: 's3', type: 'email', name: 'Special offer', config: { subject: '50% off for 3 months - welcome back offer', delay: 0 }, sent: 72, opened: 22, clicked: 12 },
     ],
     recipients: 85, openRate: 32.9, clickRate: 11.8, conversionRate: 8.2, revenueGenerated: 2800,
     unsubscribeRate: 2.1, lastSentDate: '2026-02-18', createdDate: '2025-10-01', updatedDate: '2026-02-10',
@@ -333,7 +333,7 @@ export const emailFlows: EmailFlow[] = [
     steps: [
       { id: 's1', type: 'condition', name: 'NPS Score?', config: { field: 'nps_score', operator: 'gte', value: 8 } },
       { id: 's2', type: 'email', name: 'Thank promoters', config: { subject: 'Thank you! Would you share your experience?', delay: 0 }, sent: 120, opened: 96, clicked: 42 },
-      { id: 's3', type: 'email', name: 'Address detractors', config: { subject: 'We hear you — let\'s make this right', delay: 0 }, sent: 35, opened: 24, clicked: 12 },
+      { id: 's3', type: 'email', name: 'Address detractors', config: { subject: 'We hear you - let\'s make this right', delay: 0 }, sent: 35, opened: 24, clicked: 12 },
     ],
     recipients: 155, openRate: 77.4, clickRate: 34.8, conversionRate: 0, revenueGenerated: 0,
     unsubscribeRate: 0.2, lastSentDate: '2026-01-30', createdDate: '2025-12-01', updatedDate: '2026-01-30',
@@ -342,11 +342,11 @@ export const emailFlows: EmailFlow[] = [
     id: 'flow_8', name: 'Contract Renewal Reminder', description: 'Sends renewal reminders 60, 30, and 7 days before contract end.',
     trigger: 'Contract renewal approaching', triggerType: 'schedule', status: 'Draft',
     steps: [
-      { id: 's1', type: 'email', name: '60-day reminder', config: { subject: 'Your renewal is coming up — let\'s review your plan', daysBefore: 60 } },
+      { id: 's1', type: 'email', name: '60-day reminder', config: { subject: 'Your renewal is coming up - let\'s review your plan', daysBefore: 60 } },
       { id: 's2', type: 'delay', name: 'Wait 30 days', config: { hours: 720 } },
-      { id: 's3', type: 'email', name: '30-day reminder', config: { subject: '30 days until renewal — any questions?', daysBefore: 30 } },
+      { id: 's3', type: 'email', name: '30-day reminder', config: { subject: '30 days until renewal - any questions?', daysBefore: 30 } },
       { id: 's4', type: 'delay', name: 'Wait 23 days', config: { hours: 552 } },
-      { id: 's5', type: 'email', name: '7-day reminder', config: { subject: 'Renewing in 7 days — confirm or update your plan', daysBefore: 7 } },
+      { id: 's5', type: 'email', name: '7-day reminder', config: { subject: 'Renewing in 7 days - confirm or update your plan', daysBefore: 7 } },
     ],
     recipients: 0, openRate: 0, clickRate: 0, conversionRate: 0, revenueGenerated: 0,
     unsubscribeRate: 0, createdDate: '2026-02-20', updatedDate: '2026-02-20',
@@ -474,7 +474,7 @@ export const expansionOpportunities: ExpansionOpportunity[] = [
   },
   {
     id: 'exp_6', accountId: 'acc_1', accountName: 'Innovate Inc.',
-    signal: 'plan_limit', signalDescription: 'Using 15 of 20 seats — projected to hit limit in 30 days',
+    signal: 'plan_limit', signalDescription: 'Using 15 of 20 seats - projected to hit limit in 30 days',
     currentPlan: 'Business', suggestedPlan: 'Enterprise',
     currentMrr: 1238, potentialMrr: 2490, upliftMrr: 1252,
     confidence: 55, status: 'identified',
@@ -487,15 +487,15 @@ export const expansionOpportunities: ExpansionOpportunity[] = [
 export const activityFeed: ActivityEntry[] = [
   { id: 'act_1', type: 'lifecycle_change', title: 'Lifecycle State Change', description: 'Alex Johnson moved from Activated → At Risk', timestamp: '2026-02-23T09:15:00Z', userId: 'usr_1', accountId: 'acc_1' },
   { id: 'act_2', type: 'flow_triggered', title: 'Flow Triggered', description: 'Churn Prevention flow triggered for Linda Davis', timestamp: '2026-02-23T08:42:00Z', userId: 'usr_6', accountId: 'acc_2' },
-  { id: 'act_3', type: 'expansion_signal', title: 'Expansion Signal Detected', description: 'Synergy Corp at 96% seat capacity — expansion opportunity created', timestamp: '2026-02-23T07:30:00Z', accountId: 'acc_3' },
-  { id: 'act_4', type: 'risk_alert', title: 'High Risk Alert', description: 'DataWave churn risk score reached 100 — account marked as churned', timestamp: '2026-02-22T16:20:00Z', accountId: 'acc_4' },
-  { id: 'act_5', type: 'account_event', title: 'New Account', description: 'NextStep App started trial — Tom Rivera signed up', timestamp: '2026-02-22T14:05:00Z', accountId: 'acc_9' },
+  { id: 'act_3', type: 'expansion_signal', title: 'Expansion Signal Detected', description: 'Synergy Corp at 96% seat capacity - expansion opportunity created', timestamp: '2026-02-23T07:30:00Z', accountId: 'acc_3' },
+  { id: 'act_4', type: 'risk_alert', title: 'High Risk Alert', description: 'DataWave churn risk score reached 100 - account marked as churned', timestamp: '2026-02-22T16:20:00Z', accountId: 'acc_4' },
+  { id: 'act_5', type: 'account_event', title: 'New Account', description: 'NextStep App started trial - Tom Rivera signed up', timestamp: '2026-02-22T14:05:00Z', accountId: 'acc_9' },
   { id: 'act_6', type: 'flow_triggered', title: 'Flow Triggered', description: 'Trial Welcome Series triggered for Tom Rivera', timestamp: '2026-02-22T14:06:00Z', userId: 'usr_11', accountId: 'acc_9' },
   { id: 'act_7', type: 'lifecycle_change', title: 'Lifecycle State Change', description: 'Emma Wilson moved from Churned → Reactivated', timestamp: '2026-02-22T11:30:00Z', userId: 'usr_10', accountId: 'acc_8' },
-  { id: 'act_8', type: 'expansion_signal', title: 'Expansion Signal Detected', description: 'CloudPeak Systems hit API rate limit 5x — upgrade opportunity identified', timestamp: '2026-02-20T10:15:00Z', accountId: 'acc_7' },
-  { id: 'act_9', type: 'system', title: 'Flow Updated', description: 'Churn Prevention flow updated — new conditional branch added', timestamp: '2026-02-20T09:00:00Z' },
+  { id: 'act_8', type: 'expansion_signal', title: 'Expansion Signal Detected', description: 'CloudPeak Systems hit API rate limit 5x - upgrade opportunity identified', timestamp: '2026-02-20T10:15:00Z', accountId: 'acc_7' },
+  { id: 'act_9', type: 'system', title: 'Flow Updated', description: 'Churn Prevention flow updated - new conditional branch added', timestamp: '2026-02-20T09:00:00Z' },
   { id: 'act_10', type: 'flow_triggered', title: 'Flow Triggered', description: 'Expansion Nudge flow triggered for Patricia Williams', timestamp: '2026-02-19T15:45:00Z', userId: 'usr_4', accountId: 'acc_3' },
-  { id: 'act_11', type: 'risk_alert', title: 'Risk Alert', description: 'Solutions LLC — Linda Davis risk score increased to 78', timestamp: '2026-02-19T08:20:00Z', userId: 'usr_6', accountId: 'acc_2' },
+  { id: 'act_11', type: 'risk_alert', title: 'Risk Alert', description: 'Solutions LLC - Linda Davis risk score increased to 78', timestamp: '2026-02-19T08:20:00Z', userId: 'usr_6', accountId: 'acc_2' },
   { id: 'act_12', type: 'account_event', title: 'Plan Upgrade', description: 'CloudPeak Systems upgraded from Growth to Business', timestamp: '2026-02-18T12:00:00Z', accountId: 'acc_7' },
 ];
 

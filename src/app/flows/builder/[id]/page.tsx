@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Flow Builder Page — /flows/builder/[id]
+ * Flow Builder Page - /flows/builder/[id]
  *
  * Full-screen visual flow builder. Loads the FlowDefinition from the
  * store, renders the canvas, and handles persistence.

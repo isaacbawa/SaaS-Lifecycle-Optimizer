@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Email Unsubscribe Route — RFC 8058 One-Click Unsubscribe
+ * Email Unsubscribe Route - RFC 8058 One-Click Unsubscribe
  *
  * GET  /api/v1/email/unsubscribe?t=<token> → Shows confirmation page
  * POST /api/v1/email/unsubscribe?t=<token> → Processes unsubscribe
@@ -20,7 +20,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET — Show a simple unsubscribe confirmation page.
+ * GET - Show a simple unsubscribe confirmation page.
  */
 export async function GET(request: Request): Promise<Response> {
     const { searchParams } = new URL(request.url);
@@ -79,7 +79,7 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 /**
- * POST — Process the unsubscribe.
+ * POST - Process the unsubscribe.
  * Handles both browser form submissions and RFC 8058 one-click unsubscribe.
  */
 export async function POST(request: Request): Promise<Response> {
@@ -115,12 +115,12 @@ export async function POST(request: Request): Promise<Response> {
     if (contentType.includes('application/x-www-form-urlencoded')) {
         const body = await request.text();
         if (body.includes('List-Unsubscribe=One-Click')) {
-            // Email client one-click — return 200 OK (no page needed)
+            // Email client one-click - return 200 OK (no page needed)
             return new Response('Unsubscribed', { status: 200 });
         }
     }
 
-    // Browser form submission — show confirmation page
+    // Browser form submission - show confirmation page
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>

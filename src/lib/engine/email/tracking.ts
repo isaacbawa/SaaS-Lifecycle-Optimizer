@@ -1,5 +1,5 @@
 ﻿/* ═══════════════════════════════════════════════════════════════════════
- * Email Tracking — DB-Backed Open & Click Tracking Infrastructure
+ * Email Tracking - DB-Backed Open & Click Tracking Infrastructure
  *
  * All tracking events are persisted to PostgreSQL so they survive
  * cold starts. HMAC token generation/verification is unchanged.
@@ -40,7 +40,7 @@ export interface TrackingStats {
  *   1. EMAIL_TRACKING_SECRET env var (recommended for production)
  *   2. Deterministic derivation from CLERK_SECRET_KEY (stable across cold starts)
  *   3. Deterministic derivation from DATABASE_URL (stable across cold starts)
- *   4. Per-instance random — logs a warning because tokens won't survive restarts
+ *   4. Per-instance random - logs a warning because tokens won't survive restarts
  */
 function getTrackingSecret(): string {
     const explicit = process.env.EMAIL_TRACKING_SECRET;
@@ -53,7 +53,7 @@ function getTrackingSecret(): string {
             .update('lifecycle-os:email-tracking-secret')
             .digest('hex');
         console.warn(
-            '[email-tracking] EMAIL_TRACKING_SECRET not set — derived from CLERK_SECRET_KEY. ' +
+            '[email-tracking] EMAIL_TRACKING_SECRET not set - derived from CLERK_SECRET_KEY. ' +
             'Set EMAIL_TRACKING_SECRET for explicit control.',
         );
         return derived;
@@ -65,16 +65,16 @@ function getTrackingSecret(): string {
             .update(`lifecycle-os:email-tracking:${dbUrl}`)
             .digest('hex');
         console.warn(
-            '[email-tracking] EMAIL_TRACKING_SECRET not set — derived from DATABASE_URL. ' +
+            '[email-tracking] EMAIL_TRACKING_SECRET not set - derived from DATABASE_URL. ' +
             'Set EMAIL_TRACKING_SECRET for explicit control.',
         );
         return derived;
     }
 
-    // Last resort — ephemeral per-instance random (tokens won't survive cold starts)
+    // Last resort - ephemeral per-instance random (tokens won't survive cold starts)
     console.warn(
         '[email-tracking] EMAIL_TRACKING_SECRET not set and no stable secret available. ' +
-        'Using ephemeral random secret — tracking tokens will NOT survive server restarts. ' +
+        'Using ephemeral random secret - tracking tokens will NOT survive server restarts. ' +
         'Set EMAIL_TRACKING_SECRET (openssl rand -hex 32) in production.',
     );
     return randomBytes(32).toString('hex');
@@ -87,7 +87,7 @@ function getTrackingSecret(): string {
  *   1. NEXT_PUBLIC_APP_URL env var (recommended)
  *   2. VERCEL_PROJECT_PRODUCTION_URL (auto-set by Vercel on production)
  *   3. VERCEL_URL (auto-set by Vercel on every deployment)
- *   4. Throws — no URL can be inferred
+ *   4. Throws - no URL can be inferred
  */
 function getAppUrl(): string {
     const explicit = process.env.NEXT_PUBLIC_APP_URL;
@@ -97,7 +97,7 @@ function getAppUrl(): string {
     if (vercelProd) {
         const url = vercelProd.startsWith('http') ? vercelProd : `https://${vercelProd}`;
         console.warn(
-            `[email-tracking] NEXT_PUBLIC_APP_URL not set — using VERCEL_PROJECT_PRODUCTION_URL (${url}). ` +
+            `[email-tracking] NEXT_PUBLIC_APP_URL not set - using VERCEL_PROJECT_PRODUCTION_URL (${url}). ` +
             'Set NEXT_PUBLIC_APP_URL for explicit control.',
         );
         return url.replace(/\/+$/, '');
@@ -107,7 +107,7 @@ function getAppUrl(): string {
     if (vercelUrl) {
         const url = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
         console.warn(
-            `[email-tracking] NEXT_PUBLIC_APP_URL not set — using VERCEL_URL (${url}). ` +
+            `[email-tracking] NEXT_PUBLIC_APP_URL not set - using VERCEL_URL (${url}). ` +
             'Set NEXT_PUBLIC_APP_URL for explicit control.',
         );
         return url.replace(/\/+$/, '');
@@ -275,7 +275,7 @@ export function injectTracking(html: string, messageId: string, email: string, c
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Event Recording — DB-backed
+ * Event Recording - DB-backed
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export async function recordTrackingEvent(event: TrackingEvent): Promise<void> {

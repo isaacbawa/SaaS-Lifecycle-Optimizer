@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Flow Enrollment Scheduler — /api/v1/scheduler
+ * Flow Enrollment Scheduler - /api/v1/scheduler
  *
  * Processes flow enrollments whose nextProcessAt timestamp has elapsed.
  * This endpoint should be called periodically:
@@ -11,8 +11,8 @@
  * Security: Protected by CRON_SECRET env var (for Vercel Cron) or
  * the standard API key auth. Vercel Cron sends the secret automatically.
  *
- * GET  — Returns scheduler status (pending enrollments, last run info)
- * POST — Triggers a processing run
+ * GET  - Returns scheduler status (pending enrollments, last run info)
+ * POST - Triggers a processing run
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -58,7 +58,7 @@ async function isAuthorized(request: NextRequest): Promise<{ authorized: boolean
     if (cronSecret) {
         const authHeader = request.headers.get('authorization');
         if (authHeader === `Bearer ${cronSecret}`) {
-            // CRON_SECRET is valid — resolve org from env or process all orgs
+            // CRON_SECRET is valid - resolve org from env or process all orgs
             try {
                 const orgId = await resolveOrgId();
                 return { authorized: true, orgId };

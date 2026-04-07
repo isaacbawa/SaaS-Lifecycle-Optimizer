@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * @lifecycleos/sdk/react — Hooks
+ * @lifecycleos/sdk/react - Hooks
  *
  * Typed hooks for every LifecycleOS SDK operation.
  * All hooks require the <LifecycleOSProvider> wrapper.

@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET/POST /api/v1/email-campaigns — Campaign CRUD + Send
+ * GET/POST /api/v1/email-campaigns - Campaign CRUD + Send
  *
  * The send action now routes every email through the built-in email
  * system (queue → suppression → tracking → SMTP), instead of just
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
                 }
             }
 
-            // Mailing list contacts are NOT tracked_users — don't pass their IDs as FK
+            // Mailing list contacts are NOT tracked_users - don't pass their IDs as FK
             const isMailingList = !!campaign.mailingListId;
 
             for (const email of result.prepared) {

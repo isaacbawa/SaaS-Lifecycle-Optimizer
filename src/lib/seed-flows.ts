@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Seed Flow Definitions — Visual Builder Format (Demo Data)
+ * Seed Flow Definitions - Visual Builder Format (Demo Data)
  *
  * These seed flows serve as demo data to populate the dashboard.
  * They represent sample flows that a SaaS owner would create to
@@ -46,7 +46,7 @@ const emptyMetrics: FlowMetrics = {
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Flow 1 — Trial Welcome Series
+ * Flow 1 - Trial Welcome Series
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const trialWelcomeNodes: FlowNodeDef[] = [
@@ -119,7 +119,7 @@ const trialWelcomeNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: '{{user.name}}, you\'re almost set up — just 2 steps left',
+                emailSubject: '{{user.name}}, you\'re almost set up - just 2 steps left',
                 emailBody: 'Hi {{user.name}},\n\nYou\'re close to getting full value from {{company.name}}. Just finish setting up your profile and you\'re good to go.\n\nComplete setup →',
             },
             metrics: { entered: 340, completed: 338, failed: 2, skipped: 0 },
@@ -161,7 +161,7 @@ const trialWelcomeNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'Your {{company.name}} trial is showing results — keep them',
+                emailSubject: 'Your {{company.name}} trial is showing results - keep them',
                 emailBody: 'Hi {{user.name}},\n\nYour trial is showing great results. Upgrade now to keep your data, team access, and all the features you\'ve been using.\n\nChoose a plan →',
             },
             metrics: { entered: 1024, completed: 1020, failed: 4, skipped: 0 },
@@ -192,7 +192,7 @@ const trialWelcomeEdges: FlowEdgeDef[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Flow 2 — Churn Prevention
+ * Flow 2 - Churn Prevention
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const churnPreventionNodes: FlowNodeDef[] = [
@@ -246,7 +246,7 @@ const churnPreventionNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'create_task',
-                taskTitle: 'Priority: {{user.name}} ({{user.account.name}}) at risk — ${{user.mrr}}/mo',
+                taskTitle: 'Priority: {{user.name}} ({{user.account.name}}) at risk - ${{user.mrr}}/mo',
                 taskPriority: 'critical',
             },
             metrics: { entered: 87, completed: 87, failed: 0, skipped: 0 },
@@ -262,7 +262,7 @@ const churnPreventionNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'send_email',
-                emailSubject: 'We noticed you\'ve been away, {{user.name}} — here\'s what\'s new',
+                emailSubject: 'We noticed you\'ve been away, {{user.name}} - here\'s what\'s new',
                 emailBody: 'Hi {{user.name}},\n\nWe\'ve made improvements to {{company.name}} since your last visit. Here\'s what\'s new:\n\n• [Improvement 1]\n• [Improvement 2]\n\nCome back and see →',
             },
             metrics: { entered: 342, completed: 340, failed: 2, skipped: 0 },
@@ -301,7 +301,7 @@ const churnPreventionNodes: FlowNodeDef[] = [
             actionConfig: {
                 kind: 'send_email',
                 emailSubject: 'We\'d love to have you back, {{user.name}}',
-                emailBody: 'Hi {{user.name}},\n\nWe understand things change. If something wasn\'t working for you in {{company.name}}, we\'d genuinely like to know. Reply to this email — it goes straight to our team.\n\nOr if you\'re ready to come back: Log in →',
+                emailBody: 'Hi {{user.name}},\n\nWe understand things change. If something wasn\'t working for you in {{company.name}}, we\'d genuinely like to know. Reply to this email - it goes straight to our team.\n\nOr if you\'re ready to come back: Log in →',
             },
             metrics: { entered: 198, completed: 196, failed: 2, skipped: 0 },
         },
@@ -312,7 +312,7 @@ const churnPreventionNodes: FlowNodeDef[] = [
         position: { x: 600, y: 830 },
         data: {
             label: 'Remove Tag',
-            description: 'User recovered — remove at-risk tag',
+            description: 'User recovered - remove at-risk tag',
             nodeType: 'action',
             actionConfig: { kind: 'remove_tag', tag: 'churn-prevention-active' },
         },
@@ -340,7 +340,7 @@ const churnPreventionEdges: FlowEdgeDef[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Flow 3 — Expansion Opportunity
+ * Flow 3 - Expansion Opportunity
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const expansionNodes: FlowNodeDef[] = [
@@ -453,7 +453,7 @@ const expansionEdges: FlowEdgeDef[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Flow 4 — NPS Follow-Up
+ * Flow 4 - NPS Follow-Up
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const npsFollowUpNodes: FlowNodeDef[] = [
@@ -552,7 +552,7 @@ const npsFollowUpNodes: FlowNodeDef[] = [
             nodeType: 'action',
             actionConfig: {
                 kind: 'create_task',
-                taskTitle: 'NPS Detractor: {{user.name}} scored {{var.nps_score}} — follow up',
+                taskTitle: 'NPS Detractor: {{user.name}} scored {{var.nps_score}} - follow up',
                 taskPriority: 'high',
             },
         },

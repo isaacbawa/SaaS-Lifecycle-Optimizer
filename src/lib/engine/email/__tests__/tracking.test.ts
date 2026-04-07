@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Email Tracking — Unit Tests
+ * Email Tracking - Unit Tests
  *
  * Tests the pure (non-DB) portions of the tracking module:
  *   - HMAC token generation and verification
@@ -46,7 +46,7 @@ import {
     TRACKING_PIXEL_GIF,
 } from '@/lib/engine/email/tracking';
 
-describe('Email Tracking — Token Generation & Verification', () => {
+describe('Email Tracking - Token Generation & Verification', () => {
     const basePayload = {
         messageId: 'msg_test123',
         email: 'user@example.com',
@@ -108,7 +108,7 @@ describe('Email Tracking — Token Generation & Verification', () => {
     });
 });
 
-describe('Email Tracking — URL Generation', () => {
+describe('Email Tracking - URL Generation', () => {
     it('generates open tracking pixel URL', () => {
         const url = getOpenTrackingPixelUrl('msg_1', 'user@test.com', 'camp_1');
         expect(url).toContain('/api/v1/email/track?t=');
@@ -136,7 +136,7 @@ describe('Email Tracking — URL Generation', () => {
     });
 });
 
-describe('Email Tracking — HTML Injection', () => {
+describe('Email Tracking - HTML Injection', () => {
     it('injects tracking pixel into HTML', () => {
         const html = '<html><body><p>Hello</p></body></html>';
         const result = injectTracking(html, 'msg_1', 'user@test.com', 'camp_1');
@@ -159,7 +159,7 @@ describe('Email Tracking — HTML Injection', () => {
     });
 });
 
-describe('Email Tracking — Unsubscribe Headers', () => {
+describe('Email Tracking - Unsubscribe Headers', () => {
     it('returns RFC 8058 headers', () => {
         const headers = getUnsubscribeHeaders('msg_1', 'user@test.com', 'camp_1');
         expect(headers['List-Unsubscribe']).toBeTruthy();
@@ -174,7 +174,7 @@ describe('Email Tracking — Unsubscribe Headers', () => {
     });
 });
 
-describe('Email Tracking — Tracking Pixel GIF', () => {
+describe('Email Tracking - Tracking Pixel GIF', () => {
     it('is a valid 1×1 GIF', () => {
         expect(TRACKING_PIXEL_GIF).toBeInstanceOf(Buffer);
         // GIF magic bytes: 47 49 46 (G I F)

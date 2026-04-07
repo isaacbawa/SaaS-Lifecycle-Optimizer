@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Email Builder — Professional SaaS Lifecycle Templates (Extended)
+ * Email Builder - Professional SaaS Lifecycle Templates (Extended)
  *
  * 16 advanced, revenue-focused email templates purpose-built for SaaS
  * lifecycle management. Each template targets a specific stage of the
@@ -14,14 +14,14 @@
  *  - Data-driven urgency and social proof
  *
  * Categories (2 templates each):
- *  1. Onboarding — Team Invitation, Quick Win Guide
- *  2. Activation — First Milestone, Setup Checklist
- *  3. Engagement — Weekly Digest, Power User Tips
- *  4. Retention — Win-Back, Health Alert
- *  5. Expansion — Usage Limit, Annual Savings
- *  6. Revenue — Dunning, Invoice Receipt
- *  7. Feedback — CSAT Survey, Feature Request Update
- *  8. Growth — Case Study Invite, Success Milestone
+ *  1. Onboarding - Team Invitation, Quick Win Guide
+ *  2. Activation - First Milestone, Setup Checklist
+ *  3. Engagement - Weekly Digest, Power User Tips
+ *  4. Retention - Win-Back, Health Alert
+ *  5. Expansion - Usage Limit, Annual Savings
+ *  6. Revenue - Dunning, Invoice Receipt
+ *  7. Feedback - CSAT Survey, Feature Request Update
+ *  8. Growth - Case Study Invite, Success Milestone
  * ========================================================================== */
 
 import type { EmailTemplate, EmailBlock } from './types';
@@ -77,7 +77,7 @@ function logoBlock(): EmailBlock {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  ONBOARDING 1 — Team Member Invitation Welcome
+ *  ONBOARDING 1 - Team Member Invitation Welcome
  *  Sent when an admin invites a colleague to join the account.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -158,7 +158,7 @@ const teamInvitationBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  ONBOARDING 2 — Day 1 Quick Win Guide
+ *  ONBOARDING 2 - Day 1 Quick Win Guide
  *  Sent 2 hours after signup to drive first meaningful action.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -236,7 +236,7 @@ const quickWinGuideBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  ACTIVATION 1 — First Milestone Celebration
+ *  ACTIVATION 1 - First Milestone Celebration
  *  Triggered when user completes a key activation milestone.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -301,7 +301,7 @@ const firstMilestoneBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  ACTIVATION 2 — Personalized Setup Checklist
+ *  ACTIVATION 2 - Personalized Setup Checklist
  *  Sent Day 2 with a role/industry-aware checklist.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -378,7 +378,7 @@ const setupChecklistBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  ENGAGEMENT 1 — Weekly Usage Digest
+ *  ENGAGEMENT 1 - Weekly Usage Digest
  *  Automated weekly summary of account activity and metrics.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -484,7 +484,7 @@ const weeklyDigestBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  ENGAGEMENT 2 — Power User Tips
+ *  ENGAGEMENT 2 - Power User Tips
  *  Sent to highly active users with advanced feature guidance.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -586,7 +586,7 @@ const powerUserTipsBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  RETENTION 1 — Win-Back Campaign
+ *  RETENTION 1 - Win-Back Campaign
  *  Sent to accounts that cancelled or let their subscription lapse.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -622,7 +622,7 @@ const winBackBlocks: EmailBlock[] = [
         content: {
             cells: [
                 { imageUrl: '', imageAlt: '', heading: 'Visual Flow Builder', text: 'Drag-and-drop automation with conditional branching, A/B testing, and revenue attribution.', buttonLabel: '', buttonUrl: '', buttonColor: '#2563eb' },
-                { imageUrl: '', imageAlt: '', heading: 'AI-Powered Segments', text: 'Auto-updating segments that use churn prediction and expansion scoring in real time.', buttonLabel: '', buttonUrl: '', buttonColor: '#2563eb' },
+                { imageUrl: '', imageAlt: '', heading: 'Segments', text: 'Auto-updating segments that use churn prediction and expansion scoring in real time.', buttonLabel: '', buttonUrl: '', buttonColor: '#2563eb' },
             ],
             layout: '1-1' as const, gap: 16,
             padding: p(0, 32, 8, 32), backgroundColor: 'transparent', verticalAlign: 'top' as const,
@@ -670,7 +670,7 @@ const winBackBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  RETENTION 2 — Account Health Alert
+ *  RETENTION 2 - Account Health Alert
  *  Proactive notification to admins when account health declines.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -757,7 +757,7 @@ const healthAlertBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  EXPANSION 1 — Usage Limit Approaching
+ *  EXPANSION 1 - Usage Limit Approaching
  *  Triggered when API calls, users, or features near plan limits.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -842,7 +842,7 @@ const usageLimitBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  EXPANSION 2 — Annual Plan Savings
+ *  EXPANSION 2 - Annual Plan Savings
  *  Convert monthly subscribers to annual billing.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -921,7 +921,7 @@ const annualSavingsBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  REVENUE 1 — Payment Failed (Dunning)
+ *  REVENUE 1 - Payment Failed (Dunning)
  *  Graceful recovery for failed payment attempts.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -983,7 +983,7 @@ const dunningBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  REVENUE 2 — Invoice & Payment Receipt
+ *  REVENUE 2 - Invoice & Payment Receipt
  *  Professional payment confirmation and receipt.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -1064,7 +1064,7 @@ const invoiceReceiptBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  FEEDBACK 1 — CSAT Survey Request
+ *  FEEDBACK 1 - CSAT Survey Request
  *  Post-interaction customer satisfaction survey.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -1135,7 +1135,7 @@ const csatSurveyBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  FEEDBACK 2 — Feature Request Status Update
+ *  FEEDBACK 2 - Feature Request Status Update
  *  Closing the loop on user-submitted feature requests.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -1210,7 +1210,7 @@ const featureRequestUpdateBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  GROWTH 1 — Case Study Invitation
+ *  GROWTH 1 - Case Study Invitation
  *  Invite high-NPS power users to share their story.
  * ═══════════════════════════════════════════════════════════════════════ */
 
@@ -1286,7 +1286,7 @@ const caseStudyInviteBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- *  GROWTH 2 — Success Milestone Achievement
+ *  GROWTH 2 - Success Milestone Achievement
  *  Celebrate a meaningful customer achievement to drive advocacy.
  * ═══════════════════════════════════════════════════════════════════════ */
 

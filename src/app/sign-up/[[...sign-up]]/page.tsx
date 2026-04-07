@@ -5,7 +5,7 @@ import Link from 'next/link';
 export default function SignUpPage() {
     return (
         <div className="flex min-h-screen">
-            {/* ── Left Panel — Brand + Social Proof ────────────────────────── */}
+            {/* ── Left Panel - Brand + Social Proof ────────────────────────── */}
             <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-gradient-to-br from-emerald-950 via-emerald-900 to-slate-900 p-12 text-white">
                 <div>
                     <Link href="/" className="flex items-center gap-2 mb-16">
@@ -21,7 +21,7 @@ export default function SignUpPage() {
                         </h1>
                         <p className="text-lg text-emerald-100/80 mb-12">
                             Most SaaS companies lose 40% of trial users before activation.
-                            LifecycleOS gives you the intelligence and automation to change that — in under 15 minutes.
+                            LifecycleOS gives you the intelligence and automation to change that - in under 15 minutes.
                         </p>
 
                         {/* ── Metrics Grid ─────────────────────────────────────── */}
@@ -38,7 +38,7 @@ export default function SignUpPage() {
                                 Everything you need on day one
                             </h3>
                             <CheckItem text="Behavioral event tracking via lightweight SDK" />
-                            <CheckItem text="AI-powered churn risk & expansion scoring" />
+                            <CheckItem text="Churn risk & expansion scoring" />
                             <CheckItem text="Visual lifecycle automation builder" />
                             <CheckItem text="Revenue waterfall & cohort analytics" />
                             <CheckItem text="Team collaboration with role-based access" />
@@ -53,7 +53,7 @@ export default function SignUpPage() {
                 </div>
             </div>
 
-            {/* ── Right Panel — Clerk Sign Up ──────────────────────────────── */}
+            {/* ── Right Panel - Clerk Sign Up ──────────────────────────────── */}
             <div className="flex flex-1 flex-col items-center justify-center p-8 bg-white dark:bg-slate-950">
                 <div className="w-full max-w-md">
                     <div className="mb-8 text-center lg:hidden">
@@ -65,7 +65,7 @@ export default function SignUpPage() {
                         </Link>
                         <h2 className="text-2xl font-bold tracking-tight">Create your account</h2>
                         <p className="text-sm text-muted-foreground mt-1">
-                            14-day free trial — no credit card needed
+                            14-day free trial - no credit card needed
                         </p>
                     </div>
 

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Webhook Dispatcher v2 — Production-Grade Event Delivery System
+ * Webhook Dispatcher v2 - Production-Grade Event Delivery System
  *
  * Features:
  *   • HMAC-SHA256 signatures (X-Lifecycle-Signature header)
@@ -373,7 +373,7 @@ export async function dispatchWebhooks(
   orgId?: string,
 ): Promise<DispatchSummary> {
   if (!orgId) {
-    // No org context — cannot resolve webhooks. Silently skip.
+    // No org context - cannot resolve webhooks. Silently skip.
     return { dispatched: 0, delivered: 0, failed: 0, circuitOpen: 0, results: [] };
   }
 
@@ -424,13 +424,13 @@ export async function dispatchWebhooks(
       const now = new Date();
 
       if (result.delivered) {
-        // Success — update status in DB
+        // Success - update status in DB
         await updateWebhookDeliveryStatus(wh.id, {
           status: wh.status === 'failing' ? 'active' : undefined,
           lastTriggeredAt: now,
         }).catch(() => { });
       } else if (!result.circuitOpen) {
-        // Failed after retries — push to DLQ
+        // Failed after retries - push to DLQ
         addToDLQ(wh, payload, result);
 
         // Update webhook health metrics
@@ -447,7 +447,7 @@ export async function dispatchWebhooks(
           lastTriggeredAt: now,
         }).catch(() => { });
       } else {
-        // Circuit open — mark as failing
+        // Circuit open - mark as failing
         await updateWebhookDeliveryStatus(wh.id, {
           status: 'failing',
           lastTriggeredAt: now,

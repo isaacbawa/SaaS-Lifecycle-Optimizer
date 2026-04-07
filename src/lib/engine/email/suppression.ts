@@ -1,5 +1,5 @@
 ﻿/* ═══════════════════════════════════════════════════════════════════════
- * Email Suppression System — DB-Backed Bounce, Unsubscribe & Complaint Mgmt
+ * Email Suppression System - DB-Backed Bounce, Unsubscribe & Complaint Mgmt
  *
  * All suppressions are stored in PostgreSQL for durability across
  * serverless cold starts. The public API remains identical to the

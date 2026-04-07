@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET /api/v1/analytics/retention — Retention cohort analytics
+ * GET /api/v1/analytics/retention - Retention cohort analytics
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';

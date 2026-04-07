@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET/POST /api/v1/email-templates — Email Template CRUD
+ * GET/POST /api/v1/email-templates - Email Template CRUD
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';

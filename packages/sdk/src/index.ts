@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * @lifecycleos/sdk — Main Export
+ * @lifecycleos/sdk - Main Export
  *
  * The core entry point is FRAMEWORK-AGNOSTIC. It works in:
  *   • Next.js (App Router & Pages Router)
@@ -8,8 +8,8 @@
  *   • Node.js server processes (Express, Fastify, etc.)
  *
  * Additional sub-path exports:
- *   • @lifecycleos/sdk/react   — React hooks & components (React 18+)
- *   • @lifecycleos/sdk/nextjs  — Server-side helpers for Next.js
+ *   • @lifecycleos/sdk/react   - React hooks & components (React 18+)
+ *   • @lifecycleos/sdk/nextjs  - Server-side helpers for Next.js
  *
  * Install:
  *   npm install @lifecycleos/sdk

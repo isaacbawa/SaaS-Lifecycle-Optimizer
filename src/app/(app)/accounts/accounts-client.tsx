@@ -210,7 +210,7 @@ export function AccountsClient({ accounts, users }: AccountsClientProps) {
                         </Avatar>
                         <div>
                           <p className="font-medium">{account.name}</p>
-                          <p className="text-xs text-muted-foreground">{account.industry || '—'}</p>
+                          <p className="text-xs text-muted-foreground">{account.industry || '-'}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -305,7 +305,7 @@ export function AccountsClient({ accounts, users }: AccountsClientProps) {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Sign-up Date</p>
-                    <p className="text-sm font-medium">{selected.signupDate || '—'}</p>
+                    <p className="text-sm font-medium">{selected.signupDate || '-'}</p>
                   </div>
                 </div>
 

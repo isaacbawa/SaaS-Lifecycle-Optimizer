@@ -4,7 +4,7 @@ import { MarketingHeader } from '@/components/layout/marketing-header';
 import { MarketingFooter } from '@/components/layout/marketing-footer';
 
 export const metadata: Metadata = {
-    title: 'Privacy Policy — LifecycleOS',
+    title: 'Privacy Policy - LifecycleOS',
     description: 'LifecycleOS privacy policy. How we collect, use, and protect your data.',
 };
 
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
                         <p>We use data to:</p>
                         <ul className="list-disc pl-6 space-y-1 mt-2">
                             <li>Provide, operate, and maintain the LifecycleOS platform.</li>
-                            <li>Process lifecycle events, segment users, and execute automation flows on your behalf.</li>
+                            <li>Process lifecycle events, segment users, and execute email automation flows on your behalf.</li>
                             <li>Improve our services and develop new features.</li>
                             <li>Communicate with you about your account, support requests, and product updates.</li>
                         </ul>

@@ -1,6 +1,6 @@
 /* ==========================================================================
- * GET  /api/v1/users/[id]         — Retrieve user profile & lifecycle state
- * POST /api/v1/users/[id]         — Update user properties
+ * GET  /api/v1/users/[id]         - Retrieve user profile & lifecycle state
+ * POST /api/v1/users/[id]         - Update user properties
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';

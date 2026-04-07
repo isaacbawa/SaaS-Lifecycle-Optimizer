@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Integration Warnings Context — Flow Builder
+ * Integration Warnings Context - Flow Builder
  *
  * Provides per-node integration warning data to flow node components
  * via React Context. This avoids mutating node.data (which would cause

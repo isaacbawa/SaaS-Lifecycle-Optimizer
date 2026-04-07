@@ -1,7 +1,7 @@
 'use client';
 
 /* ==========================================================================
- * Email Dashboard — Templates, Analytics & Email Management
+ * Email Dashboard - Templates, Analytics & Email Management
  *
  * Focused on email templates/designs with performance metrics.
  * "Create Email" button opens the email builder (/email-builder).
@@ -322,10 +322,10 @@ export default function EmailPage() {
                                 {filtered.map((t) => {
                                     const or = (t.sendCount ?? 0) > 0
                                         ? (((t.openCount ?? 0) / t.sendCount) * 100).toFixed(1)
-                                        : '—';
+                                        : '-';
                                     const cr = (t.sendCount ?? 0) > 0
                                         ? (((t.clickCount ?? 0) / t.sendCount) * 100).toFixed(1)
-                                        : '—';
+                                        : '-';
                                     return (
                                         <TableRow key={t.id} className="cursor-pointer hover:bg-muted/50" onClick={() => router.push(`/email-builder?id=${t.id}`)}>
                                             <TableCell>
@@ -362,13 +362,13 @@ export default function EmailPage() {
                                                         </Badge>
                                                     )}
                                                     {(t.variables ?? []).length === 0 && (
-                                                        <span className="text-xs text-muted-foreground">—</span>
+                                                        <span className="text-xs text-muted-foreground">-</span>
                                                     )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="tabular-nums text-right">{(t.sendCount ?? 0).toLocaleString()}</TableCell>
-                                            <TableCell className="tabular-nums text-right">{or}{or !== '—' ? '%' : ''}</TableCell>
-                                            <TableCell className="tabular-nums text-right">{cr}{cr !== '—' ? '%' : ''}</TableCell>
+                                            <TableCell className="tabular-nums text-right">{or}{or !== '-' ? '%' : ''}</TableCell>
+                                            <TableCell className="tabular-nums text-right">{cr}{cr !== '-' ? '%' : ''}</TableCell>
                                             <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>

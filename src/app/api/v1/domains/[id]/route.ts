@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET/DELETE /api/v1/domains/[id] — Single Domain Operations
+ * GET/DELETE /api/v1/domains/[id] - Single Domain Operations
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';

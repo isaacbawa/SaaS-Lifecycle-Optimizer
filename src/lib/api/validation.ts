@@ -37,7 +37,7 @@ function isNonEmptyString(v: unknown): v is string {
 
 function isEmail(v: unknown): boolean {
     if (typeof v !== 'string') return false;
-    // RFC 5322 simplified — good enough for production SaaS
+    // RFC 5322 simplified - good enough for production SaaS
     return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 }
 

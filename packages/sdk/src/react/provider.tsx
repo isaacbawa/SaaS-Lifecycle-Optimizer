@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * @lifecycleos/sdk/react — React Provider & Context
+ * @lifecycleos/sdk/react - React Provider & Context
  *
  * Provides the LifecycleOS client to the React component tree.
  *

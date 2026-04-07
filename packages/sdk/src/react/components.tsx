@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * @lifecycleos/sdk/react — Ready-to-Use Components
+ * @lifecycleos/sdk/react - Ready-to-Use Components
  *
  * Drop-in components for common LifecycleOS operations.
  * All components require the <LifecycleOSProvider> wrapper.

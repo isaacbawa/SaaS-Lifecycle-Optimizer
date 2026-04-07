@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * App-shell error boundary — catches render errors within the (app) layout.
+ * App-shell error boundary - catches render errors within the (app) layout.
  * Chunk-load failures from Clerk or lazy components bubble here before
  * reaching `global-error.tsx`.
  */
@@ -24,7 +24,7 @@ export default function AppError({
 
         if (isChunkError && !hasRetried.current) {
             hasRetried.current = true;
-            // One silent retry — usually resolves a transient CDN miss
+            // One silent retry - usually resolves a transient CDN miss
             reset();
             return;
         }

@@ -281,7 +281,7 @@ const { data } = await response.json();
 //   meta: { requestId: "req_a1b2c3", timestamp: "..." }
 // }`;
 
-const flowTriggerSnippet = `// Lifecycle change trigger — fires when a user transitions between states
+const flowTriggerSnippet = `// Lifecycle change trigger - fires when a user transitions between states
 {
   "trigger": "lifecycle_change",
   "conditions": {
@@ -291,7 +291,7 @@ const flowTriggerSnippet = `// Lifecycle change trigger — fires when a user tr
   "flow": "activation-welcome-sequence"
 }
 
-// Event-based trigger — fires on a specific tracked event
+// Event-based trigger - fires on a specific tracked event
 {
   "trigger": "event",
   "conditions": {
@@ -301,7 +301,7 @@ const flowTriggerSnippet = `// Lifecycle change trigger — fires when a user tr
   "flow": "win-back-sequence"
 }
 
-// Schedule trigger — fires on a recurring schedule
+// Schedule trigger - fires on a recurring schedule
 {
   "trigger": "schedule",
   "conditions": {
@@ -412,13 +412,13 @@ const errorResponseSnippet = `// Error response format (all errors follow this s
 }
 
 // Common error codes:
-// AUTHENTICATION_ERROR  — Invalid or expired API key
-// AUTHORIZATION_ERROR   — Insufficient permissions for this action
-// VALIDATION_ERROR      — Request body failed validation
-// NOT_FOUND             — Resource does not exist
-// RATE_LIMIT_EXCEEDED   — Too many requests, retry after cooldown
-// CONFLICT              — Resource state conflict (e.g., duplicate)
-// INTERNAL_ERROR        — Server error, contact support with requestId`;
+// AUTHENTICATION_ERROR  - Invalid or expired API key
+// AUTHORIZATION_ERROR   - Insufficient permissions for this action
+// VALIDATION_ERROR      - Request body failed validation
+// NOT_FOUND             - Resource does not exist
+// RATE_LIMIT_EXCEEDED   - Too many requests, retry after cooldown
+// CONFLICT              - Resource state conflict (e.g., duplicate)
+// INTERNAL_ERROR        - Server error, contact support with requestId`;
 
 const useCaseActivationSnippet = `// Use Case: Accelerate trial-to-paid activation
 //
@@ -438,9 +438,9 @@ lifecycle.track('setup_step_completed', {
 // they enter the "activation-nudge" flow automatically.
 
 // Step 3: The flow sends contextual emails:
-// Day 3 — "You're 2 steps away from seeing your first lifecycle report"
-// Day 5 — "Here's what [similar company] achieved after activating"
-// Day 7 — "Your trial ends in 7 days — let's get you set up"
+// Day 3 - "You're 2 steps away from seeing your first lifecycle report"
+// Day 5 - "Here's what [similar company] achieved after activating"
+// Day 7 - "Your trial ends in 7 days - let's get you set up"
 
 // Step 4: If the user activates, the flow stops automatically.
 // If they don't, the engine escalates to "AtRisk" state
@@ -526,7 +526,7 @@ const lifecycleStates = [
     { state: 'Lead', description: 'User has signed up but has not started a trial or subscription. They exist in the system but have no meaningful product engagement yet.', trigger: 'user_signed_up event is tracked.', exits: 'Moves to Trial when trial_started fires, or directly to Activated if immediate activation criteria are met.' },
     { state: 'Trial', description: 'User is in an active trial period. The engine monitors their progress through activation milestones and flags stalled trials for intervention.', trigger: 'trial_started event fires.', exits: 'Moves to Activated when activation criteria (configurable per plan) are completed. Moves to Churned if the trial expires without activation.' },
     { state: 'Activated', description: 'User has completed the minimum activation criteria: typically a combination of profile setup, first feature use, and a core "aha moment" action. They are now an engaged user.', trigger: 'Activation milestone threshold is met (e.g., 3 of 5 milestones completed within trial period).', exits: 'Moves to PowerUser with sustained high engagement. Moves to AtRisk if engagement declines below baseline.' },
-    { state: 'PowerUser', description: 'User shows sustained high engagement — frequent logins, broad feature adoption, and deep session activity. These users are the best candidates for expansion.', trigger: 'loginFrequencyLast7Days >= 5, featureUsageLast30Days covers 70%+ of available features, and sessionDepthMinutes >= 30 consistently.', exits: 'Moves to ExpansionReady when plan limits are approached. Moves to AtRisk if engagement drops significantly.' },
+    { state: 'PowerUser', description: 'User shows sustained high engagement - frequent logins, broad feature adoption, and deep session activity. These users are the best candidates for expansion.', trigger: 'loginFrequencyLast7Days >= 5, featureUsageLast30Days covers 70%+ of available features, and sessionDepthMinutes >= 30 consistently.', exits: 'Moves to ExpansionReady when plan limits are approached. Moves to AtRisk if engagement drops significantly.' },
     { state: 'ExpansionReady', description: 'User or account is approaching plan limits (seats, API calls, tracked users) or is actively using premium-tier features. This state activates expansion flow eligibility.', trigger: 'Seat usage >= 80%, API usage >= 80%, or feature gate hit on higher-tier feature.', exits: 'Moves back to PowerUser after upgrade. Moves to AtRisk if engagement declines.' },
     { state: 'AtRisk', description: 'User shows behavioral signals consistent with potential churn: login frequency decline, reduced feature usage, negative NPS score, or approaching contract renewal with low engagement.', trigger: 'Churn risk score crosses the "High" threshold (>= 60/100). Specific signals: 50%+ login drop, feature usage decline, NPS < 7, support escalation.', exits: 'Moves back to Activated or PowerUser if re-engagement succeeds. Moves to Churned if subscription is cancelled or trial expires.' },
     { state: 'Churned', description: 'User has cancelled their subscription, their trial expired without conversion, or they have been inactive for more than 90 days on a paid plan.', trigger: 'subscription_cancelled event, trial expiration without payment, or 90-day inactivity threshold.', exits: 'Moves to Reactivated if they return and create a new subscription.' },
@@ -555,7 +555,7 @@ const apiEndpoints = [
     { method: 'POST', path: '/webhooks', description: 'Create a new webhook endpoint. Specify URL, event subscriptions, and an optional secret for signature verification.' },
     { method: 'DELETE', path: '/webhooks/:id', description: 'Delete a webhook endpoint. Pending deliveries will be discarded.' },
     { method: 'GET', path: '/keys', description: 'List API keys (masked) for the current organization.' },
-    { method: 'POST', path: '/keys', description: 'Create a new API key. Returns the full key once — store it securely.' },
+    { method: 'POST', path: '/keys', description: 'Create a new API key. Returns the full key once - store it securely.' },
     { method: 'DELETE', path: '/keys/:id', description: 'Revoke an API key. The key is immediately invalidated.' },
 ];
 
@@ -661,7 +661,7 @@ export default function DocsPage() {
                         </h1>
                         <Prose>
                             Complete reference for integrating and operating the LifecycleOS
-                            platform — from SDK installation to production deployment. Every
+                            platform - from SDK installation to production deployment. Every
                             section includes working code examples and explains exactly what
                             happens under the hood.
                         </Prose>
@@ -703,7 +703,7 @@ export default function DocsPage() {
 
                     {/* Two-column layout */}
                     <div className="flex gap-10 lg:gap-16">
-                        {/* Sticky sidebar TOC — desktop */}
+                        {/* Sticky sidebar TOC - desktop */}
                         <aside className="hidden lg:block w-56 shrink-0">
                             <nav className="sticky top-20">
                                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
@@ -739,7 +739,7 @@ export default function DocsPage() {
                                         LifecycleOS is a lifecycle infrastructure platform built
                                         exclusively for SaaS companies. It connects your product
                                         data to automated email flows that activate trials, prevent
-                                        churn, and expand accounts — all driven by real user
+                                        churn, and expand accounts - all driven by real user
                                         behavior.
                                     </Prose>
                                     <Prose>
@@ -747,7 +747,7 @@ export default function DocsPage() {
                                     </Prose>
                                     <ul className="list-disc list-inside text-muted-foreground space-y-2 pl-2">
                                         <li>
-                                            <strong className="text-foreground">Event SDK</strong> —
+                                            <strong className="text-foreground">Event SDK</strong> -
                                             Lightweight JavaScript/TypeScript client that tracks
                                             user identification, product events, and revenue events.
                                             Auto-batching, retry logic, and type safety are
@@ -755,23 +755,23 @@ export default function DocsPage() {
                                             directly.
                                         </li>
                                         <li>
-                                            <strong className="text-foreground">Lifecycle Engine</strong> —
+                                            <strong className="text-foreground">Lifecycle Engine</strong> -
                                             Real-time classification engine that assigns each user one
                                             of eight lifecycle states (Lead, Trial, Activated,
                                             PowerUser, ExpansionReady, AtRisk, Churned, Reactivated)
                                             based on behavioral data.
                                         </li>
                                         <li>
-                                            <strong className="text-foreground">Email Flow System</strong> —
+                                            <strong className="text-foreground">Email Flow System</strong> -
                                             Multi-step automated email sequences triggered by lifecycle
                                             state transitions, tracked events, or schedules. Includes
                                             built-in deliverability infrastructure (DKIM, SPF, DMARC,
                                             IP warming).
                                         </li>
                                         <li>
-                                            <strong className="text-foreground">Analytics Suite</strong> —
+                                            <strong className="text-foreground">Analytics Suite</strong> -
                                             Revenue waterfall (MRR/ARR), retention cohorts, activation
-                                            funnel, churn risk scoring, and expansion intelligence —
+                                            funnel, churn risk scoring, and expansion intelligence -
                                             with direct attribution from email flows to revenue
                                             outcomes.
                                         </li>
@@ -1065,8 +1065,8 @@ export default function DocsPage() {
                                     <Prose>
                                         The following events are recognized by the LifecycleOS
                                         engine for automatic lifecycle state transitions, flow
-                                        triggers, and analytics calculations. You can also define
-                                        custom events — they will appear in analytics but won&apos;t
+                                        triggers, and analytics. You can also define
+                                        custom events - they will appear in analytics but won&apos;t
                                         trigger built-in logic unless you configure a flow for them.
                                     </Prose>
                                     <div className="overflow-x-auto">
@@ -1105,7 +1105,7 @@ export default function DocsPage() {
                                                             {ev.required}
                                                         </TableCell>
                                                         <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">
-                                                            {ev.optional || '—'}
+                                                            {ev.optional || '-'}
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
@@ -1124,7 +1124,7 @@ export default function DocsPage() {
                                     <Prose>
                                         The lifecycle engine automatically assigns one of eight states
                                         to each tracked user. State transitions are real-time and
-                                        based on behavioral data — not manual tagging. Transitions
+                                        based on behavioral data - not manual tagging. Transitions
                                         fire webhooks and can trigger email flows.
                                     </Prose>
                                     <div className="space-y-4">
@@ -1220,10 +1220,10 @@ export default function DocsPage() {
 
                                     <SubHeading>Flow statuses</SubHeading>
                                     <ul className="list-disc list-inside text-muted-foreground space-y-1 pl-2">
-                                        <li><strong className="text-foreground">Active</strong> — Processing eligible users. New entrants and existing users in the queue receive steps on schedule.</li>
-                                        <li><strong className="text-foreground">Draft</strong> — Being configured. Not processing any users. Ideal for testing email content and triggers.</li>
-                                        <li><strong className="text-foreground">Paused</strong> — Previously active but temporarily stopped. Users in the queue will resume when reactivated. No new entrants.</li>
-                                        <li><strong className="text-foreground">Archived</strong> — Permanently deactivated. Historical analytics are retained but the flow cannot be reactivated.</li>
+                                        <li><strong className="text-foreground">Active</strong> - Processing eligible users. New entrants and existing users in the queue receive steps on schedule.</li>
+                                        <li><strong className="text-foreground">Draft</strong> - Being configured. Not processing any users. Ideal for testing email content and triggers.</li>
+                                        <li><strong className="text-foreground">Paused</strong> - Previously active but temporarily stopped. Users in the queue will resume when reactivated. No new entrants.</li>
+                                        <li><strong className="text-foreground">Archived</strong> - Permanently deactivated. Historical analytics are retained but the flow cannot be reactivated.</li>
                                     </ul>
 
                                     <InfoBox type="warning">
@@ -1346,11 +1346,11 @@ export default function DocsPage() {
 
                                     <SubHeading>Opportunity statuses</SubHeading>
                                     <ul className="list-disc list-inside text-muted-foreground space-y-1 pl-2">
-                                        <li><strong className="text-foreground">identified</strong> — Signal detected, no action taken yet.</li>
-                                        <li><strong className="text-foreground">contacted</strong> — User or account has been reached via automated flow or manual outreach.</li>
-                                        <li><strong className="text-foreground">negotiating</strong> — Upgrade conversation is in progress.</li>
-                                        <li><strong className="text-foreground">converted</strong> — Upgrade completed. Revenue delta is attributed.</li>
-                                        <li><strong className="text-foreground">declined</strong> — User declined the upgrade. Signal is archived.</li>
+                                        <li><strong className="text-foreground">identified</strong> - Signal detected, no action taken yet.</li>
+                                        <li><strong className="text-foreground">contacted</strong> - User or account has been reached via automated flow or manual outreach.</li>
+                                        <li><strong className="text-foreground">negotiating</strong> - Upgrade conversation is in progress.</li>
+                                        <li><strong className="text-foreground">converted</strong> - Upgrade completed. Revenue delta is attributed.</li>
+                                        <li><strong className="text-foreground">declined</strong> - User declined the upgrade. Signal is archived.</li>
                                     </ul>
                                 </div>
                             </section>
@@ -1381,7 +1381,7 @@ export default function DocsPage() {
                                                 {[
                                                     { stage: 'Signups', event: 'user_signed_up', desc: 'Total new users who created an account in the period.' },
                                                     { stage: 'Completed Setup', event: 'setup_step_completed (all required)', desc: 'Users who completed all required setup steps (SDK installed, domain verified, etc.).' },
-                                                    { stage: 'Reached Aha', event: 'Custom per-product (e.g., first_flow_created)', desc: 'Users who reached the "aha moment" — the key action that correlates with long-term retention.' },
+                                                    { stage: 'Reached Aha', event: 'Custom per-product (e.g., first_flow_created)', desc: 'Users who reached the "aha moment" - the key action that correlates with long-term retention.' },
                                                     { stage: 'Activated', event: 'trial_activated', desc: 'Users who met the full activation criteria. They are now meaningfully engaged.' },
                                                     { stage: 'Converted', event: 'subscription_created', desc: 'Users who converted from trial to a paid subscription.' },
                                                 ].map((s) => (
@@ -1421,7 +1421,7 @@ export default function DocsPage() {
                                     <Prose>
                                         Revenue analytics provides month-over-month MRR and ARR
                                         tracking, broken down by movement type. Every revenue change
-                                        is attributed to its source — including which email flow
+                                        is attributed to its source - including which email flow
                                         influenced the conversion, upgrade, or win-back.
                                     </Prose>
 
@@ -1477,7 +1477,7 @@ export default function DocsPage() {
                                 <div className="space-y-4 mt-4">
                                     <Prose>
                                         LifecycleOS includes built-in email sending infrastructure.
-                                        Deliverability is not bolted on — it is a core component.
+                                        Deliverability is not bolted on - it is a core component.
                                         The platform manages DKIM, SPF, and DMARC verification, IP
                                         warming, and real-time inbox placement monitoring.
                                     </Prose>
@@ -1485,7 +1485,7 @@ export default function DocsPage() {
                                     <SubHeading>Domain setup</SubHeading>
                                     <Prose>
                                         Add your sending domain and configure the DNS records
-                                        provided by the API. Verification is automated — the system
+                                        provided by the API. Verification is automated - the system
                                         checks DNS propagation and marks the domain as verified when
                                         all records are confirmed.
                                     </Prose>
@@ -1508,13 +1508,13 @@ export default function DocsPage() {
                                         The deliverability dashboard tracks daily metrics:
                                     </Prose>
                                     <ul className="list-disc list-inside text-muted-foreground space-y-1 pl-2">
-                                        <li><strong className="text-foreground">Sent</strong> — Total emails dispatched.</li>
-                                        <li><strong className="text-foreground">Delivered</strong> — Emails accepted by the receiving server.</li>
-                                        <li><strong className="text-foreground">Opened</strong> — Recipients who opened the email (pixel tracking).</li>
-                                        <li><strong className="text-foreground">Clicked</strong> — Recipients who clicked a link in the email.</li>
-                                        <li><strong className="text-foreground">Bounced</strong> — Emails that were rejected (hard or soft bounce).</li>
-                                        <li><strong className="text-foreground">Spam</strong> — Emails marked as spam by recipients.</li>
-                                        <li><strong className="text-foreground">Unsubscribed</strong> — Recipients who unsubscribed via the email footer link.</li>
+                                        <li><strong className="text-foreground">Sent</strong> - Total emails dispatched.</li>
+                                        <li><strong className="text-foreground">Delivered</strong> - Emails accepted by the receiving server.</li>
+                                        <li><strong className="text-foreground">Opened</strong> - Recipients who opened the email (pixel tracking).</li>
+                                        <li><strong className="text-foreground">Clicked</strong> - Recipients who clicked a link in the email.</li>
+                                        <li><strong className="text-foreground">Bounced</strong> - Emails that were rejected (hard or soft bounce).</li>
+                                        <li><strong className="text-foreground">Spam</strong> - Emails marked as spam by recipients.</li>
+                                        <li><strong className="text-foreground">Unsubscribed</strong> - Recipients who unsubscribed via the email footer link.</li>
                                     </ul>
                                     <InfoBox type="warning">
                                         Keep your spam complaint rate below 0.1% and bounce rate
@@ -1652,7 +1652,7 @@ export default function DocsPage() {
                                             crypto.timingSafeEqual
                                         </code>{' '}
                                         to prevent timing attacks. Respond with a 200 status within
-                                        5 seconds — if your endpoint times out, the webhook will be
+                                        5 seconds - if your endpoint times out, the webhook will be
                                         retried up to 3 times with exponential backoff.
                                     </InfoBox>
                                 </div>

@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Email Builder — SaaS Customer Journey Templates
+ * Email Builder - SaaS Customer Journey Templates
  *
  * Templates designed for SaaS owners to send to THEIR end users.
  * Every template covers a real SaaS customer journey touchpoint:
@@ -18,7 +18,7 @@
  *  - CAN-SPAM compliant footer with unsubscribe
  *  - Personalization via {{variable}} merge tags
  *  - Concise, scannable copy with clear hierarchy
- *  - No hype — practical, respectful, conversion-focused
+ *  - No hype - practical, respectful, conversion-focused
  * ========================================================================== */
 
 import type { EmailTemplate, EmailBlock } from './types';

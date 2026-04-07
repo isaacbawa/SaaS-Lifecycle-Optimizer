@@ -1,6 +1,6 @@
 /* ==========================================================================
- * GET  /api/v1/keys — List API keys (secrets partially masked)
- * POST /api/v1/keys — Create a new API key
+ * GET  /api/v1/keys - List API keys (secrets partially masked)
+ * POST /api/v1/keys - Create a new API key
  *
  * Supports BOTH:
  *  - Bearer token (API key) auth for external SDK/API access

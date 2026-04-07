@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Flow Builder — Node Palette
+ * Flow Builder - Node Palette
  *
  * Draggable sidebar listing all available node types. Users drag nodes
  * from here onto the canvas to add them to the flow.

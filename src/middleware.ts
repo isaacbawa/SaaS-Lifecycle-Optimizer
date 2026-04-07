@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Next.js Middleware — Clerk Auth + CORS + Security Headers
+ * Next.js Middleware - Clerk Auth + CORS + Security Headers
  *
  * Runs on the Edge for every matched request before route handlers.
  *
@@ -35,10 +35,10 @@ const isProtectedRoute = createRouteMatcher([
     '/settings(.*)',
 ]);
 
-/** External SDK/API routes — use Bearer token auth, not Clerk */
+/** External SDK/API routes - use Bearer token auth, not Clerk */
 const isExternalApiRoute = createRouteMatcher(['/api/v1(.*)']);
 
-/** Webhook ingress — no auth (verified in handlers) */
+/** Webhook ingress - no auth (verified in handlers) */
 const isWebhookRoute = createRouteMatcher(['/api/webhooks(.*)']);
 
 /* ── CORS Configuration ──────────────────────────────────────────────── */

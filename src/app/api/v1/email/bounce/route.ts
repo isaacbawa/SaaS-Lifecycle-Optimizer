@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Email Bounce Webhook Route — Incoming Bounce & Complaint Processing
+ * Email Bounce Webhook Route - Incoming Bounce & Complaint Processing
  *
  * POST /api/v1/email/bounce
  *
@@ -25,7 +25,7 @@ import {
 export const runtime = 'nodejs';
 
 /**
- * POST — Process incoming bounce/complaint notifications.
+ * POST - Process incoming bounce/complaint notifications.
  *
  * Body:
  * {
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 }
 
 /**
- * GET — Retrieve suppression list and statistics.
+ * GET - Retrieve suppression list and statistics.
  */
 export async function GET(request: NextRequest): Promise<Response> {
     const authResult = await authenticate(request, ['read']);

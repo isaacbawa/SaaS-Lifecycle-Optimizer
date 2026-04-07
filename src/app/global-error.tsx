@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Root error boundary — catches errors that escape every other boundary,
+ * Root error boundary - catches errors that escape every other boundary,
  * including `ChunkLoadError` from third-party scripts (Clerk JS CDN).
  *
  * When a chunk load fails, the most reliable recovery is a full page reload.

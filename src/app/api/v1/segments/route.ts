@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET/POST /api/v1/segments — Segment CRUD + Evaluation
+ * GET/POST /api/v1/segments - Segment CRUD + Evaluation
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';

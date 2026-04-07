@@ -1,5 +1,5 @@
 /* ==========================================================================
- * POST /api/v1/users/[id]/analyze — Churn Risk Analysis Endpoint
+ * POST /api/v1/users/[id]/analyze - Churn Risk Analysis Endpoint
  *
  * Runs the full churn risk scoring engine for a specific user and returns
  * the risk assessment with factors, recommendations, and MRR impact.
@@ -22,7 +22,7 @@ interface RouteContext {
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  // ── Auth (read scope, analysis rate tier — 30 req/min) ────────
+  // ── Auth (read scope, analysis rate tier - 30 req/min) ────────
   const auth = await authenticate(request, ['read'], 'analysis');
   if (!auth.success) return auth.response;
 

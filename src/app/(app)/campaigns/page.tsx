@@ -1,7 +1,7 @@
 'use client';
 
 /* ==========================================================================
- * Campaigns Dashboard — Analytics, Campaign List & Revenue Tracking
+ * Campaigns Dashboard - Analytics, Campaign List & Revenue Tracking
  *
  * Revenue-first KPI cards, full campaign table with status/segment/revenue,
  * and "Create Campaign" button that navigates to /campaigns/new.
@@ -414,8 +414,8 @@ export default function CampaignsPage() {
                             </TableHeader>
                             <TableBody>
                                 {filteredCampaigns.map((c) => {
-                                    const or = c.totalSent > 0 ? ((c.totalOpened / c.totalSent) * 100).toFixed(1) : '—';
-                                    const cr = c.totalSent > 0 ? ((c.totalClicked / c.totalSent) * 100).toFixed(1) : '—';
+                                    const or = c.totalSent > 0 ? ((c.totalOpened / c.totalSent) * 100).toFixed(1) : '-';
+                                    const cr = c.totalSent > 0 ? ((c.totalClicked / c.totalSent) * 100).toFixed(1) : '-';
                                     const seg = segments.find(s => s.id === c.segmentId);
                                     const rev = c.totalRevenue ?? 0;
                                     const StatusIcon = statusIcons[c.status] ?? Megaphone;
@@ -470,10 +470,10 @@ export default function CampaignsPage() {
                                             </TableCell>
                                             <TableCell className="text-xs">{seg?.name ?? 'All users'}</TableCell>
                                             <TableCell className="tabular-nums text-right">{(c.totalSent ?? 0).toLocaleString()}</TableCell>
-                                            <TableCell className="tabular-nums text-right">{or}{or !== '—' ? '%' : ''}</TableCell>
-                                            <TableCell className="tabular-nums text-right">{cr}{cr !== '—' ? '%' : ''}</TableCell>
+                                            <TableCell className="tabular-nums text-right">{or}{or !== '-' ? '%' : ''}</TableCell>
+                                            <TableCell className="tabular-nums text-right">{cr}{cr !== '-' ? '%' : ''}</TableCell>
                                             <TableCell className="tabular-nums text-right font-medium text-emerald-600 dark:text-emerald-400">
-                                                {rev > 0 ? `$${rev.toLocaleString()}` : '—'}
+                                                {rev > 0 ? `$${rev.toLocaleString()}` : '-'}
                                             </TableCell>
                                             <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                                                 <DropdownMenu>

@@ -4,7 +4,7 @@ import { MarketingHeader } from '@/components/layout/marketing-header';
 import { MarketingFooter } from '@/components/layout/marketing-footer';
 
 export const metadata: Metadata = {
-    title: 'Terms of Service — LifecycleOS',
+    title: 'Terms of Service - LifecycleOS',
     description: 'LifecycleOS terms of service governing your use of the platform.',
 };
 

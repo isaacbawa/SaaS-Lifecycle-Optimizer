@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Email Builder — Professional SaaS Email Templates
+ * Email Builder - Professional SaaS Email Templates
  *
  * 11 production-ready, revenue-focused email templates designed for real
  * SaaS lifecycle use cases. Every template uses platform variables from
@@ -26,7 +26,7 @@ const FONT = 'Arial, Helvetica, sans-serif';
 const pad = (t: number, r: number, b: number, l: number) => ({ top: t, right: r, bottom: b, left: l });
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 1. TRIAL WELCOME — Onboarding first-touch
+ * 1. TRIAL WELCOME - Onboarding first-touch
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const trialWelcomeBlocks: EmailBlock[] = [
@@ -125,7 +125,7 @@ const trialWelcomeBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 2. ACTIVATION NUDGE — Day 3 incomplete setup
+ * 2. ACTIVATION NUDGE - Day 3 incomplete setup
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const activationNudgeBlocks: EmailBlock[] = [
@@ -185,7 +185,7 @@ const activationNudgeBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 3. CHURN PREVENTION — Re-engagement for at-risk users
+ * 3. CHURN PREVENTION - Re-engagement for at-risk users
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const churnPreventionBlocks: EmailBlock[] = [
@@ -248,7 +248,7 @@ const churnPreventionBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 4. EXPANSION / UPGRADE — Seat-based upsell
+ * 4. EXPANSION / UPGRADE - Seat-based upsell
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const expansionBlocks: EmailBlock[] = [
@@ -311,7 +311,7 @@ const expansionBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 5. FEATURE ADOPTION — Drive usage of underused feature
+ * 5. FEATURE ADOPTION - Drive usage of underused feature
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const featureAdoptionBlocks: EmailBlock[] = [
@@ -371,7 +371,7 @@ const featureAdoptionBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 6. TRIAL EXPIRY WARNING — 3 days before trial ends
+ * 6. TRIAL EXPIRY WARNING - 3 days before trial ends
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const trialExpiryBlocks: EmailBlock[] = [
@@ -443,7 +443,7 @@ const trialExpiryBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 7. NPS FOLLOW-UP — Context-aware response to survey
+ * 7. NPS FOLLOW-UP - Context-aware response to survey
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const npsFollowUpBlocks: EmailBlock[] = [
@@ -503,7 +503,7 @@ const npsFollowUpBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 8. CONTRACT RENEWAL — 30-day proactive reminder
+ * 8. CONTRACT RENEWAL - 30-day proactive reminder
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const contractRenewalBlocks: EmailBlock[] = [
@@ -566,7 +566,7 @@ const contractRenewalBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 9. PRODUCT UPDATE / CHANGELOG — Monthly feature roundup
+ * 9. PRODUCT UPDATE / CHANGELOG - Monthly feature roundup
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const productUpdateBlocks: EmailBlock[] = [
@@ -686,7 +686,7 @@ const productUpdateBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 10. REFERRAL PROGRAM — Turn promoters into revenue
+ * 10. REFERRAL PROGRAM - Turn promoters into revenue
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const referralBlocks: EmailBlock[] = [
@@ -749,7 +749,7 @@ const referralBlocks: EmailBlock[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════
- * 11. BLANK — Minimal starting point
+ * 11. BLANK - Minimal starting point
  * ═══════════════════════════════════════════════════════════════════════ */
 
 const blankBlocks: EmailBlock[] = [
@@ -900,8 +900,8 @@ export const STARTER_TEMPLATES: EmailTemplate[] = [
 /* ═══════════════════════════════════════════════════════════════════════
  * COMBINED TEMPLATE CATALOGUE
  *
- * ALL_TEMPLATES  — Customer-facing (Starter + SaaS Journey)
- * PRO_TEMPLATES  — Internal templates (admin-only, import separately)
+ * ALL_TEMPLATES  - Customer-facing (Starter + SaaS Journey)
+ * PRO_TEMPLATES  - Internal templates (admin-only, import separately)
  * ═══════════════════════════════════════════════════════════════════════ */
 
 import { SAAS_TEMPLATES } from './templates-saas';

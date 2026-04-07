@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Rate Limiter — Unit Tests
+ * Rate Limiter - Unit Tests
  *
  * Tests the rate limiting logic. Since the DB upsert will fail in test
  * (mocked DB throws), the fallback path exercises in-memory limiting.
@@ -34,7 +34,7 @@ import {
     type RateLimitResult,
 } from '@/lib/api/rate-limit';
 
-describe('Rate Limiter — In-Memory Fallback', () => {
+describe('Rate Limiter - In-Memory Fallback', () => {
     // Use a unique key prefix per test to avoid cross-test pollution
     let testKeyCounter = 0;
     const uniqueKey = () => `test_key_${++testKeyCounter}_${Date.now()}`;
@@ -98,7 +98,7 @@ describe('Rate Limiter — In-Memory Fallback', () => {
     });
 });
 
-describe('Rate Limiter — RATE_LIMITS Config', () => {
+describe('Rate Limiter - RATE_LIMITS Config', () => {
     it('defines all expected tiers', () => {
         expect(RATE_LIMITS.standard).toBeDefined();
         expect(RATE_LIMITS.events).toBeDefined();
@@ -120,7 +120,7 @@ describe('Rate Limiter — RATE_LIMITS Config', () => {
     });
 });
 
-describe('Rate Limiter — Response Helpers', () => {
+describe('Rate Limiter - Response Helpers', () => {
     const blockedResult: RateLimitResult = {
         allowed: false,
         remaining: 0,

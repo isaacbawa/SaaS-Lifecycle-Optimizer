@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Flow Builder — Custom Node Components
+ * Flow Builder - Custom Node Components
  *
  * Each node type gets its own styled React Flow node with handles for
  * connecting edges. Nodes display their label, type icon, and a brief
@@ -57,9 +57,9 @@ function getNodeSummary(data: FlowNodeData): string {
             switch (cfg.kind) {
                 case 'lifecycle_change': return `State → ${cfg.lifecycleTo?.join(', ') ?? 'any'}`;
                 case 'event_received': return `Event: ${cfg.eventName ?? 'any'}`;
-                case 'schedule': return `Cron: ${cfg.cronExpression ?? '—'}`;
+                case 'schedule': return `Cron: ${cfg.cronExpression ?? '-'}`;
                 case 'manual': return 'Manual trigger';
-                case 'segment_entry': return `Segment: ${cfg.segmentId ?? '—'}`;
+                case 'segment_entry': return `Segment: ${cfg.segmentId ?? '-'}`;
                 case 'webhook_received': return 'Incoming webhook';
                 case 'date_property': return `${cfg.dateProperty ?? 'date'} ± ${cfg.dateOffsetDays ?? 0}d`;
                 default: return 'Configure trigger';
@@ -74,10 +74,10 @@ function getNodeSummary(data: FlowNodeData): string {
                     return cfg.emailSubject ? truncate(cfg.emailSubject, 40) : 'Configure email';
                 }
                 case 'send_webhook': return cfg.webhookUrl ? truncate(cfg.webhookUrl, 40) : 'Configure webhook';
-                case 'add_tag': return `Add: ${cfg.tag ?? '—'}`;
-                case 'remove_tag': return `Remove: ${cfg.tag ?? '—'}`;
+                case 'add_tag': return `Add: ${cfg.tag ?? '-'}`;
+                case 'remove_tag': return `Remove: ${cfg.tag ?? '-'}`;
                 case 'update_user': return `Update ${Object.keys(cfg.userProperties ?? {}).length} properties`;
-                case 'set_variable': return `${cfg.variableKey ?? '—'} = ${truncate(String(cfg.variableValue ?? ''), 20)}`;
+                case 'set_variable': return `${cfg.variableKey ?? '-'} = ${truncate(String(cfg.variableValue ?? ''), 20)}`;
                 case 'create_task': return cfg.taskTitle ? truncate(cfg.taskTitle, 40) : 'Configure task';
                 case 'api_call': return cfg.apiUrl ? truncate(cfg.apiUrl, 40) : 'Configure API call';
                 case 'send_notification': return cfg.notificationTitle ? truncate(cfg.notificationTitle, 40) : 'Configure notification';
@@ -95,9 +95,9 @@ function getNodeSummary(data: FlowNodeData): string {
             if (!cfg) return 'Configure delay';
             switch (cfg.kind) {
                 case 'fixed_duration': return formatDuration(cfg.durationMinutes ?? 0);
-                case 'until_event': return `Wait for: ${cfg.waitForEvent ?? '—'}`;
-                case 'until_date': return `Until: ${cfg.untilDate ?? '—'}`;
-                case 'until_time_of_day': return `At: ${cfg.untilTime ?? '—'}`;
+                case 'until_event': return `Wait for: ${cfg.waitForEvent ?? '-'}`;
+                case 'until_date': return `Until: ${cfg.untilDate ?? '-'}`;
+                case 'until_time_of_day': return `At: ${cfg.untilTime ?? '-'}`;
                 case 'smart_send_time': return `Smart: ${cfg.sendWindowStart ?? '09:00'}–${cfg.sendWindowEnd ?? '17:00'}`;
                 default: return 'Configure delay';
             }
@@ -173,7 +173,7 @@ function BaseFlowNode({ id, data, selected }: FlowNodeProps) {
             selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
             integrationWarning && 'border-orange-400 dark:border-orange-600',
         )}>
-            {/* Top handle — not for triggers */}
+            {/* Top handle - not for triggers */}
             {data.nodeType !== 'trigger' && (
                 <Handle type="target" position={Position.Top} className={handleClass} />
             )}

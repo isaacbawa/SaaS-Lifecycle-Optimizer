@@ -2,7 +2,7 @@
  * Lifecycle State Classification Engine
  *
  * Deterministically classifies a user into one of 8 lifecycle states
- * based on real-time behavioral signals.  The engine is stateless — it
+ * based on real-time behavioral signals.  The engine is stateless - it
  * takes a user record and returns the computed state.
  *
  * States (in order of lifecycle progression):
@@ -62,7 +62,7 @@ export interface LifecycleClassification {
 export function classifyLifecycleState(user: User): LifecycleClassification {
   const signals: string[] = [];
 
-  // ── Churned (highest priority — escape hatch) ──────────────────
+  // ── Churned (highest priority - escape hatch) ──────────────────
   if (
     user.lastLoginDaysAgo >= THRESHOLDS.churnedNoLoginDays &&
     user.loginFrequencyLast30Days === 0 &&
@@ -227,14 +227,14 @@ export function classifyLifecycleState(user: User): LifecycleClassification {
 
 /** Minimum milliseconds a user must dwell in a state before transitioning */
 const COOLDOWN_MS: Record<LifecycleState, number> = {
-  Lead: 0,           // no cooldown — classify immediately
+  Lead: 0,           // no cooldown - classify immediately
   Trial: 0,           // ditto
   Activated: 24 * 3600e3, // 1 day
   PowerUser: 48 * 3600e3, // 2 days
   ExpansionReady: 24 * 3600e3, // 1 day
   AtRisk: 0,           // always allow; safety
   Churned: 0,           // always allow; safety
-  Reactivated: 72 * 3600e3, // 3 days — give re-engagement time to settle
+  Reactivated: 72 * 3600e3, // 3 days - give re-engagement time to settle
 };
 
 /** States that bypass cooldown enforcement entirely */
@@ -287,10 +287,10 @@ export function detectStateTransition(user: User): {
       to: user.lifecycleState,
       classification: {
         ...classification,
-        state: user.lifecycleState, // override — keep current state
+        state: user.lifecycleState, // override - keep current state
         signals: [
           ...classification.signals,
-          `Cooldown active — dwell time in "${user.lifecycleState}" has not elapsed`,
+          `Cooldown active - dwell time in "${user.lifecycleState}" has not elapsed`,
         ],
       },
       suppressedByCooldown: true,

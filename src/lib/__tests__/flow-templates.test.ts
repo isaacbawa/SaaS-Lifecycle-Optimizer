@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Flow Templates — Structural Integrity Tests
+ * Flow Templates - Structural Integrity Tests
  *
  * Validates that all 22 flow templates have correct structure:
  *   - Valid categories
@@ -19,7 +19,7 @@ import {
 
 const validCategories = FLOW_TEMPLATE_CATEGORIES.map((c) => c.id) as string[];
 
-describe('Flow Templates — Collection', () => {
+describe('Flow Templates - Collection', () => {
     it('has at least 20 templates', () => {
         expect(FLOW_TEMPLATES.length).toBeGreaterThanOrEqual(20);
     });
@@ -42,7 +42,7 @@ describe('Flow Templates — Collection', () => {
     });
 });
 
-describe('Flow Templates — Individual Validation', () => {
+describe('Flow Templates - Individual Validation', () => {
     for (const template of FLOW_TEMPLATES) {
         describe(`Template: ${template.name} (${template.id})`, () => {
             it('has a valid category', () => {
@@ -84,7 +84,7 @@ describe('Flow Templates — Individual Validation', () => {
                 for (const node of nonTriggerNodes) {
                     expect(
                         targetNodeIds.has(node.id),
-                        `Node "${node.id}" (${node.type}) is not a target of any edge — orphan node`,
+                        `Node "${node.id}" (${node.type}) is not a target of any edge - orphan node`,
                     ).toBe(true);
                 }
             });

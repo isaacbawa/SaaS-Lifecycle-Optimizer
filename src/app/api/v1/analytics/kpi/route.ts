@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET /api/v1/analytics/kpi — KPI Summary (lifecycle distribution, MRR, etc.)
+ * GET /api/v1/analytics/kpi - KPI Summary (lifecycle distribution, MRR, etc.)
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Built-in Email System — Own ESP Facade
+ * Built-in Email System - Own ESP Facade
  *
  * Production email delivery system built entirely in-house:
  *   • SMTP transport with connection pooling (nodemailer)
@@ -213,7 +213,7 @@ export function initEmailSystem(): void {
                 `[email-system] SMTP_HOST is not configured. Email to ${email.to} (subject: "${email.subject}") was NOT delivered. ` +
                 `Set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS environment variables to enable email delivery.`,
             );
-            return { success: false, error: 'SMTP not configured — email delivery is disabled. Set SMTP_HOST to enable.' };
+            return { success: false, error: 'SMTP not configured - email delivery is disabled. Set SMTP_HOST to enable.' };
         });
 
         console.warn('[email-system] WARNING: SMTP_HOST is not configured. All emails will FAIL until SMTP credentials are provided.');
@@ -227,7 +227,7 @@ export function initEmailSystem(): void {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Inline SMTP Send — delivers immediately within the request lifecycle
+ * Inline SMTP Send - delivers immediately within the request lifecycle
  *
  * On Vercel (serverless), the background tick loop dies when the
  * function terminates. Emails MUST be sent inline within the request,
@@ -257,7 +257,7 @@ async function sendInline(params: {
         console.error(
             `[email-system] SMTP_HOST not configured. Email to ${params.to} was NOT delivered.`,
         );
-        return { success: false, error: 'SMTP not configured — set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.' };
+        return { success: false, error: 'SMTP not configured - set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS.' };
     }
 
     const fromLine = params.fromName
@@ -356,7 +356,7 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
         // Build headers (RFC 8058 unsubscribe)
         unsubHeaders = getUnsubscribeHeaders(messageId, payload.to, payload.campaignId);
     } catch (trackingErr) {
-        // Tracking must never block email delivery — send without tracking
+        // Tracking must never block email delivery - send without tracking
         console.warn(
             '[email-system] Tracking injection failed, sending without tracking:',
             trackingErr instanceof Error ? trackingErr.message : trackingErr,
@@ -381,7 +381,7 @@ export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
         tags: payload.tags,
     });
 
-    // 5. Pre-send SES domain verification check (non-blocking — warns but allows send)
+    // 5. Pre-send SES domain verification check (non-blocking - warns but allows send)
     const fromDomain = (payload.fromEmail ?? getTransportConfig().fromEmail).split('@')[1] ?? '';
     if (fromDomain && isSesConfigured()) {
         const sesOk = await isDomainVerifiedInSes(fromDomain);
@@ -487,7 +487,7 @@ export function shutdownEmailSystem(): void {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Retry Queue Processor — called by cron scheduler
+ * Retry Queue Processor - called by cron scheduler
  *
  * Processes emails that failed their initial inline send attempt.
  * These remain in the queue DB with status 'queued' and attempts >= 1.
@@ -573,7 +573,7 @@ export async function processRetryQueue(): Promise<{ processed: number; sent: nu
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Re-exports — All email subsystem APIs available through this module
+ * Re-exports - All email subsystem APIs available through this module
  * ═══════════════════════════════════════════════════════════════════════ */
 
 // Queue

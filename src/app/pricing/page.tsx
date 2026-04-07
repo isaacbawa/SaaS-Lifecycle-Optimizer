@@ -29,12 +29,15 @@ const tiers = [
       'Up to 1,000 tracked users',
       'JavaScript & Python SDK',
       'Lifecycle state engine',
-      'Activation funnel analytics',
+      'Drag and drop email builder',
+      'Flow builder',
       '3 automated email flows',
-      'Basic deliverability monitoring',
-      'Community support',
+      'Revenue attribution (MRR/ARR)',
+      'Activation funnel analytics',
+      'Deliverability monitoring & analytics',
+      'Email support',
     ],
-    cta: 'Start free trial',
+    cta: 'Start 14 days trial',
     popular: false,
   },
   {
@@ -53,7 +56,7 @@ const tiers = [
       'Dedicated IP for email sending',
       'Priority email support',
     ],
-    cta: 'Start free trial',
+    cta: 'Start 14 days trial',
     popular: true,
   },
   {
@@ -65,18 +68,16 @@ const tiers = [
     features: [
       'Unlimited tracked users',
       'Everything in Growth, plus:',
-      'SSO / SAML authentication',
-      'Custom Stripe & billing integrations',
       'Multi-tenant data isolation',
       'Dedicated account manager',
       'Quarterly lifecycle strategy review',
-      '99.99% SLA with 24/7 support',
+      'Dedicated 24/7 support',
     ],
     cta: 'Talk to us',
     popular: false,
   },
 ];
-
+``
 export default function PricingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -96,7 +97,7 @@ export default function PricingPage() {
                 No per-email charges. No hidden fees for &ldquo;premium&rdquo; features. Every plan includes the SDK, event streaming, lifecycle engine, email infrastructure, and revenue attribution. Pick the scale that fits.
               </p>
               <p className="text-sm text-muted-foreground mt-3">
-                Every plan starts with a 14-day trial &mdash; full platform access, no charge until day 15.
+                Every plan starts with a 14-day trial - full platform access, no charge until day 15.
               </p>
             </div>
 
@@ -138,7 +139,7 @@ export default function PricingPage() {
                     <ul className="space-y-3 text-muted-foreground flex-1 mb-8">
                       {tier.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-3">
-                          <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                          <Check className="w-5 h-5 font-bold text-primary flex-shrink-0 mt-0.5" />
                           <span>{feature}</span>
                         </li>
                       ))}
@@ -217,7 +218,7 @@ export default function PricingPage() {
                   Do you charge per email sent?
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground leading-relaxed">
-                  No. Email sending is included in every plan with generous limits — Starter includes 10,000 emails/month, Growth includes 100,000, and Enterprise is unlimited. We want you to send the right emails at the right time without worrying about per-send costs.
+                  No. Email sending is included in every plan with generous limits - Starter includes 10,000 emails/month, Growth includes 100,000, and Enterprise is unlimited. We want you to send the right emails at the right time without worrying about per-send costs.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="p-3">
@@ -225,7 +226,7 @@ export default function PricingPage() {
                   Can I switch plans or cancel anytime?
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground leading-relaxed">
-                  Yes. No annual contracts, no cancellation fees. Upgrade or downgrade at any time — changes are prorated to the day. If you cancel, your data is retained for 30 days so you can export or re-activate easily.
+                  Yes. No annual contracts, no cancellation fees. Upgrade or downgrade at any time - changes are prorated to the day. If you cancel, your data is retained for 30 days so you can export or re-activate easily.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="p-4">
@@ -233,7 +234,7 @@ export default function PricingPage() {
                   What happens when I hit my tracked user limit?
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground leading-relaxed">
-                  We&apos;ll notify you at 80% and 100% of your limit. You can upgrade instantly from the dashboard. We never stop tracking your users or pausing your flows — you&apos;ll get a 7-day grace period to upgrade before any overage charges apply.
+                  We&apos;ll notify you at 80% and 100% of your limit. You can upgrade instantly from the dashboard. We never stop tracking your users or pausing your flows - you&apos;ll get a 7-day grace period to upgrade before any overage charges apply.
                 </AccordionContent>
               </AccordionItem>
               <AccordionItem value="p-5">
@@ -241,7 +242,7 @@ export default function PricingPage() {
                   Is there a discount for annual billing?
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground leading-relaxed">
-                  Yes — annual billing saves 20% on Starter and Growth plans. Contact us for Enterprise annual pricing. Annual plans also include a complimentary onboarding session with our lifecycle strategy team.
+                  Yes - annual billing saves 20% on Starter and Growth plans. Contact us for Enterprise annual pricing. Annual plans also include a complimentary onboarding session with our lifecycle strategy team.
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
@@ -257,7 +258,7 @@ export default function PricingPage() {
                   Not sure which plan? Start with Growth.
                 </h2>
                 <p className="text-white/70 mt-3 mb-6 leading-relaxed">
-                  Every trial starts with full Growth features for 14 days. Experience churn scoring, expansion detection, and unlimited flows — then pick the plan that fits.
+                  Every trial starts with full Growth features for 14 days. Experience churn scoring, expansion detection, and unlimited flows - then pick the plan that fits.
                 </p>
                 <Button size="lg" className="text-base" asChild>
                   <Link href="/sign-up">

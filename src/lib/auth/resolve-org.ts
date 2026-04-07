@@ -1,8 +1,8 @@
 /* ==========================================================================
- * Organization Resolution — Unified Org ID Resolution for All Contexts
+ * Organization Resolution - Unified Org ID Resolution for All Contexts
  *
  * Provides a single entry-point to resolve the internal org UUID from:
- *   1. Clerk session (dashboard server components) — always tried first
+ *   1. Clerk session (dashboard server components) - always tried first
  *   2. Auto-provisioned org for authenticated users with no org
  *   3. Just-in-time user + org provisioning when webhook hasn't fired yet
  *
@@ -27,7 +27,7 @@ import { eq } from 'drizzle-orm';
  * Throws if no organization can be resolved.
  */
 export async function resolveOrgId(): Promise<string> {
-    // 1. Try Clerk session FIRST — this is the production path
+    // 1. Try Clerk session FIRST - this is the production path
     try {
         const session = await auth();
 
@@ -67,10 +67,10 @@ export async function resolveOrgId(): Promise<string> {
             }
         }
     } catch {
-        // auth() may throw in non-request contexts — fail hard
+        // auth() may throw in non-request contexts - fail hard
     }
 
-    // No auth context available — cannot resolve
+    // No auth context available - cannot resolve
     throw new Error(
         '[resolveOrgId] Unable to resolve organization. No Clerk session found. ' +
         'Ensure the request has a valid Clerk session or use API key authentication.',

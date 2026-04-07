@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Database Operations Layer — LifecycleOS
+ * Database Operations Layer - LifecycleOS
  *
  * Type-safe query functions using Drizzle ORM against Neon PostgreSQL.
  * Mirrors the interface of the in-memory store so call-sites can migrate
@@ -76,7 +76,7 @@ function clampLimit(limit?: number): number {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Type helpers — Infer row types from schema
+ * Type helpers - Infer row types from schema
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export type Organization = typeof schema.organizations.$inferSelect;
@@ -387,7 +387,7 @@ export async function upsertTrackedUser(orgId: string, data: Omit<TrackedUserIns
 
 /**
  * Partial update of a tracked user by internal UUID.
- * Only updates the provided fields — does NOT overwrite unset fields.
+ * Only updates the provided fields - does NOT overwrite unset fields.
  * Used by the event pipeline for targeted field updates (e.g. lifecycleState, churnRiskScore).
  */
 export async function updateTrackedUser(
@@ -500,7 +500,7 @@ export async function ingestEvents(orgId: string, batch: Omit<EventInsert, 'orga
 }
 
 /**
- * Link orphaned events — events that arrived before identify() — to their
+ * Link orphaned events - events that arrived before identify() - to their
  * tracked user. Updates all events matching the externalUserId where
  * trackedUserId is still NULL.
  */
@@ -1413,7 +1413,7 @@ export async function incrementPersonalizationConversion(ruleId: string) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Mailing Lists — External contact lists for campaigns
+ * Mailing Lists - External contact lists for campaigns
  * ═══════════════════════════════════════════════════════════════════════ */
 
 export type MailingList = typeof schema.mailingLists.$inferSelect;
@@ -1630,7 +1630,7 @@ export async function getIntegrationCapabilities(orgId: string): Promise<{ capab
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * User Preferences — DB-backed per-user settings
+ * User Preferences - DB-backed per-user settings
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /** Get a single preference by key for a user (by internal user ID) */
@@ -1663,7 +1663,7 @@ export async function getAllUserPreferences(userId: string) {
     }, {});
 }
 
-/** Upsert a preference — create or update by (userId, key) */
+/** Upsert a preference - create or update by (userId, key) */
 export async function setUserPreference(userId: string, key: string, value: Record<string, unknown>) {
     return dbWrite('setUserPreference', async () => {
         const [row] = await db

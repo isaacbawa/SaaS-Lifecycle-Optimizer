@@ -1,7 +1,7 @@
 'use client';
 
 /* ==========================================================================
- * Campaign Builder — Professional Full-Page Campaign Creation
+ * Campaign Builder - Professional Full-Page Campaign Creation
  *
  * Handles both Create and Edit modes (via ?id=xxx query param).
  * Sections:
@@ -517,7 +517,7 @@ function CampaignBuilderInner() {
                                     id="campaign-name"
                                     value={name}
                                     onChange={(e) => { setName(e.target.value); setErrors((prev) => ({ ...prev, name: '' })); }}
-                                    placeholder="e.g. Q1 Re-engagement — Churning Users"
+                                    placeholder="e.g. Q1 Re-engagement - Churning Users"
                                     className={cn('h-10', errors.name && 'border-destructive')}
                                     autoFocus
                                 />
@@ -687,7 +687,7 @@ function CampaignBuilderInner() {
                         <SectionHeader
                             step={3}
                             title="Audience"
-                            description="Choose who will receive this campaign — your product users, a segment, or an external mailing list."
+                            description="Choose who will receive this campaign - your product users, a segment, or an external mailing list."
                         />
                         <div className="pl-10 space-y-4">
                             {/* Audience type selector */}
@@ -886,7 +886,7 @@ function CampaignBuilderInner() {
                                 <div className="flex items-center justify-between">
                                     <Label className="text-xs font-medium">
                                         Subject Line Override
-                                        <span className="text-muted-foreground font-normal ml-1">(optional — overrides template subject)</span>
+                                        <span className="text-muted-foreground font-normal ml-1">(optional - overrides template subject)</span>
                                     </Label>
                                     <VariableInserter onInsert={insertSubjectVariable} />
                                 </div>
@@ -1111,16 +1111,16 @@ function CampaignBuilderInner() {
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                             <div className="space-y-1">
                                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Campaign</p>
-                                <p className="text-sm font-medium">{name || '—'}</p>
+                                <p className="text-sm font-medium">{name || '-'}</p>
                             </div>
                             <div className="space-y-1">
                                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Template</p>
-                                <p className="text-sm font-medium">{selectedTemplate?.name ?? '—'}</p>
+                                <p className="text-sm font-medium">{selectedTemplate?.name ?? '-'}</p>
                             </div>
                             <div className="space-y-1">
                                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Audience</p>
                                 <p className="text-sm font-medium">
-                                    {selectedSegment ? selectedSegment.name : segmentId === null ? 'All Users' : '—'}
+                                    {selectedSegment ? selectedSegment.name : segmentId === null ? 'All Users' : '-'}
                                 </p>
                             </div>
                             <div className="space-y-1">
@@ -1130,7 +1130,7 @@ function CampaignBuilderInner() {
                                         ? 'Immediately'
                                         : scheduledDate
                                             ? `${scheduledDate} at ${scheduledTime}`
-                                            : '—'}
+                                            : '-'}
                                 </p>
                             </div>
                         </div>

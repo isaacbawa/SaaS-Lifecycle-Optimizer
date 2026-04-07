@@ -1,5 +1,5 @@
 /* ==========================================================================
- * POST /api/v1/group — Account Grouping Endpoint
+ * POST /api/v1/group - Account Grouping Endpoint
  *
  * Upserts an account with traits from the SDK group() call.
  * All data persisted to PostgreSQL via DB operations.

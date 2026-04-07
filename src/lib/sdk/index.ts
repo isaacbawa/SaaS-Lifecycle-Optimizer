@@ -1,5 +1,5 @@
 /* ==========================================================================
- * @lifecycleos/sdk — Public Entry Point
+ * @lifecycleos/sdk - Public Entry Point
  *
  * Re-exports the client class and all public types so consumers import
  * from a single module:

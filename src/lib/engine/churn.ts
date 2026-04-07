@@ -76,9 +76,9 @@ function scoreLoginFrequency(user: User): { score: number; factor: RiskFactor | 
       signal: `Login frequency drop: ${lastLoginDaysAgo}d since last login, ${loginFrequencyLast7Days}/7d, ${loginFrequencyLast30Days}/30d`,
       weight: WEIGHTS.loginFrequency,
       description: raw >= 70
-        ? 'Severe disengagement — login activity has dropped sharply.'
+        ? 'Severe disengagement - login activity has dropped sharply.'
         : raw >= 40
-          ? 'Declining login patterns — early warning of disengagement.'
+          ? 'Declining login patterns - early warning of disengagement.'
           : 'Slightly below-average login frequency.',
       category: 'engagement',
     },
@@ -103,7 +103,7 @@ function scoreFeatureUsage(user: User): { score: number; factor: RiskFactor | nu
       signal: `Feature adoption: only ${count} feature(s) used in 30 days`,
       weight: WEIGHTS.featureUsage,
       description: count === 0
-        ? 'No feature usage — user is effectively inactive.'
+        ? 'No feature usage - user is effectively inactive.'
         : `Limited to ${user.featureUsageLast30Days.join(', ')}.`,
       category: 'adoption',
     },
@@ -127,7 +127,7 @@ function scoreSessionDepth(user: User): { score: number; factor: RiskFactor | nu
   return {
     score: raw * WEIGHTS.sessionDepth,
     factor: {
-      signal: `Session depth: ${depth}min average — ${raw >= 55 ? 'superficial' : 'below-average'} engagement`,
+      signal: `Session depth: ${depth}min average - ${raw >= 55 ? 'superficial' : 'below-average'} engagement`,
       weight: WEIGHTS.sessionDepth,
       description: `Average session is ${depth} minutes. Power users average 30+ minutes.`,
       category: 'engagement',
@@ -149,7 +149,7 @@ function scoreNps(user: User): { score: number; factor: RiskFactor | null } {
   return {
     score: raw * WEIGHTS.npsScore,
     factor: {
-      signal: `NPS score: ${user.npsScore} — ${user.npsScore <= 6 ? 'detractor' : 'passive'}`,
+      signal: `NPS score: ${user.npsScore} - ${user.npsScore <= 6 ? 'detractor' : 'passive'}`,
       weight: WEIGHTS.npsScore,
       description: `NPS of ${user.npsScore} indicates dissatisfaction. Scores ≤6 are detractors.`,
       category: 'satisfaction',
@@ -260,7 +260,7 @@ function scoreContractRenewal(user: User): { score: number; factor: RiskFactor |
       signal: `Contract renewal: ${daysToRenewal} days until renewal`,
       weight: WEIGHTS.contractRenewal,
       description: daysToRenewal <= 30
-        ? `Renewal in ${daysToRenewal} days — critical window for retention action.`
+        ? `Renewal in ${daysToRenewal} days - critical window for retention action.`
         : `Renewal approaching in ${daysToRenewal} days. Prepare retention strategy.`,
       category: 'contract',
     },
@@ -278,7 +278,7 @@ function generateRecommendations(
   const recs: Recommendation[] = [];
   const categories = new Set(factors.map((f) => f.category));
 
-  // Critical — immediate intervention
+  // Critical - immediate intervention
   if (tier === 'Critical') {
     if (user.lifecycleState === 'Churned') {
       recs.push({
@@ -363,7 +363,7 @@ function generateRecommendations(
   // Fallback
   if (recs.length === 0) {
     recs.push({
-      action: 'Continue monitoring — no immediate intervention needed.',
+      action: 'Continue monitoring - no immediate intervention needed.',
       priority: 'low',
       automatable: false,
       effort: 'Low',

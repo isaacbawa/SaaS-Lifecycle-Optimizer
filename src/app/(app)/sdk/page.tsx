@@ -462,7 +462,7 @@ export default function SdkPage() {
         </TabsList>
 
         {/* ══════════════════════════════════════════════════════════
-         * TAB 1 — Quick Start
+         * TAB 1 - Quick Start
          * ══════════════════════════════════════════════════════════ */}
         <TabsContent value="quickstart" className="mt-6 space-y-6">
           <Card>
@@ -532,7 +532,7 @@ export default function SdkPage() {
         </TabsContent>
 
         {/* ══════════════════════════════════════════════════════════
-         * TAB 2 — API Keys Management
+         * TAB 2 - API Keys Management
          * ══════════════════════════════════════════════════════════ */}
         <TabsContent value="apikeys" className="mt-6 space-y-6">
           <Card>
@@ -581,7 +581,7 @@ export default function SdkPage() {
                       </TableCell>
                       <TableCell><Badge variant="outline" className="text-xs">{k.environment}</Badge></TableCell>
                       <TableCell className="text-xs text-muted-foreground">{new Date(k.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : '—'}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : '-'}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => revokeKey(k.id)}>
                           <Trash2 className="h-3.5 w-3.5" />
@@ -620,7 +620,7 @@ export default function SdkPage() {
                     <div className="flex items-start gap-2">
                       <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-green-800 dark:text-green-300">API key created! Copy it now — it won&apos;t be shown again.</p>
+                        <p className="text-sm font-medium text-green-800 dark:text-green-300">API key created! Copy it now, it won&apos;t be shown again.</p>
                         <div className="mt-2 flex items-center gap-2">
                           <code className="text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded font-mono break-all">{newKeyResult.key ?? ''}</code>
                           <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => navigator.clipboard.writeText(newKeyResult.key ?? '')}>
@@ -638,7 +638,7 @@ export default function SdkPage() {
         </TabsContent>
 
         {/* ══════════════════════════════════════════════════════════
-         * TAB 3 — Event Tracking
+         * TAB 3 - Event Tracking
          * ══════════════════════════════════════════════════════════ */}
         <TabsContent value="tracking" className="mt-6 space-y-6">
           <Card>
@@ -682,7 +682,7 @@ export default function SdkPage() {
         </TabsContent>
 
         {/* ══════════════════════════════════════════════════════════
-         * TAB 4 — Event Reference
+         * TAB 4 - Event Reference
          * ══════════════════════════════════════════════════════════ */}
         <TabsContent value="events" className="mt-6">
           <Card>
@@ -716,7 +716,7 @@ export default function SdkPage() {
         </TabsContent>
 
         {/* ══════════════════════════════════════════════════════════
-         * TAB 5 — Server API
+         * TAB 5 - Server API
          * ══════════════════════════════════════════════════════════ */}
         <TabsContent value="serverapi" className="mt-6 space-y-6">
           <Card>
@@ -769,18 +769,18 @@ export default function SdkPage() {
         </TabsContent>
 
         {/* ══════════════════════════════════════════════════════════
-         * TAB 6 — API Console (Live Testing)
+         * TAB 6 - API Console (Live Testing)
          * ══════════════════════════════════════════════════════════ */}
         <TabsContent value="console" className="mt-6 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Play className="h-5 w-5 text-primary" /> Live API Console</CardTitle>
-              <CardDescription>Test any API endpoint in real-time. All requests hit your live data store — changes are reflected across the dashboard.</CardDescription>
+              <CardDescription>Test any API endpoint in real-time. All requests hit your live data store, changes are reflected across the dashboard.</CardDescription>
               <div className="flex items-center gap-2 mt-2">
                 <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-transparent text-xs gap-1">
                   <Shield className="h-3 w-3" /> Authenticated via session
                 </Badge>
-                <span className="text-xs text-muted-foreground">Your dashboard session is used automatically — no API key needed for console tests.</span>
+                <span className="text-xs text-muted-foreground">Your dashboard session is used automatically, no API key needed for console tests.</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -841,7 +841,7 @@ export default function SdkPage() {
         </TabsContent>
 
         {/* ══════════════════════════════════════════════════════════
-         * TAB 7 — Webhooks
+         * TAB 7 - Webhooks
          * ══════════════════════════════════════════════════════════ */}
         <TabsContent value="webhooks" className="mt-6 space-y-6">
           <Card>
@@ -959,10 +959,10 @@ export default function SdkPage() {
               <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-4">
                 <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Webhook Headers</p>
                 <div className="mt-2 space-y-1 text-sm text-amber-700 dark:text-amber-400 font-mono">
-                  <p><code className="text-xs">X-Lifecycle-Signature</code> — HMAC-SHA256 signature</p>
-                  <p><code className="text-xs">X-Lifecycle-Event</code> — Event type (e.g., user.lifecycle_changed)</p>
-                  <p><code className="text-xs">X-Lifecycle-Delivery</code> — Unique delivery ID for deduplication</p>
-                  <p><code className="text-xs">User-Agent</code> — LifecycleOS-Webhook/1.0</p>
+                  <p><code className="text-xs">X-Lifecycle-Signature</code> - HMAC-SHA256 signature</p>
+                  <p><code className="text-xs">X-Lifecycle-Event</code> - Event type (e.g., user.lifecycle_changed)</p>
+                  <p><code className="text-xs">X-Lifecycle-Delivery</code> - Unique delivery ID for deduplication</p>
+                  <p><code className="text-xs">User-Agent</code> - LifecycleOS-Webhook/1.0</p>
                 </div>
               </div>
             </CardContent>

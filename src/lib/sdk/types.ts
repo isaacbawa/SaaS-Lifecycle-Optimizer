@@ -1,5 +1,5 @@
 /* ==========================================================================
- * SDK Type Definitions — @lifecycleos/sdk
+ * SDK Type Definitions - @lifecycleos/sdk
  *
  * These types define the public API surface of the LifecycleOS SDK client
  * and the internal wire formats for API communication.
@@ -12,7 +12,7 @@ export interface LifecycleOSConfig {
   /** Your LifecycleOS project API key (starts with `lcos_live_` or `lcos_test_`) */
   apiKey: string;
   /**
-   * API base URL — defaults to the Next.js API routes in the same origin.
+   * API base URL - defaults to the Next.js API routes in the same origin.
    * Override when pointing at a dedicated API server.
    */
   apiBaseUrl?: string;

@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Core Type Definitions — SaaS Lifecycle Infrastructure Platform
+ * Core Type Definitions - SaaS Lifecycle Infrastructure Platform
  * ========================================================================== */
 
 /** Lifecycle states that the system engine automatically assigns */
@@ -154,7 +154,7 @@ export type FlowStep = {
 };
 
 /* ==========================================================================
- * Flow Builder — Node-Graph Type System
+ * Flow Builder - Node-Graph Type System
  *
  * Supports a visual DAG (directed acyclic graph) of nodes connected by
  * edges. Each node has a concrete config discriminated by `nodeType`.
@@ -381,7 +381,7 @@ export interface FlowNodeData {
   };
 }
 
-/** A single node in the flow graph — compatible with @xyflow/react */
+/** A single node in the flow graph - compatible with @xyflow/react */
 export interface FlowNodeDef {
   id: string;
   type: string;             // matches React Flow custom node type key
@@ -452,7 +452,7 @@ export interface FlowSettings {
   quietHoursStart?: string;   // "HH:mm"
   quietHoursEnd?: string;
   quietHoursTimezone?: string;
-  /** Goal metric — when hit, the flow is considered successful for that user */
+  /** Goal metric - when hit, the flow is considered successful for that user */
   goalEvent?: string;
   goalTimeout?: number;        // minutes
   /** Tags applied to enrolled users */

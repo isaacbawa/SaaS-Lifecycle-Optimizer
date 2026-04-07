@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * @lifecycleos/sdk/react — React Bindings
+ * @lifecycleos/sdk/react - React Bindings
  *
  * Re-exports Provider, hooks, and components for React-based apps.
  * Works with: Next.js (App Router & Pages Router), Remix, Vite + React,

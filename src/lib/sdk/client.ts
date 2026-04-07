@@ -1,5 +1,5 @@
 /* ==========================================================================
- * LifecycleOS SDK Client — @lifecycleos/sdk
+ * LifecycleOS SDK Client - @lifecycleos/sdk
  *
  * Production-grade client library for ingesting events, identifying users,
  * and grouping accounts into the LifecycleOS platform.
@@ -130,10 +130,10 @@ export class LifecycleOS {
       messageId: generateId(),
     };
 
-    // Enforce queue cap — drop oldest events if at capacity
+    // Enforce queue cap - drop oldest events if at capacity
     if (this.queue.length >= LifecycleOS.MAX_QUEUE_SIZE) {
       const dropped = this.queue.splice(0, this.queue.length - LifecycleOS.MAX_QUEUE_SIZE + 1);
-      this.log('queue cap reached — dropped oldest events', { dropped: dropped.length });
+      this.log('queue cap reached - dropped oldest events', { dropped: dropped.length });
     }
 
     this.queue.push(payload);
@@ -190,7 +190,7 @@ export class LifecycleOS {
     } catch (err) {
       // Re-enqueue failed events at the front
       this.queue.unshift(...batch);
-      this.log('flush failed — events re-queued', { error: (err as Error).message });
+      this.log('flush failed - events re-queued', { error: (err as Error).message });
     } finally {
       this.flushing = false;
 

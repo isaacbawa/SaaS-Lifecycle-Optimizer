@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET/POST /api/v1/personalization-rules — Rules CRUD + resolve
+ * GET/POST /api/v1/personalization-rules - Rules CRUD + resolve
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';

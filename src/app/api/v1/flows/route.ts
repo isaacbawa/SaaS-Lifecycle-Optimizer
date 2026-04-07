@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET /api/v1/flows — List all flow definitions with filtering & pagination
+ * GET /api/v1/flows - List all flow definitions with filtering & pagination
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';

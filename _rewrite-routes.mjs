@@ -9,7 +9,7 @@ const files = {};
 // 1. POST /api/v1/events
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/events/route.ts`] = `/* ==========================================================================
- * POST /api/v1/events — Event Ingestion Endpoint
+ * POST /api/v1/events - Event Ingestion Endpoint
  *
  * Accepts batched events from the SDK, persists them to the store,
  * and triggers the lifecycle engine + webhook dispatch for each event.
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
 // 2. POST /api/v1/identify
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/identify/route.ts`] = `/* ==========================================================================
- * POST /api/v1/identify — User Identification Endpoint
+ * POST /api/v1/identify - User Identification Endpoint
  *
  * Upserts a user with traits from the SDK identify() call.
  * Runs the lifecycle engine and dispatches webhooks on state transitions.
@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
 // 3. POST /api/v1/group
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/group/route.ts`] = `/* ==========================================================================
- * POST /api/v1/group — Account Grouping Endpoint
+ * POST /api/v1/group - Account Grouping Endpoint
  *
  * Upserts an account with traits from the SDK group() call.
  * ========================================================================== */
@@ -452,8 +452,8 @@ export async function POST(request: NextRequest) {
 // 4. GET/POST /api/v1/users/[id]
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/users/[id]/route.ts`] = `/* ==========================================================================
- * GET  /api/v1/users/[id]  — Retrieve user profile & lifecycle state
- * POST /api/v1/users/[id]  — Update user properties (allowlisted fields)
+ * GET  /api/v1/users/[id]  - Retrieve user profile & lifecycle state
+ * POST /api/v1/users/[id]  - Update user properties (allowlisted fields)
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
@@ -539,7 +539,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 // 5. POST /api/v1/users/[id]/analyze
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/users/[id]/analyze/route.ts`] = `/* ==========================================================================
- * POST /api/v1/users/[id]/analyze — Churn Risk Analysis Endpoint
+ * POST /api/v1/users/[id]/analyze - Churn Risk Analysis Endpoint
  *
  * Runs the full churn risk scoring engine for a specific user and returns
  * the risk assessment with factors, recommendations, and MRR impact.
@@ -656,8 +656,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 // 6. GET/POST /api/v1/accounts/[id]
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/accounts/[id]/route.ts`] = `/* ==========================================================================
- * GET  /api/v1/accounts/[id]  — Retrieve account details + user breakdown
- * POST /api/v1/accounts/[id]  — Update account properties (allowlisted)
+ * GET  /api/v1/accounts/[id]  - Retrieve account details + user breakdown
+ * POST /api/v1/accounts/[id]  - Update account properties (allowlisted)
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
@@ -743,7 +743,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 // 7. GET /api/v1/flows (with pagination)
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/flows/route.ts`] = `/* ==========================================================================
- * GET /api/v1/flows — List all email flows with filtering & pagination
+ * GET /api/v1/flows - List all email flows with filtering & pagination
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
@@ -795,7 +795,7 @@ export async function GET(request: NextRequest) {
 // 8. GET /api/v1/analytics/revenue (division-by-zero fix)
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/analytics/revenue/route.ts`] = `/* ==========================================================================
- * GET /api/v1/analytics/revenue — Revenue analytics endpoint
+ * GET /api/v1/analytics/revenue - Revenue analytics endpoint
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
@@ -815,7 +815,7 @@ export async function GET(request: NextRequest) {
   const latestMonth = revenue.length > 0 ? revenue[revenue.length - 1] : null;
   const prevMonth = revenue.length > 1 ? revenue[revenue.length - 2] : null;
 
-  // Safe division — avoid NaN/Infinity when prevMonth.netTotal is 0
+  // Safe division - avoid NaN/Infinity when prevMonth.netTotal is 0
   let mrrGrowth = 0;
   if (latestMonth && prevMonth && prevMonth.netTotal !== 0) {
     mrrGrowth = ((latestMonth.netTotal - prevMonth.netTotal) / prevMonth.netTotal) * 100;
@@ -842,7 +842,7 @@ export async function GET(request: NextRequest) {
 // 9. GET /api/v1/analytics/retention
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/analytics/retention/route.ts`] = `/* ==========================================================================
- * GET /api/v1/analytics/retention — Retention cohort analytics
+ * GET /api/v1/analytics/retention - Retention cohort analytics
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
@@ -883,7 +883,7 @@ export async function GET(request: NextRequest) {
 // 10. GET /api/v1/analytics/kpi
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/analytics/kpi/route.ts`] = `/* ==========================================================================
- * GET /api/v1/analytics/kpi — KPI Summary (lifecycle distribution, MRR, etc.)
+ * GET /api/v1/analytics/kpi - KPI Summary (lifecycle distribution, MRR, etc.)
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
@@ -910,8 +910,8 @@ export async function GET(request: NextRequest) {
 // 11. GET/POST /api/v1/webhooks
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/webhooks/route.ts`] = `/* ==========================================================================
- * GET    /api/v1/webhooks     — List all configured webhooks
- * POST   /api/v1/webhooks     — Create a new webhook
+ * GET    /api/v1/webhooks     - List all configured webhooks
+ * POST   /api/v1/webhooks     - Create a new webhook
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
@@ -992,9 +992,9 @@ export async function POST(request: NextRequest) {
 // 12. GET/PUT/DELETE /api/v1/webhooks/[id]
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/webhooks/[id]/route.ts`] = `/* ==========================================================================
- * GET    /api/v1/webhooks/[id]    — Get webhook details + delivery log
- * PUT    /api/v1/webhooks/[id]    — Update a webhook
- * DELETE /api/v1/webhooks/[id]    — Delete a webhook
+ * GET    /api/v1/webhooks/[id]    - Get webhook details + delivery log
+ * PUT    /api/v1/webhooks/[id]    - Update a webhook
+ * DELETE /api/v1/webhooks/[id]    - Delete a webhook
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
@@ -1099,8 +1099,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 // 13. GET/POST /api/v1/keys
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/keys/route.ts`] = `/* ==========================================================================
- * GET  /api/v1/keys — List API keys (secrets partially masked)
- * POST /api/v1/keys — Create a new API key
+ * GET  /api/v1/keys - List API keys (secrets partially masked)
+ * POST /api/v1/keys - Create a new API key
  * ========================================================================== */
 
 import { NextRequest } from 'next/server';
@@ -1149,7 +1149,7 @@ export async function POST(request: NextRequest) {
   const { name, environment, scopes } = validation.data;
   const key = await store.createApiKey(name, environment, scopes);
 
-  // Return the full key ONCE — after this it's only available masked
+  // Return the full key ONCE - after this it's only available masked
   return apiSuccess(
     { key },
     201,
@@ -1164,7 +1164,7 @@ export async function POST(request: NextRequest) {
 // 14. DELETE /api/v1/keys/[id]
 // ═══════════════════════════════════════════════════════════════════════
 files[`${base}/keys/[id]/route.ts`] = `/* ==========================================================================
- * DELETE /api/v1/keys/[id] — Revoke an API key
+ * DELETE /api/v1/keys/[id] - Revoke an API key
  *
  * Includes self-revocation guard to prevent revoking the key currently
  * being used to authenticate the request.

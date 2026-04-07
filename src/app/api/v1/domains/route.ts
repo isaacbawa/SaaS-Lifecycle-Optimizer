@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET/POST /api/v1/domains — Sending Domain Management
+ * GET/POST /api/v1/domains - Sending Domain Management
  *
  * Handles domain registration, DNS verification, and listing.
  * When AWS SES is configured, domains are registered as SES email

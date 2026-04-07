@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Personalization Engine — Real-Time Content Personalization
+ * Personalization Engine - Real-Time Content Personalization
  *
  * Resolves personalized content for a user based on:
  *  1. Variable mappings → pull live SDK user/account properties

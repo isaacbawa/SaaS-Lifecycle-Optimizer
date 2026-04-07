@@ -1,5 +1,5 @@
 /* ==========================================================================
- * In-Memory Data Store — Production-Grade Interface Layer
+ * In-Memory Data Store - Production-Grade Interface Layer
  *
  * Provides a thread-safe (single-process), typed data store that backs all
  * API routes.  Every store method is async so the interface is drop-in
@@ -8,7 +8,7 @@
  *
  * On server start the store is seeded with placeholder data so the
  * dashboard works immediately.  SDK ingest endpoints mutate state in
- * real-time — the effects are visible across the entire app.
+ * real-time - the effects are visible across the entire app.
  * ========================================================================== */
 
 import type {

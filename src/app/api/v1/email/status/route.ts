@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════
  * Email System Status & Admin Route
  *
- * GET  /api/v1/email/status — System health, queue metrics, suppression stats
- * POST /api/v1/email/send   — Direct email send (for testing / admin)
+ * GET  /api/v1/email/status - System health, queue metrics, suppression stats
+ * POST /api/v1/email/send   - Direct email send (for testing / admin)
  * ═══════════════════════════════════════════════════════════════════════ */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -20,13 +20,13 @@ import {
 export const runtime = 'nodejs';
 
 /**
- * GET — Email system status dashboard data.
+ * GET - Email system status dashboard data.
  *
  * Query params:
- *   ?include=sendLog     — Include recent send log
- *   ?include=dlq         — Include dead-letter queue
- *   ?include=tracking    — Include recent tracking events
- *   ?campaignId=xxx      — Get tracking stats for specific campaign
+ *   ?include=sendLog     - Include recent send log
+ *   ?include=dlq         - Include dead-letter queue
+ *   ?include=tracking    - Include recent tracking events
+ *   ?campaignId=xxx      - Get tracking stats for specific campaign
  */
 export async function GET(request: NextRequest): Promise<Response> {
     const authResult = await authenticate(request, ['read']);
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 }
 
 /**
- * POST — Send a test email or admin-triggered email.
+ * POST - Send a test email or admin-triggered email.
  *
  * Body:
  * {

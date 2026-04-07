@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Rate Limiter — DB-backed fixed-window rate limiting
+ * Rate Limiter - DB-backed fixed-window rate limiting
  *
  * Uses the rateLimitBuckets table so limits are shared across
  * serverless instances and survive cold starts.
@@ -144,7 +144,7 @@ export async function checkRateLimit(
             retryAfterMs,
         };
     } catch (err) {
-        // Fallback to in-memory if DB fails — log for visibility
+        // Fallback to in-memory if DB fails - log for visibility
         console.warn(
             `[rate-limit] DB rate-limit check failed for ${bucketKey}, falling back to in-memory:`,
             (err as Error).message,

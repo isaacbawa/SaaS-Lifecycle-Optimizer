@@ -104,7 +104,7 @@ export function ChurnAnalysisClient({ users }: { users: User[] }) {
                     (user.churnRiskScore ?? 0) >= 60 ? 'text-red-600' :
                       (user.churnRiskScore ?? 0) >= 30 ? 'text-amber-600' : 'text-green-600',
                   )}>
-                    {user.churnRiskScore ?? '—'}%
+                    {user.churnRiskScore ?? '-'}%
                   </span>
                 </TableCell>
                 <TableCell className="text-right font-medium">

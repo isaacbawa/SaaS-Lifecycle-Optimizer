@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET/POST/DELETE /api/v1/mailing-lists/[id]/contacts — Manage List Contacts
+ * GET/POST/DELETE /api/v1/mailing-lists/[id]/contacts - Manage List Contacts
  *
  * GET: List contacts in a mailing list
  * POST: Add contacts to a mailing list (single or bulk)
@@ -12,7 +12,7 @@ import { requireDashboardAuth } from '@/lib/api/dashboard-auth';
 
 const MAX_BULK_CONTACTS = 5000;
 
-/** Sanitize DB errors — never leak SQL queries or internal details to the client. */
+/** Sanitize DB errors - never leak SQL queries or internal details to the client. */
 function safeError(err: unknown): { message: string; status: number } {
     console.error('[mailing-lists/contacts] API error:', err);
     return { message: 'An unexpected error occurred. Please try again.', status: 500 };

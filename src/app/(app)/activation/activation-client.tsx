@@ -150,7 +150,7 @@ export function ActivationClient({ activationData, activationMilestones, users }
                     <span className="text-[10px]">
                       {funnelSteps[i + 1].count > 0
                         ? `-${((1 - funnelSteps[i + 1].count / step.count) * 100).toFixed(0)}%`
-                        : '—'}
+                        : '-'}
                     </span>
                   </div>
                 )}
@@ -246,7 +246,7 @@ export function ActivationClient({ activationData, activationMilestones, users }
             <CardHeader>
               <CardTitle>Stuck in Trial</CardTitle>
               <CardDescription>
-                Users who signed up recently but haven&apos;t activated — require intervention
+                Users who signed up recently but haven&apos;t activated - require intervention
               </CardDescription>
             </CardHeader>
             <CardContent>

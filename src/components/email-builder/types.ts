@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Email Builder — Type System
+ * Email Builder - Type System
  *
  * Defines all block types, content models, template structure, and the
  * personalization variable catalogue available from the SaaS platform.
@@ -273,7 +273,7 @@ export interface VariableCategory {
 }
 
 /*
- * Personalization Variables — organized by audience compatibility.
+ * Personalization Variables - organized by audience compatibility.
  *
  * "Contact" variables work for ALL recipients (SaaS users AND mailing-list contacts).
  * "User Properties" and "Lifecycle" resolve only for tracked SaaS users.
@@ -283,7 +283,7 @@ export interface VariableCategory {
 export const VARIABLE_CATEGORIES: VariableCategory[] = [
   {
     name: 'Contact',
-    hint: 'Works for all recipients — SaaS users and mailing list contacts alike.',
+    hint: 'Works for all recipients - SaaS users and mailing list contacts alike.',
     variables: [
       { key: 'user.email', label: 'Email Address', example: 'jane@acme.io' },
       { key: 'user.firstName', label: 'First Name', example: 'Jane' },

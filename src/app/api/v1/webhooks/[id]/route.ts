@@ -1,7 +1,7 @@
 /* ==========================================================================
- * GET    /api/v1/webhooks/[id]    — Get webhook details + delivery log
- * PUT    /api/v1/webhooks/[id]    — Update a webhook
- * DELETE /api/v1/webhooks/[id]    — Delete a webhook
+ * GET    /api/v1/webhooks/[id]    - Get webhook details + delivery log
+ * PUT    /api/v1/webhooks/[id]    - Update a webhook
+ * DELETE /api/v1/webhooks/[id]    - Delete a webhook
  *
  * Supports BOTH Bearer token and Clerk session auth.
  * ========================================================================== */

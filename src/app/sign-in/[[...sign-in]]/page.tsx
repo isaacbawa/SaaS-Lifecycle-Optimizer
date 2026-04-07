@@ -5,7 +5,7 @@ import Link from 'next/link';
 export default function SignInPage() {
     return (
         <div className="flex min-h-screen">
-            {/* ── Left Panel — Brand + Value Props ─────────────────────────── */}
+            {/* ── Left Panel - Brand + Value Props ─────────────────────────── */}
             <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-12 text-white">
                 <div>
                     <Link href="/" className="flex items-center gap-2 mb-16">
@@ -21,7 +21,7 @@ export default function SignInPage() {
                         </h1>
                         <p className="text-lg text-slate-300 mb-12">
                             Your customer lifecycle data is waiting. Pick up where you left
-                            off — every insight, every automation, exactly as you left it.
+                            off - every insight, every automation, exactly as you left it.
                         </p>
 
                         <div className="space-y-6">
@@ -33,7 +33,7 @@ export default function SignInPage() {
                             <ValueProp
                                 icon={<Zap className="h-5 w-5 text-amber-400" />}
                                 title="Automated Lifecycle Flows"
-                                description="Visual automation builder that triggers the right action at the right time — onboarding, re-engagement, expansion."
+                                description="Visual automation builder that triggers the right action at the right time - onboarding, re-engagement, expansion."
                             />
                             <ValueProp
                                 icon={<Shield className="h-5 w-5 text-blue-400" />}
@@ -51,7 +51,7 @@ export default function SignInPage() {
                 </div>
             </div>
 
-            {/* ── Right Panel — Clerk Sign In ──────────────────────────────── */}
+            {/* ── Right Panel - Clerk Sign In ──────────────────────────────── */}
             <div className="flex flex-1 flex-col items-center justify-center p-8 bg-white dark:bg-slate-950">
                 <div className="w-full max-w-md">
                     <div className="mb-8 text-center lg:hidden">

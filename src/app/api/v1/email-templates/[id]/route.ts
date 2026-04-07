@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET/PUT/DELETE /api/v1/email-templates/[id] — Single Template Ops
+ * GET/PUT/DELETE /api/v1/email-templates/[id] - Single Template Ops
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';

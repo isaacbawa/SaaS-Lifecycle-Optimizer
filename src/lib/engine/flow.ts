@@ -8,7 +8,7 @@
  *  4. Advances the enrollment to the next node
  *  5. Records execution history
  *
- * The engine is stateless per invocation — it reads the enrollment's
+ * The engine is stateless per invocation - it reads the enrollment's
  * current position, does one "tick", and writes the new position back
  * through the store.
  * ═══════════════════════════════════════════════════════════════════════ */
@@ -532,7 +532,7 @@ export function tickEnrollment(ctx: TickContext): TickResult {
                 };
             }
 
-            // We had a wait time set and it's now past — continue
+            // We had a wait time set and it's now past - continue
             if (new Date(enrollment.nextProcessAt).getTime() <= Date.now()) {
                 history.push(historyEntry(node, 'completed', 'Delay elapsed'));
             } else {
@@ -643,7 +643,7 @@ export function tickEnrollment(ctx: TickContext): TickResult {
     const next = findNextNode(flow, node.id, nextHandle);
 
     if (!next) {
-        // No outgoing edge — flow implicitly complete
+        // No outgoing edge - flow implicitly complete
         return {
             enrollment: {
                 ...enrollment,

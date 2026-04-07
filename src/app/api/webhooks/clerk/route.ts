@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Clerk Webhook Route — /api/webhooks/clerk
+ * Clerk Webhook Route - /api/webhooks/clerk
  *
  * Receives user and organization lifecycle events from Clerk via Svix.
  * Syncs data to the Neon PostgreSQL database so our app's user/org
@@ -246,7 +246,7 @@ export async function POST(request: Request) {
             }
 
             default:
-                // Unknown event type — log and accept
+                // Unknown event type - log and accept
                 console.log(`[clerk-webhook] Unhandled event: ${event.type}`);
         }
 

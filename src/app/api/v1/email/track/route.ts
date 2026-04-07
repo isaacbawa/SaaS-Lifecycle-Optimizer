@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Email Tracking Route — Open Pixel & Click Redirect
+ * Email Tracking Route - Open Pixel & Click Redirect
  *
  * GET /api/v1/email/track?t=<token>
  *
@@ -31,10 +31,10 @@ export async function GET(request: Request): Promise<Response> {
 
     const token = verifyTrackingToken(tokenStr);
     if (!token) {
-        // Invalid or tampered token — still return valid response to avoid
+        // Invalid or tampered token - still return valid response to avoid
         // blocking email clients or showing broken images
         if (tokenStr.length > 0) {
-            // Likely an open tracking pixel — return the GIF anyway
+            // Likely an open tracking pixel - return the GIF anyway
             return new Response(TRACKING_PIXEL_GIF, {
                 status: 200,
                 headers: {
@@ -101,6 +101,6 @@ export async function GET(request: Request): Promise<Response> {
         return NextResponse.redirect(token.url, { status: 302 });
     }
 
-    // Unknown type — return empty response
+    // Unknown type - return empty response
     return new Response('OK', { status: 200 });
 }

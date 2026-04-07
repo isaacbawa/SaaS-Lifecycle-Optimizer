@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Engine Module — Public Exports
+ * Engine Module - Public Exports
  * ========================================================================== */
 
 export { classifyLifecycleState, detectStateTransition } from './lifecycle';

@@ -160,7 +160,7 @@ export async function authenticate(
       };
     }
   } else {
-    // Attempt beacon fallback — peek into the body for _token
+    // Attempt beacon fallback - peek into the body for _token
     try {
       const cloned = request.clone();
       const body = await cloned.json();
@@ -168,7 +168,7 @@ export async function authenticate(
         token = body._token;
       }
     } catch {
-      // body parse failed — try query param next
+      // body parse failed - try query param next
     }
 
     // Also support ?key= query param (legacy sendBeacon fallback)
@@ -212,7 +212,7 @@ export async function authenticate(
           };
         }
       } catch {
-        // Clerk unavailable — fall through to error
+        // Clerk unavailable - fall through to error
       }
 
       return {

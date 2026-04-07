@@ -43,7 +43,7 @@ import {
 import type { LifecycleState, User, Account, RevenueData, ActivityEntry, ExpansionOpportunity } from '@/lib/definitions';
 
 /* ==========================================================================
- * Computed KPIs — derived from live store data, never hardcoded
+ * Computed KPIs - derived from live store data, never hardcoded
  * ========================================================================== */
 
 function computeDashboardKPIs(
@@ -124,7 +124,7 @@ function computeDashboardKPIs(
 }
 
 /* ==========================================================================
- * Dashboard Page — command center (live store data)
+ * Dashboard Page - command center (live store data)
  * ========================================================================== */
 
 export default async function DashboardPage() {
@@ -383,7 +383,7 @@ export default async function DashboardPage() {
                           {user.lifecycleState}
                         </Badge>
                         <span className="text-xs font-medium tabular-nums text-amber-600">
-                          {user.churnRiskScore ?? '—'}%
+                          {user.churnRiskScore ?? '-'}%
                         </span>
                       </div>
                     </div>

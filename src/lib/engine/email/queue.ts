@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Email Queue — DB-Backed, Rate-Limited, Prioritized Email Delivery Queue
+ * Email Queue - DB-Backed, Rate-Limited, Prioritized Email Delivery Queue
  *
  * Queue items are persisted in PostgreSQL (emailQueue table) so nothing
  * is lost on cold-start.  The tick-based processing loop and token-
@@ -106,7 +106,7 @@ async function getOrgId(providedOrgId?: string): Promise<string> {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Queue Management — DB-backed
+ * Queue Management - DB-backed
  * ═══════════════════════════════════════════════════════════════════════ */
 
 /**
@@ -195,7 +195,7 @@ function tryAcquireToken(): boolean {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * Processing Loop — polls DB for pending items
+ * Processing Loop - polls DB for pending items
  * ═══════════════════════════════════════════════════════════════════════ */
 
 function dbRowToQueuedEmail(row: typeof schema.emailQueue.$inferSelect): QueuedEmail {
@@ -228,7 +228,7 @@ async function tick(): Promise<void> {
 
     const now = new Date();
 
-    // Fetch eligible queued items across all orgs — orgId is carried per-item
+    // Fetch eligible queued items across all orgs - orgId is carried per-item
     const rows = await db.select().from(schema.emailQueue)
         .where(
             and(
@@ -484,7 +484,7 @@ export async function updateQueueStatus(
             })
             .where(eq(schema.emailQueue.id, id));
     } else {
-        // First attempt failed — leave as 'queued' for cron-based retry
+        // First attempt failed - leave as 'queued' for cron-based retry
         const delay = 1000 + Math.random() * 1000; // ~1-2s backoff
         await db.update(schema.emailQueue)
             .set({

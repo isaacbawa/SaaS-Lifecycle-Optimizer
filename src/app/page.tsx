@@ -47,7 +47,7 @@ export default function HomePage() {
       <MarketingHeader />
       <main className="flex-1">
         {/* ================================================================
-            HERO — Mock dashboard with floating callout badges
+            HERO - Mock dashboard with floating callout badges
             ================================================================ */}
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 gradient-mesh" />
@@ -66,7 +66,7 @@ export default function HomePage() {
                 </h1>
                 <p className="text-lg text-muted-foreground leading-relaxed max-w-lg">
                   LifecycleOS connects your product data to automated email flows
-                  that activate trials, prevent churn, and expand accounts — all
+                  that activate trials, prevent churn, and expand accounts - all
                   driven by real user behavior, not guesswork.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -179,7 +179,7 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            SOCIAL PROOF — Metrics banner
+            SOCIAL PROOF - Metrics banner
             ================================================================ */}
         <section className="border-y bg-muted/30">
           <div className="container py-10">
@@ -212,7 +212,7 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            HOW IT WORKS — Visual flow with connecting arrows
+            HOW IT WORKS - Visual flow with connecting arrows
             ================================================================ */}
         <section id="how-it-works" className="container py-20 md:py-28">
           <div className="text-center max-w-2xl mx-auto mb-16">
@@ -322,7 +322,7 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            FEATURE DEEP-DIVE 1: Lifecycle Engine — Mock user classification panel
+            FEATURE DEEP-DIVE 1: Lifecycle Engine - Mock user classification panel
             ================================================================ */}
         <section id="features" className="border-t bg-muted/30 py-20 md:py-28">
           <div className="container">
@@ -334,9 +334,9 @@ export default function HomePage() {
                   <span className="text-primary">automatically</span>
                 </h2>
                 <p className="text-muted-foreground text-lg leading-relaxed">
-                  Our AI-powered lifecycle engine analyzes product usage, billing
+                  The lifecycle engine analyzes product usage, billing
                   data, and engagement patterns to assign each user a real-time
-                  lifecycle state — no manual tagging or guesswork.
+                  lifecycle state - no manual tagging or guesswork from you.
                 </p>
                 <ul className="space-y-3">
                   {[
@@ -362,7 +362,7 @@ export default function HomePage() {
               <div className="relative">
                 <div className="absolute -top-3 right-4 z-10 animate-float">
                   <div className="flex items-center gap-1.5 rounded-full bg-accent text-white px-3 py-1.5 text-xs font-semibold shadow-lg">
-                    <Sparkles className="h-3 w-3" /> AI-Powered
+                    <Layers className="h-3 w-3" /> Lifecycle Engine
                   </div>
                 </div>
                 <Card className="shadow-xl overflow-hidden">
@@ -396,12 +396,12 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            FEATURE SHOWCASE: Churn Prevention — Dark gradient banner
+            FEATURE SHOWCASE: Churn Prevention - Dark gradient banner
             ================================================================ */}
-        <section className="py-20 md:py-28">
+        {/* <section className="py-20 md:py-28">
           <div className="container">
             <div className="relative rounded-3xl gradient-dark-card overflow-hidden px-8 py-16 md:px-16 md:py-24">
-              {/* Decorative floating icons */}
+            Decorative floating icons [This must be commented out]
               <div className="absolute top-8 left-8 w-14 h-14 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center animate-float">
                 <Users className="h-6 w-6 text-primary" />
               </div>
@@ -431,7 +431,7 @@ export default function HomePage() {
                 <p className="text-white/70 text-lg md:text-xl leading-relaxed mb-8 max-w-2xl mx-auto">
                   We analyze login frequency, feature adoption, support tickets, billing
                   patterns, and 15+ behavioral signals. Our churn risk engine catches
-                  disengaging users days before they cancel — so your team can intervene.
+                  disengaging users days before they cancel - so your team can intervene.
                 </p>
                 <Button size="lg" className="text-base" asChild>
                   <Link href="/retention">
@@ -441,10 +441,10 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-        </section>
+        </section> */}
 
         {/* ================================================================
-            FEATURE DEEP-DIVE 2: Email Flow Builder — Mock flow panel
+            FEATURE DEEP-DIVE 2: Email Flow Builder - Mock flow panel
             ================================================================ */}
         <section className="border-t bg-muted/30 py-20 md:py-28">
           <div className="container">
@@ -543,7 +543,7 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            FEATURE DEEP-DIVE 3: Expansion Intelligence — Mock usage panel
+            FEATURE DEEP-DIVE 3: Expansion Intelligence - Mock usage panel
             ================================================================ */}
         <section className="py-20 md:py-28">
           <div className="container">
@@ -619,7 +619,7 @@ export default function HomePage() {
                     <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
                       <MousePointerClick className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                       <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                        Upgrade flow triggered automatically — email sent to admin
+                        Upgrade flow triggered automatically - email sent to admin
                       </span>
                     </div>
                   </CardContent>
@@ -630,7 +630,7 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            EVERYTHING YOU NEED — Platform summary with mock UI
+            EVERYTHING YOU NEED - Platform summary with mock UI
             ================================================================ */}
         <section className="border-t bg-muted/30 py-20 md:py-28">
           <div className="container">
@@ -740,7 +740,7 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            METRICS / PROOF SECTION — Enhanced stats with visual treatment
+            METRICS / PROOF SECTION - Enhanced stats with visual treatment
             ================================================================ */}
         <section className="container py-20 md:py-28">
           <div className="text-center max-w-2xl mx-auto mb-16">
@@ -776,7 +776,7 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            TESTIMONIALS — Enhanced with real-world context
+            TESTIMONIALS - Enhanced with real-world context
             ================================================================ */}
         <section className="border-t bg-muted/30 py-20 md:py-28">
           <div className="container">
@@ -812,7 +812,7 @@ export default function HomePage() {
                 },
                 {
                   quote:
-                    'Expansion intelligence caught $24K in upgrade opportunities we were completely missing. The automated flows handled the outreach — ROI was instant.',
+                    'Expansion intelligence caught $24K in upgrade opportunities we were completely missing. The automated flows handled the outreach - ROI was instant.',
                   author: 'Patricia Williams',
                   role: 'CRO',
                   company: 'GrowthLab',
@@ -921,11 +921,11 @@ export default function HomePage() {
                 },
                 {
                   q: 'Do I need a data team to use LifecycleOS?',
-                  a: 'No. The platform is designed for marketing and growth teams. Our lifecycle engine automatically handles user classification, risk scoring, and expansion signals — no SQL or data engineering required.',
+                  a: 'No. The platform is designed for marketing and growth teams. Our lifecycle engine automatically handles user classification, risk scoring, and expansion signals - no SQL or data engineering required.',
                 },
                 {
                   q: 'How is this different from Intercom, Customer.io, or HubSpot?',
-                  a: 'Those are general-purpose messaging tools. LifecycleOS is purpose-built for SaaS lifecycle revenue. Our engine understands activation milestones, churn risk signals, and expansion triggers natively — delivering context that generic tools cannot.',
+                  a: 'Those are general-purpose messaging tools. LifecycleOS is purpose-built for SaaS lifecycle revenue. Our engine understands activation milestones, churn risk signals, and expansion triggers natively - delivering context that generic tools cannot.',
                 },
                 {
                   q: 'What about email deliverability?',
@@ -954,7 +954,7 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            CTA — Enhanced with visual dashboard preview
+            CTA - Enhanced with visual dashboard preview
             ================================================================ */}
         <section className="container py-20 md:py-28">
           <div className="relative rounded-3xl gradient-dark-card overflow-hidden">
@@ -964,7 +964,7 @@ export default function HomePage() {
               </h2>
               <p className="max-w-lg text-white/70 text-lg">
                 Join 500+ SaaS teams using LifecycleOS to activate, retain,
-                and expand their customer base — automatically.
+                and expand their customer base - automatically.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Button size="lg" className="text-base uppercase tracking-wide font-semibold" asChild>

@@ -559,7 +559,7 @@ export default function MailingListsPage() {
                 <div>
                     <h1 className="text-2xl font-semibold tracking-tight">Mailing Lists</h1>
                     <p className="text-sm text-muted-foreground mt-1">
-                        Build and manage your contact lists for email campaigns — subscribers, leads, prospects, and more.
+                        Build and manage your contact lists for email campaigns - subscribers, leads, prospects, and more.
                     </p>
                 </div>
                 <Button onClick={openCreate}>
@@ -652,7 +652,7 @@ export default function MailingListsPage() {
                             </div>
                             <h3 className="text-lg font-semibold">Create your first mailing list</h3>
                             <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-                                A mailing list contains the email addresses and names of your contacts — subscribers, prospects, customers, event attendees, and anyone you want to reach via email campaigns.
+                                A mailing list contains the email addresses and names of your contacts - subscribers, prospects, customers, event attendees, and anyone you want to reach via email campaigns.
                             </p>
                             <Button onClick={openCreate} className="mt-5">
                                 <PlusCircle className="h-4 w-4 mr-2" />
@@ -876,10 +876,10 @@ export default function MailingListsPage() {
                                                     <span className="text-sm">{c.email}</span>
                                                 </TableCell>
                                                 <TableCell className="text-sm">
-                                                    {c.firstName || <span className="text-muted-foreground">—</span>}
+                                                    {c.firstName || <span className="text-muted-foreground">-</span>}
                                                 </TableCell>
                                                 <TableCell className="text-sm">
-                                                    {c.lastName || <span className="text-muted-foreground">—</span>}
+                                                    {c.lastName || <span className="text-muted-foreground">-</span>}
                                                 </TableCell>
                                                 <TableCell>
                                                     {c.unsubscribed ? (
@@ -1161,8 +1161,8 @@ export default function MailingListsPage() {
                                                 {csvPreview.contacts.slice(0, 5).map((c, i) => (
                                                     <TableRow key={i}>
                                                         <TableCell className="text-xs py-1.5">{c.email}</TableCell>
-                                                        <TableCell className="text-xs py-1.5">{c.firstName || <span className="text-muted-foreground">—</span>}</TableCell>
-                                                        <TableCell className="text-xs py-1.5">{c.lastName || <span className="text-muted-foreground">—</span>}</TableCell>
+                                                        <TableCell className="text-xs py-1.5">{c.firstName || <span className="text-muted-foreground">-</span>}</TableCell>
+                                                        <TableCell className="text-xs py-1.5">{c.lastName || <span className="text-muted-foreground">-</span>}</TableCell>
                                                     </TableRow>
                                                 ))}
                                             </TableBody>

@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Database Connection — Neon Serverless PostgreSQL via Drizzle ORM
+ * Database Connection - Neon Serverless PostgreSQL via Drizzle ORM
  *
  * Uses @neondatabase/serverless for HTTP-based, connection-pooled access
  * that works perfectly with Next.js Edge and Serverless functions.
@@ -17,7 +17,7 @@ function getDb() {
 
     if (!url) {
         throw new Error(
-            '[DB] DATABASE_URL is not set. Add it to .env.local — get it from https://console.neon.tech',
+            '[DB] DATABASE_URL is not set. Add it to .env.local - get it from https://console.neon.tech',
         );
     }
 
@@ -31,7 +31,7 @@ const globalKey = Symbol.for('lifecycleos-db');
 type GlobalWithDb = typeof globalThis & { [globalKey]?: ReturnType<typeof getDb> };
 
 /**
- * Lazy database proxy — defers connection until first property access,
+ * Lazy database proxy - defers connection until first property access,
  * so importing this module during `next build` (page-data collection)
  * won't throw when DATABASE_URL is absent from the build environment.
  */

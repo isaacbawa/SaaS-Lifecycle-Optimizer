@@ -1,5 +1,5 @@
 /* ==========================================================================
- * POST /api/v1/events — Event Ingestion Endpoint
+ * POST /api/v1/events - Event Ingestion Endpoint
  *
  * Accepts batched events from the SDK, persists them to PostgreSQL,
  * and triggers the full event processing pipeline:
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     pipelineResults = await processEventBatch(storedEvents, orgId);
   } catch (e) {
     console.error('[events] Pipeline error:', (e as Error).message);
-    // Pipeline errors don't fail the ingestion — events are already stored
+    // Pipeline errors don't fail the ingestion - events are already stored
   }
 
   // ── Aggregate pipeline stats ─────────────────────────────────

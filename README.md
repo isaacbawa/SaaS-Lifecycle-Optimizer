@@ -1,4 +1,4 @@
-# LifecycleOS — SaaS Lifecycle Infrastructure & Email Marketing Platform
+# LifecycleOS - SaaS Lifecycle Infrastructure & Email Marketing Platform
 
 A production-grade, SaaS-native growth system designed exclusively for SaaS companies to manage activation, retention, and expansion through behavior-driven email marketing powered by real product data.
 

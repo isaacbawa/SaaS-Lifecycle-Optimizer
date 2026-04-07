@@ -1,8 +1,8 @@
 /* ==========================================================================
  * /api/v1/flow-definitions
  *
- * GET  — List all flow definitions (filterable by status)
- * POST — Create a new blank flow definition
+ * GET  - List all flow definitions (filterable by status)
+ * POST - Create a new blank flow definition
  *
  * These are internal management endpoints used by the dashboard UI.
  * They bypass Bearer-token auth since they're same-origin only.

@@ -63,7 +63,7 @@ interface SettingsClientProps {
 export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys }: SettingsClientProps) {
   const { user, isLoaded: isUserLoaded } = useUser();
 
-  // Profile state — seeded from Clerk
+  // Profile state - seeded from Clerk
   const [profileName, setProfileName] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
 
@@ -84,7 +84,7 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
   // Webhooks
   const [newWebhookUrl, setNewWebhookUrl] = useState('');
 
-  // Notifications — DB-backed via /api/v1/preferences
+  // Notifications - DB-backed via /api/v1/preferences
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [slackNotifications, setSlackNotifications] = useState(false);
   const [timezone, setTimezone] = useState('america-new-york');
@@ -98,7 +98,7 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [prefsSaving, setPrefsSaving] = useState(false);
 
-  // Dashboard client calls use Clerk session cookies — no API key needed
+  // Dashboard client calls use Clerk session cookies - no API key needed
 
   /* ── Connection Status (auto-detected) ──────── */
   interface ConnectionStatus {
@@ -218,7 +218,7 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
         }, ...prev]);
       }
       setNewKeyName('');
-      toast({ title: 'API key created', description: 'Copy the key now — it won\'t be shown again.' });
+      toast({ title: 'API key created', description: 'Copy the key now, it won\'t be shown again.' });
     } catch (err) {
       toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' });
     } finally {
@@ -442,7 +442,7 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
               {newlyCreatedKey && (
                 <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20 p-4 space-y-2">
                   <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                    New API key created — copy it now, this is the only time it will be shown:
+                    New API key created, copy it now, this is the only time it will be shown:
                   </p>
                   <div className="flex items-center gap-2">
                     <Input readOnly value={newlyCreatedKey} className="font-mono text-sm bg-white dark:bg-black" />
@@ -638,7 +638,7 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
               <CardTitle>SaaS Product Integrations</CardTitle>
               <CardDescription>
                 Connect your SaaS product to enable real-time data flow for flows, segmentation, email, and personalization.
-                Connect your SaaS product to LifecycleOS using our SDK, REST API, and webhooks — just like you&apos;d integrate with Clerk or Stripe.
+                Connect your SaaS product to LifecycleOS using our SDK, REST API, and webhooks - just like you&apos;d integrate with Clerk or Stripe.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -722,7 +722,7 @@ export function SettingsClient({ teamMembers, webhooks, apiKeys: initialApiKeys 
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium">How It Works</h4>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      LifecycleOS integrates with your SaaS product the same way Clerk or Stripe does — through an <strong>SDK</strong>, <strong>REST API</strong>, and <strong>Webhooks</strong>:
+                      LifecycleOS integrates with your SaaS product the same way Clerk or Stripe does - through an <strong>SDK</strong>, <strong>REST API</strong>, and <strong>Webhooks</strong>:
                     </p>
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="rounded-lg border p-3 space-y-1.5">

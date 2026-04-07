@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Flow Builder — Main Canvas Component
+ * Flow Builder - Main Canvas Component
  *
  * Wraps @xyflow/react with the custom node types, drag-and-drop from the
  * palette, the property panel, and flow-level toolbar (save, activate,
@@ -186,7 +186,7 @@ function validateFlow(nodes: Node[], edges: Edge[]): ValidationIssue[] {
 
     // Must have at least one exit
     const exits = nodes.filter((n) => n.type === 'exit');
-    if (exits.length === 0) issues.push({ severity: 'warning', message: 'Flow has no exit node — users will complete when no outgoing edges remain' });
+    if (exits.length === 0) issues.push({ severity: 'warning', message: 'Flow has no exit node - users will complete when no outgoing edges remain' });
 
     // Check for disconnected nodes (no incoming or outgoing edges, except trigger/exit)
     for (const node of nodes) {
@@ -265,7 +265,7 @@ export function FlowBuilderCanvas({ flow, onSave, onBack }: FlowBuilderCanvasPro
 
     /* ── Autosave: debounce 3 s after any change ───────────── */
     useEffect(() => {
-        // Skip the initial mount — nothing has actually changed yet
+        // Skip the initial mount - nothing has actually changed yet
         if (isInitialMount.current) {
             isInitialMount.current = false;
             return;
@@ -293,7 +293,7 @@ export function FlowBuilderCanvas({ flow, onSave, onBack }: FlowBuilderCanvasPro
         return () => window.removeEventListener('beforeunload', handler);
     }, [dirty]);
 
-    // Compute integration warnings separately (no setNodes — avoids render loops)
+    // Compute integration warnings separately (no setNodes - avoids render loops)
     const integrationWarningsMap = useMemo<Map<string, string>>(() => {
         const map = new Map<string, string>();
         if (integration.loading) return map;

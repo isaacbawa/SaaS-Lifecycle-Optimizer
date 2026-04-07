@@ -1,5 +1,5 @@
 /* ==========================================================================
- * DELETE /api/v1/keys/[id] — Revoke an API key (with self-revocation guard)
+ * DELETE /api/v1/keys/[id] - Revoke an API key (with self-revocation guard)
  *
  * Supports BOTH Bearer token and Clerk session auth.
  * ========================================================================== */

@@ -1,5 +1,5 @@
 /* ==========================================================================
- * Flow Builder — Node Property Panel
+ * Flow Builder - Node Property Panel
  *
  * Right sidebar showing configuration form for the selected node.
  * Updates node data in real-time as the user edits fields.
@@ -419,8 +419,8 @@ function ActionConfig({ config, onChange }: { config: ActionNodeConfig; onChange
                                     }
                                 }}
                                 className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-all ${emailMode === 'template'
-                                        ? 'bg-background shadow-sm text-foreground'
-                                        : 'text-muted-foreground hover:text-foreground'
+                                    ? 'bg-background shadow-sm text-foreground'
+                                    : 'text-muted-foreground hover:text-foreground'
                                     }`}
                             >
                                 <FileText className="h-3 w-3" />
@@ -436,8 +436,8 @@ function ActionConfig({ config, onChange }: { config: ActionNodeConfig; onChange
                                     }
                                 }}
                                 className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-all ${emailMode === 'custom'
-                                        ? 'bg-background shadow-sm text-foreground'
-                                        : 'text-muted-foreground hover:text-foreground'
+                                    ? 'bg-background shadow-sm text-foreground'
+                                    : 'text-muted-foreground hover:text-foreground'
                                     }`}
                             >
                                 <Pencil className="h-3 w-3" />

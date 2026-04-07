@@ -1,7 +1,7 @@
 'use client';
 
 /* ==========================================================================
- * Deliverability Dashboard — Domain Authentication & Email Health
+ * Deliverability Dashboard - Domain Authentication & Email Health
  *
  * Full-featured domain management:
  *  - Add/remove sending domains
@@ -418,7 +418,7 @@ export default function DeliverabilityDashboard() {
                                             onKeyDown={e => e.key === 'Enter' && handleAddDomain()}
                                         />
                                         <p className="text-xs text-muted-foreground">
-                                            Enter just the domain — no https:// or www.
+                                            Enter just the domain - no https:// or www.
                                         </p>
                                     </div>
                                 </div>
@@ -748,7 +748,7 @@ function VerificationDetail({ label, result }: { label: string; result: DnsCheck
                         : <XCircle className="h-3.5 w-3.5 text-red-500" />}
                 <span className="text-sm font-medium">{label}</span>
                 <Badge variant="outline" className="text-[9px] ml-auto">
-                    {result.verified ? 'Verified' : result.found ? 'Found — needs fix' : 'Not found'}
+                    {result.verified ? 'Verified' : result.found ? 'Found - needs fix' : 'Not found'}
                 </Badge>
             </div>
             {result.details && (

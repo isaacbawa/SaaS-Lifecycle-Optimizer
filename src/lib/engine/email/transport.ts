@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Email Transport — SMTP Connection Management via Nodemailer
+ * Email Transport - SMTP Connection Management via Nodemailer
  *
  * Production SMTP transport with:
  *   • Connection pooling (reuse TCP connections)
@@ -14,20 +14,20 @@
  *   Our platform authenticates to SES with its own SMTP credentials.
  *   Customer domains are registered as SES email identities (via ses-identity.ts).
  *   SES handles DKIM signing per-domain automatically.
- *   Customers only interact with our platform UI — never with SES directly.
+ *   Customers only interact with our platform UI - never with SES directly.
  *
  * Environment Variables:
- *   SMTP_HOST        — SMTP server hostname (required)
- *   SMTP_PORT        — Port (default: 587)
- *   SMTP_USER        — Auth username
- *   SMTP_PASS        — Auth password
- *   SMTP_SECURE      — Use TLS (true/false, default: false → STARTTLS)
- *   SMTP_POOL_SIZE   — Max connections in pool (default: 5)
- *   EMAIL_FROM       — Platform default From address
- *   EMAIL_FROM_NAME  — Platform default From display name
- *   DKIM_DOMAIN      — DKIM signing domain (non-SES SMTP only)
- *   DKIM_SELECTOR    — DKIM selector (default: 'lifecycleos')
- *   DKIM_PRIVATE_KEY — DKIM private key PEM (non-SES SMTP only)
+ *   SMTP_HOST        - SMTP server hostname (required)
+ *   SMTP_PORT        - Port (default: 587)
+ *   SMTP_USER        - Auth username
+ *   SMTP_PASS        - Auth password
+ *   SMTP_SECURE      - Use TLS (true/false, default: false → STARTTLS)
+ *   SMTP_POOL_SIZE   - Max connections in pool (default: 5)
+ *   EMAIL_FROM       - Platform default From address
+ *   EMAIL_FROM_NAME  - Platform default From display name
+ *   DKIM_DOMAIN      - DKIM signing domain (non-SES SMTP only)
+ *   DKIM_SELECTOR    - DKIM selector (default: 'lifecycleos')
+ *   DKIM_PRIVATE_KEY - DKIM private key PEM (non-SES SMTP only)
  * ═══════════════════════════════════════════════════════════════════════ */
 
 import nodemailer from 'nodemailer';
@@ -47,12 +47,12 @@ export interface TransportConfig {
     fromName: string;
     /**
      * Whether this transport connects to Amazon SES.
-     * When true, local DKIM signing is suppressed — SES handles DKIM signing
+     * When true, local DKIM signing is suppressed - SES handles DKIM signing
      * automatically for all verified domain identities.
      */
     isSesSmtp: boolean;
     /**
-     * Local DKIM signing config — only used when isSesSmtp is false
+     * Local DKIM signing config - only used when isSesSmtp is false
      * (e.g. self-hosted Postfix, another SMTP relay, local development).
      */
     dkim?: {

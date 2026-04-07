@@ -1,5 +1,5 @@
 /* ==========================================================================
- * POST /api/v1/identify — User Identification Endpoint
+ * POST /api/v1/identify - User Identification Endpoint
  *
  * Upserts a tracked user with traits from the SDK identify() call.
  * Writes directly to PostgreSQL via Drizzle ORM.
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
     try {
       await linkOrphanedEvents(orgId, userId, dbUser.id);
     } catch {
-      // Non-critical — events still exist, just not linked to user
+      // Non-critical - events still exist, just not linked to user
     }
   }
 

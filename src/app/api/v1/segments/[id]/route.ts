@@ -1,5 +1,5 @@
 /* ==========================================================================
- * GET/PUT/DELETE /api/v1/segments/[id] — Single Segment Operations
+ * GET/PUT/DELETE /api/v1/segments/[id] - Single Segment Operations
  * ========================================================================== */
 
 import { NextRequest, NextResponse } from 'next/server';

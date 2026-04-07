@@ -1,8 +1,8 @@
 /* ==========================================================================
- * GET /api/v1/onboarding — Onboarding Completion Status
+ * GET /api/v1/onboarding - Onboarding Completion Status
  *
  * Returns precise, real-time completion state for each setup step.
- * Every check queries live data — nothing is approximated.
+ * Every check queries live data - nothing is approximated.
  *
  * Accuracy rules:
  *  - API Key:     At least 1 non-revoked key exists
@@ -48,7 +48,7 @@ export async function GET() {
         if (!authResult.success) return authResult.response;
         const { orgId } = authResult;
 
-        // Fetch all data sources in parallel — fail-safe each
+        // Fetch all data sources in parallel - fail-safe each
         const [apiKeys, eventCount, domains, templates, segments, flows, trackedUsers] =
             await Promise.all([
                 orgId ? getApiKeysByOrg(orgId).catch(() => []) : Promise.resolve([]),

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * Email Campaign Engine — Send, Track, and Manage Email Campaigns
+ * Email Campaign Engine - Send, Track, and Manage Email Campaigns
  *
  * Orchestrates email campaign execution:
  *  1. Resolves target segment → list of recipients
@@ -210,7 +210,7 @@ export const EMAIL_TEMPLATE_PRESETS = {
     },
     churn_prevention: {
         name: 'At-Risk Re-engagement',
-        subject: 'We miss you, {{user.name}} — here\'s what\'s new',
+        subject: 'We miss you, {{user.name}} - here\'s what\'s new',
         bodyHtml: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
   <h2>It's been a while, {{user.name}}</h2>
   <p>We noticed you haven't logged in recently. Your <strong>{{user.plan}}</strong> plan includes powerful features that are waiting for you.</p>
@@ -225,7 +225,7 @@ export const EMAIL_TEMPLATE_PRESETS = {
         subject: '{{user.name}}, you\'re ready for the next level',
         bodyHtml: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
   <h2>You're outgrowing your current plan, {{user.name}}</h2>
-  <p>Great news — your usage patterns show you're getting excellent value from the platform. Here's what we noticed:</p>
+  <p>Great news - your usage patterns show you're getting excellent value from the platform. Here's what we noticed:</p>
   <ul>
     <li>Using <strong>{{user.seatCount}}</strong> of <strong>{{user.seatLimit}}</strong> seats</li>
     <li>Making <strong>{{user.apiCalls30d}}</strong> API calls this month</li>
@@ -238,7 +238,7 @@ export const EMAIL_TEMPLATE_PRESETS = {
     },
     nps_survey: {
         name: 'NPS Survey',
-        subject: 'Quick question, {{user.name}} — how are we doing?',
+        subject: 'Quick question, {{user.name}} - how are we doing?',
         bodyHtml: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
   <h2>How likely are you to recommend us?</h2>
   <p>Hi {{user.name}}, we'd love your honest feedback. On a scale of 0-10, how likely are you to recommend {{account.name}} to a colleague?</p>

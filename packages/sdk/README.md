@@ -38,11 +38,11 @@ yarn add @lifecycleos/sdk
 | `react-dom` ≥18 | `@lifecycleos/sdk/react` only |
 | `next` ≥14 | `@lifecycleos/sdk/nextjs` only |
 
-All peers are optional — if you only use the core client, no peer deps are needed.
+All peers are optional - if you only use the core client, no peer deps are needed.
 
 ---
 
-## Quick Start — Next.js App Router
+## Quick Start - Next.js App Router
 
 ### 1. Provider Setup
 
@@ -155,7 +155,7 @@ import { TrackEvent } from '@lifecycleos/sdk/react';
 ```tsx
 import { PageTracker } from '@lifecycleos/sdk/react';
 
-// In your layout — tracks all client-side navigations
+// In your layout - tracks all client-side navigations
 <PageTracker />
 ```
 
@@ -172,7 +172,7 @@ import { GroupAccount } from '@lifecycleos/sdk/react';
 
 ---
 
-## Server-Side — Next.js API Routes & Server Actions
+## Server-Side - Next.js API Routes & Server Actions
 
 ```ts
 import { serverIdentify, serverTrack, serverGroup } from '@lifecycleos/sdk/nextjs';
@@ -236,7 +236,7 @@ export async function middleware(request: NextRequest) {
 
 ## Core Client (Advanced / Framework-Agnostic)
 
-The core client works in **any JavaScript runtime** — no React or Next.js required.
+The core client works in **any JavaScript runtime** - no React or Next.js required.
 
 ```ts
 import { createClient } from '@lifecycleos/sdk';
@@ -298,10 +298,10 @@ const client = createClient({
 ## Environment Variables
 
 ```env
-# Client-side (public — included in browser bundle)
+# Client-side (public - included in browser bundle)
 NEXT_PUBLIC_LIFECYCLEOS_KEY=lcos_live_xxx
 
-# Server-side (secret — never exposed to browser)
+# Server-side (secret - never exposed to browser)
 LIFECYCLEOS_API_KEY=lcos_sec_xxx
 LIFECYCLEOS_API_URL=https://your-app.com/api/v1
 LIFECYCLEOS_WEBHOOK_SECRET=whsec_xxx
@@ -332,7 +332,7 @@ LIFECYCLEOS_WEBHOOK_SECRET=whsec_xxx
 | `IdentifyUser` | `userId, traits?, onIdentified?, onError?` | Identify on mount |
 | `GroupAccount` | `groupId, traits?, onGrouped?, onError?` | Group on mount |
 | `TrackEvent` | `event, properties?, trigger?, children?` | Track with mount/click/visible triggers |
-| `PageTracker` | — | Auto page view tracking |
+| `PageTracker` | - | Auto page view tracking |
 
 ### Server Functions (`@lifecycleos/sdk/nextjs`)
 
@@ -358,7 +358,7 @@ LIFECYCLEOS_WEBHOOK_SECRET=whsec_xxx
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `apiKey` | `string` | — | **Required.** Your LifecycleOS API key |
+| `apiKey` | `string` | - | **Required.** Your LifecycleOS API key |
 | `apiBaseUrl` | `string` | `'/api/v1'` | API base URL |
 | `environment` | `string` | `'production'` | Environment tag |
 | `flushAt` | `number` | `20` | Batch size before auto-flush |

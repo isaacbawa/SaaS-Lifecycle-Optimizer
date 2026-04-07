@@ -56,7 +56,7 @@ export function ChunkLoadErrorRecovery() {
             }, RETRY_DELAY_MS);
         }
 
-        // `error` events on scripts don't bubble — we must capture them
+        // `error` events on scripts don't bubble - we must capture them
         window.addEventListener('error', handleScriptError, true);
 
         return () => {

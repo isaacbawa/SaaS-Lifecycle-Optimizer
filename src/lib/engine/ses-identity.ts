@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
- * SES Identity Management — Transparent Domain Registration for Multi-Tenant ESP
+ * SES Identity Management - Transparent Domain Registration for Multi-Tenant ESP
  *
  * This module manages customer domain identities in Amazon SES behind
  * the scenes. SaaS owners (our users) authenticate their sending domain
@@ -10,9 +10,9 @@
  * Architecture:
  *   • Platform registers its own domain in SES (one-time setup)
  *   • When a SaaS owner adds their domain, we call SES CreateEmailIdentity
- *   • SES returns DKIM CNAME tokens — we present these as DNS records
+ *   • SES returns DKIM CNAME tokens - we present these as DNS records
  *   • SaaS owner adds DNS records to their domain registrar
- *   • We verify via SES GetEmailIdentity — SES auto-verifies when DNS propagates
+ *   • We verify via SES GetEmailIdentity - SES auto-verifies when DNS propagates
  *   • SES handles DKIM signing transparently on all outbound email
  *   • Optional: Custom MAIL FROM subdomain for SPF Return-Path alignment
  *
@@ -20,11 +20,11 @@
  * graceful no-op and the system falls back to local DKIM signing via
  * Nodemailer. This allows development without AWS access.
  *
- * Environment Variables (all optional — module degrades gracefully):
- *   AWS_ACCESS_KEY_ID      — IAM credentials for SES API
- *   AWS_SECRET_ACCESS_KEY  — IAM credentials for SES API
- *   AWS_SES_REGION         — SES region (default: us-east-1)
- *   SES_CONFIGURATION_SET  — Optional SES configuration set name
+ * Environment Variables (all optional - module degrades gracefully):
+ *   AWS_ACCESS_KEY_ID      - IAM credentials for SES API
+ *   AWS_SECRET_ACCESS_KEY  - IAM credentials for SES API
+ *   AWS_SES_REGION         - SES region (default: us-east-1)
+ *   SES_CONFIGURATION_SET  - Optional SES configuration set name
  * ═══════════════════════════════════════════════════════════════════════ */
 
 import {
@@ -163,14 +163,14 @@ export async function registerDomainIdentity(domain: string): Promise<SesIdentit
 
     const client = getClient();
     if (!client) {
-        console.warn(`[ses-identity] SES not configured — domain "${normalizedDomain}" registered locally only.`);
+        console.warn(`[ses-identity] SES not configured - domain "${normalizedDomain}" registered locally only.`);
         return {
             success: true,
             domain: normalizedDomain,
             dkimTokens: [],
             dkimVerified: false,
             identityVerified: false,
-            error: 'SES not configured — using local DKIM fallback.',
+            error: 'SES not configured - using local DKIM fallback.',
         };
     }
 
@@ -212,7 +212,7 @@ export async function registerDomainIdentity(domain: string): Promise<SesIdentit
 
         // If the identity already exists, fetch its current status instead
         if (error.name === 'AlreadyExistsException') {
-            console.log(`[ses-identity] Domain "${normalizedDomain}" already exists in SES — fetching status.`);
+            console.log(`[ses-identity] Domain "${normalizedDomain}" already exists in SES - fetching status.`);
             const status = await getDomainIdentityStatus(normalizedDomain);
             return {
                 success: true,
@@ -372,14 +372,14 @@ export async function deleteDomainIdentity(domain: string): Promise<{ success: b
  *   • SES identity exists and is verified for sending
  */
 export async function isDomainVerifiedInSes(domain: string): Promise<boolean> {
-    if (!isSesConfigured()) return true; // Fallback mode — allow sending
+    if (!isSesConfigured()) return true; // Fallback mode - allow sending
 
     const status = await getDomainIdentityStatus(domain);
     return status.verified;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
- * DNS Record Generation — SES-Aware
+ * DNS Record Generation - SES-Aware
  *
  * Generates the DNS records a customer needs to add, incorporating
  * SES DKIM tokens when available.
@@ -442,7 +442,7 @@ export function buildDnsRecords(
             type: 'TXT',
             host: normalizedDomain,
             value: 'v=spf1 include:amazonses.com ~all',
-            purpose: 'SPF — Authorizes email sending through our platform',
+            purpose: 'SPF - Authorizes email sending through our platform',
         });
     } else {
         const platformDomain = process.env.PLATFORM_SENDING_DOMAIN ?? 'mail.lifecycleos.app';
@@ -450,7 +450,7 @@ export function buildDnsRecords(
             type: 'TXT',
             host: normalizedDomain,
             value: `v=spf1 include:${platformDomain} ~all`,
-            purpose: 'SPF — Authorizes email sending through our platform',
+            purpose: 'SPF - Authorizes email sending through our platform',
         });
     }
 
@@ -459,10 +459,10 @@ export function buildDnsRecords(
         type: 'TXT',
         host: `_dmarc.${normalizedDomain}`,
         value: `v=DMARC1; p=quarantine; rua=mailto:dmarc-reports@${normalizedDomain}; pct=100; adkim=r; aspf=r`,
-        purpose: 'DMARC — Email authentication policy',
+        purpose: 'DMARC - Email authentication policy',
     });
 
-    // 4. Custom MAIL FROM (Return-Path alignment) — only for SES mode
+    // 4. Custom MAIL FROM (Return-Path alignment) - only for SES mode
     if (hasSesTokens) {
         const bounceSubdomain = `bounce.${normalizedDomain}`;
 
@@ -470,7 +470,7 @@ export function buildDnsRecords(
             type: 'MX',
             host: bounceSubdomain,
             value: `feedback-smtp.${region}.amazonses.com`,
-            purpose: 'Custom MAIL FROM — Return-Path alignment for SPF',
+            purpose: 'Custom MAIL FROM - Return-Path alignment for SPF',
             priority: 10,
         });
 
@@ -478,7 +478,7 @@ export function buildDnsRecords(
             type: 'TXT',
             host: bounceSubdomain,
             value: 'v=spf1 include:amazonses.com ~all',
-            purpose: 'Custom MAIL FROM — SPF for bounce subdomain',
+            purpose: 'Custom MAIL FROM - SPF for bounce subdomain',
         });
     } else {
         // Non-SES: Return-Path CNAME
@@ -487,7 +487,7 @@ export function buildDnsRecords(
             type: 'CNAME',
             host: `bounce.${normalizedDomain}`,
             value: `bounce.${platformDomain}`,
-            purpose: 'Return-Path — Bounce handling alignment',
+            purpose: 'Return-Path - Bounce handling alignment',
         });
     }
 

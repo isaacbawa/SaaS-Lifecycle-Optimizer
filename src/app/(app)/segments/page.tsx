@@ -626,8 +626,8 @@ export default function SegmentsPage() {
                             <TableBody>
                                 {previewUsers.map(u => (
                                     <TableRow key={u.id}>
-                                        <TableCell className="font-medium">{u.name || '—'}</TableCell>
-                                        <TableCell className="text-xs">{u.email || '—'}</TableCell>
+                                        <TableCell className="font-medium">{u.name || '-'}</TableCell>
+                                        <TableCell className="text-xs">{u.email || '-'}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className="capitalize text-xs">{u.lifecycleState}</Badge>
                                         </TableCell>
