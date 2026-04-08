@@ -298,7 +298,9 @@ export async function verifyWebhook(
 
     try {
         const cryptoApi = globalThis.crypto;
-        if (!cryptoApi?.subtle) return false;
+        if (!cryptoApi?.subtle) {
+            throw new Error('Web Crypto API not available');
+        }
 
         const enc = new TextEncoder();
         const key = await cryptoApi.subtle.importKey(
@@ -309,16 +311,37 @@ export async function verifyWebhook(
             ['sign'],
         );
         const sig = await cryptoApi.subtle.sign('HMAC', key, enc.encode(rawBody));
-        const expected = 'sha256=' + Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('');
+        const expected = ('sha256=' + Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('')).toLowerCase();
+        const actual = signature.toLowerCase();
 
-        // Constant-time compare
-        if (expected.length !== signature.length) return false;
+        const runtime = globalThis as typeof globalThis & {
+            process?: { versions?: { node?: string } };
+            require?: (id: string) => unknown;
+        };
+        const nodeCrypto = runtime.process?.versions?.node && runtime.require
+            ? (runtime.require('crypto') as { timingSafeEqual?: (a: Uint8Array, b: Uint8Array) => boolean })
+            : undefined;
+        const timingSafeEqual = nodeCrypto?.timingSafeEqual;
+
+        if (typeof timingSafeEqual === 'function') {
+            const expectedBytes = enc.encode(expected);
+            const actualBytes = enc.encode(actual);
+            if (expectedBytes.length !== actualBytes.length) return false;
+            return timingSafeEqual(expectedBytes, actualBytes);
+        }
+
+        // Best-effort fallback when timingSafeEqual is unavailable; JITs can still
+        // undermine strict constant-time guarantees, so this is the last resort.
+        if (expected.length !== actual.length) return false;
         let mismatch = 0;
         for (let i = 0; i < expected.length; i++) {
-            mismatch |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+            mismatch |= expected.charCodeAt(i) ^ actual.charCodeAt(i);
         }
         return mismatch === 0;
-    } catch {
+    } catch (error) {
+        if (error instanceof Error && error.message === 'Web Crypto API not available') {
+            throw error;
+        }
         return false;
     }
 }

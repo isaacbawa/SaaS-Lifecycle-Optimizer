@@ -206,8 +206,16 @@ function verifyWebhook(body, signature, secret) {
 // In your webhook handler:
 app.post('/webhooks/lifecycle', (req, res) => {
   const sig = req.headers['x-lifecycle-signature'];
-  if (!verifyWebhook(req.body, sig, process.env.WEBHOOK_SECRET)) {
-    return res.status(401).json({ error: 'Invalid signature' });
+  try {
+    if (!verifyWebhook(req.body, sig, process.env.WEBHOOK_SECRET)) {
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+  } catch (error) {
+    return res.status(503).json({
+      error: error instanceof Error && error.message === 'Web Crypto API not available'
+        ? 'Webhook verification unavailable'
+        : 'Webhook verification failed',
+    });
   }
   // Process the event...
   res.status(200).json({ received: true });

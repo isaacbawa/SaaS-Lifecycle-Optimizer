@@ -211,8 +211,15 @@ export async function POST(req: Request) {
   const body = await req.text();
   const signature = req.headers.get('X-Lifecycle-Signature') ?? '';
 
-  const valid = await verifyWebhook(body, signature, process.env.LIFECYCLEOS_WEBHOOK_SECRET!);
-  if (!valid) return new Response('Unauthorized', { status: 401 });
+  try {
+    const valid = await verifyWebhook(body, signature, process.env.LIFECYCLEOS_WEBHOOK_SECRET!);
+    if (!valid) return new Response('Unauthorized', { status: 401 });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Web Crypto API not available') {
+      return new Response('Webhook verification unavailable', { status: 503 });
+    }
+    throw error;
+  }
 
   const payload = JSON.parse(body);
   // Process webhook...

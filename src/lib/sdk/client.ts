@@ -115,7 +115,7 @@ export class LifecycleOS {
     const payload: IdentifyPayload = {
       userId,
       traits,
-      visitor: this.getVisitorProfile(),
+      visitor: this.getVisitorProfile() ?? undefined,
       ...(this.visitorId ? { anonymousId: this.visitorId } : {}),
       timestamp: new Date().toISOString(),
       context: this.buildContext(),
