@@ -107,6 +107,11 @@ export class LifecycleOS {
       throw new Error('[LifecycleOS] identify() requires a userId.');
     }
 
+    this.userId = userId;
+    if (traits.accountId) {
+      this.accountId = traits.accountId;
+    }
+
     const payload: IdentifyPayload = {
       userId,
       traits,
@@ -175,6 +180,8 @@ export class LifecycleOS {
       throw new Error('[LifecycleOS] group() requires a groupId.');
     }
 
+    this.accountId = groupId;
+
     const payload: GroupPayload = {
       groupId,
       traits,
@@ -184,6 +191,22 @@ export class LifecycleOS {
 
     this.log('group', { groupId, traits });
     return this.sendWithRetry(`${this.apiBaseUrl}/group`, payload);
+  }
+
+  /**
+   * Set the current user ID for subsequent track calls.
+   */
+  setUserId(userId: string): void {
+    this.userId = userId;
+    this.log('setUserId', { userId });
+  }
+
+  /**
+   * Set the current account ID for subsequent track calls.
+   */
+  setAccountId(accountId: string): void {
+    this.accountId = accountId;
+    this.log('setAccountId', { accountId });
   }
 
   /**
