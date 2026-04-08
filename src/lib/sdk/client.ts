@@ -210,6 +210,25 @@ export class LifecycleOS {
   }
 
   /**
+   * Track a page view and persist the visitor profile.
+   */
+  page(properties: EventProperties = {}): void {
+    const pageProperties: EventProperties = {
+      ...properties,
+      url: properties.url ?? (typeof window !== 'undefined' ? window.location.href : undefined),
+      path: properties.path ?? (typeof window !== 'undefined' ? window.location.pathname : undefined),
+      title: properties.title ?? (typeof document !== 'undefined' ? document.title : undefined),
+      referrer: properties.referrer ?? (typeof document !== 'undefined' ? document.referrer : undefined),
+    };
+
+    const visitor = this.recordVisitorPage(pageProperties);
+    this.track('$page', {
+      ...pageProperties,
+      visitor,
+    });
+  }
+
+  /**
    * Flush all queued events immediately.
    * Returns once the batch has been sent (or after all retries fail).
    */
