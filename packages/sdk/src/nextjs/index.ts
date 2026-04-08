@@ -104,6 +104,9 @@ async function serverRequest<T>(
 /**
  * Identify a user from the server side (API routes, Server Actions, middleware).
  *
+ * The third argument can be either an anonymous session ID for identity
+ * merging or a Partial<ServerConfig> to override request settings.
+ *
  * ```ts
  * // In a Server Action or API route
  * import { serverIdentify } from '@lifecycleos/sdk/nextjs';
@@ -113,6 +116,18 @@ async function serverRequest<T>(
  *   name: 'Jane Doe',
  *   plan: 'Growth',
  *   accountId: 'acc_456',
+ * });
+ *
+ * // Merge an anonymous browser session into the known user record
+ * await serverIdentify('user_123', {
+ *   email: 'jane@acme.com',
+ *   plan: 'Growth',
+ * }, 'anonymous_987');
+ *
+ * // Or use the third argument as a config override instead of an anonymous ID
+ * await serverIdentify('user_123', { email: 'jane@acme.com' }, {
+ *   apiBaseUrl: 'https://analytics.example.com/api/v1',
+ *   timeout: 20_000,
  * });
  * ```
  */

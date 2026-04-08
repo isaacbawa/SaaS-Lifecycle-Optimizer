@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/sdk';
+import { LifecycleOS } from '@/lib/sdk';
 
 const apiKey = process.env.NEXT_PUBLIC_LIFECYCLEOS_API_KEY ?? '';
 const apiBaseUrl = process.env.NEXT_PUBLIC_LIFECYCLEOS_API_URL ?? '/api/v1';
@@ -15,7 +15,7 @@ export function VisitorTelemetry() {
     const client = useMemo(() => {
         if (!apiKey) return null;
 
-        return createClient({
+        return new LifecycleOS({
             apiKey,
             apiBaseUrl,
             environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',

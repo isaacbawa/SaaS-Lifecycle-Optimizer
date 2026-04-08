@@ -77,6 +77,7 @@ const tiers = [
     popular: false,
   },
 ];
+
 export default function PricingPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -138,7 +139,7 @@ export default function PricingPage() {
                     <ul className="space-y-3 text-muted-foreground flex-1 mb-8">
                       {tier.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-3">
-                          <Check className="w-5 h-5 font-bold text-primary flex-shrink-0 mt-0.5" />
+                          <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" strokeWidth={2.5} />
                           <span>{feature}</span>
                         </li>
                       ))}

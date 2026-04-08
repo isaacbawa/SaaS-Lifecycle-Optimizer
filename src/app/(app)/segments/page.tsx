@@ -55,6 +55,13 @@ interface Segment {
     updatedAt: string;
 }
 
+interface PreviewUser {
+    id: string;
+    email?: string | null;
+    name?: string | null;
+    lifecycleState: string;
+}
+
 /* ── Constants ──────────────────────────────────────────────────────── */
 
 const statusStyles: Record<string, string> = {
@@ -124,7 +131,7 @@ export default function SegmentsPage() {
     // Preview dialog
     const [previewOpen, setPreviewOpen] = useState(false);
     const [previewLoading, setPreviewLoading] = useState(false);
-    const [previewUsers, setPreviewUsers] = useState<Array<{ id: string; email: string; name: string; lifecycleState: string }>>([]);
+    const [previewUsers, setPreviewUsers] = useState<PreviewUser[]>([]);
     const [previewCount, setPreviewCount] = useState(0);
 
     // Evaluate state
@@ -231,7 +238,7 @@ export default function SegmentsPage() {
             });
             if (res.ok) {
                 const json = await res.json();
-                setPreviewUsers(json.data?.users ?? []);
+                setPreviewUsers((json.data?.users ?? []) as PreviewUser[]);
                 setPreviewCount(json.data?.count ?? 0);
             }
         } finally { setPreviewLoading(false); }
