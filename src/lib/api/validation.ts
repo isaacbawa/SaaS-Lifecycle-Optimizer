@@ -223,7 +223,7 @@ export function validateIdentify(body: unknown): ValidationResult<IdentifyInput>
         data: {
             userId: (body.userId as string).trim(),
             traits: traits as Record<string, unknown>,
-            visitor: isObject(body.visitor) ? (body.visitor as VisitorInput) : undefined,
+            visitor: isObject(body.visitor) ? (body.visitor as unknown as VisitorInput) : undefined,
             anonymousId: body.anonymousId as string | undefined,
             timestamp: body.timestamp as string | undefined,
             messageId: body.messageId as string | undefined,

@@ -24,6 +24,14 @@ import type {
     TrackResponse,
 } from '../types';
 
+function getServerEnv(): Record<string, string | undefined> {
+    const runtime = globalThis as typeof globalThis & {
+        process?: { env?: Record<string, string | undefined> };
+    };
+
+    return runtime.process?.env ?? {};
+}
+
 const SDK_VERSION = '1.0.0';
 const SDK_NAME = '@lifecycleos/sdk-server';
 
@@ -36,10 +44,11 @@ interface ServerConfig {
 }
 
 function getServerConfig(): ServerConfig {
-    const apiKey = process.env.LIFECYCLEOS_API_KEY ?? process.env.LIFECYCLEOS_SECRET_KEY ?? '';
-    const apiBaseUrl = process.env.LIFECYCLEOS_API_URL
-        ?? (process.env.NEXT_PUBLIC_APP_URL
-            ? `${process.env.NEXT_PUBLIC_APP_URL}/api/v1`
+    const env = getServerEnv();
+    const apiKey = env.LIFECYCLEOS_API_KEY ?? env.LIFECYCLEOS_SECRET_KEY ?? '';
+    const apiBaseUrl = env.LIFECYCLEOS_API_URL
+        ?? (env.NEXT_PUBLIC_APP_URL
+            ? `${env.NEXT_PUBLIC_APP_URL}/api/v1`
             : 'http://localhost:3000/api/v1');
 
     return {
@@ -149,7 +158,7 @@ export async function serverIdentify(
         timestamp: new Date().toISOString(),
         context: {
             library: { name: SDK_NAME, version: SDK_VERSION },
-            environment: process.env.NODE_ENV ?? 'production',
+            environment: getServerEnv().NODE_ENV ?? 'production',
         },
     }, resolvedConfigOverride);
 }
@@ -185,7 +194,7 @@ export async function serverTrack(
                 messageId,
                 context: {
                     library: { name: SDK_NAME, version: SDK_VERSION },
-                    environment: process.env.NODE_ENV ?? 'production',
+                    environment: getServerEnv().NODE_ENV ?? 'production',
                 },
             },
         ],
@@ -216,7 +225,7 @@ export async function serverTrackBatch(
         messageId: `srv_${Date.now().toString(36)}_${i}_${Math.random().toString(36).slice(2, 8)}`,
         context: {
             library: { name: SDK_NAME, version: SDK_VERSION },
-            environment: process.env.NODE_ENV ?? 'production',
+            environment: getServerEnv().NODE_ENV ?? 'production',
         },
     }));
 
@@ -251,7 +260,7 @@ export async function serverGroup(
         timestamp: new Date().toISOString(),
         context: {
             library: { name: SDK_NAME, version: SDK_VERSION },
-            environment: process.env.NODE_ENV ?? 'production',
+            environment: getServerEnv().NODE_ENV ?? 'production',
         },
     }, configOverride);
 }
@@ -288,36 +297,29 @@ export async function verifyWebhook(
     if (!signature || !secret || !rawBody) return false;
 
     try {
-        // Use Node.js crypto (always available in Next.js server)
-        const { createHmac, timingSafeEqual } = await import('crypto');
-        const expected = 'sha256=' + createHmac('sha256', secret).update(rawBody).digest('hex');
-        return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
-    } catch {
-        // Fallback to Web Crypto
-        try {
-            const enc = new TextEncoder();
-            const key = await crypto.subtle.importKey(
-                'raw',
-                enc.encode(secret),
-                { name: 'HMAC', hash: 'SHA-256' },
-                false,
-                ['sign'],
-            );
-            const sig = await crypto.subtle.sign('HMAC', key, enc.encode(rawBody));
-            const expected =
-                'sha256=' +
-                Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('');
+        const cryptoApi = globalThis.crypto;
+        if (!cryptoApi?.subtle) return false;
 
-            // Constant-time compare
-            if (expected.length !== signature.length) return false;
-            let mismatch = 0;
-            for (let i = 0; i < expected.length; i++) {
-                mismatch |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
-            }
-            return mismatch === 0;
-        } catch {
-            return false;
+        const enc = new TextEncoder();
+        const key = await cryptoApi.subtle.importKey(
+            'raw',
+            enc.encode(secret),
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign'],
+        );
+        const sig = await cryptoApi.subtle.sign('HMAC', key, enc.encode(rawBody));
+        const expected = 'sha256=' + Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('');
+
+        // Constant-time compare
+        if (expected.length !== signature.length) return false;
+        let mismatch = 0;
+        for (let i = 0; i < expected.length; i++) {
+            mismatch |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
         }
+        return mismatch === 0;
+    } catch {
+        return false;
     }
 }
 
