@@ -117,6 +117,7 @@ export interface EventProperties {
   userId?: string;
   accountId?: string;
   anonymousId?: string;
+  visitor?: VisitorProfile;
   [key: string]: string | number | boolean | string[] | Record<string, unknown> | undefined;
 }
 
