@@ -17,6 +17,7 @@ import {
   getTrackedAccount,
   addActivityEntry,
   linkOrphanedEvents,
+  mergeTrackedUserIdentity,
   getAllSegments,
   upsertSegmentMembership,
   removeSegmentMembership,
@@ -31,6 +32,7 @@ import { scoreChurnRisk } from '@/lib/engine/churn';
 import { detectExpansionSignals, computeExpansionScore } from '@/lib/engine/expansion';
 import { evaluateSegmentFilters } from '@/lib/engine/segmentation';
 import { dispatchWebhooks } from '@/lib/engine/webhooks';
+import { sendEmail } from '@/lib/engine/email';
 import {
   matchesTrigger,
   createEnrollment,
@@ -62,12 +64,15 @@ export async function POST(request: NextRequest) {
     return apiValidationError(validation.errors);
   }
 
-  const { userId, traits } = validation.data;
+  const { userId, traits, visitor: visitorSnapshot, anonymousId } = validation.data;
   const now = new Date();
 
   // ── Look up or create tracked user in DB ──────────────────────
   const existing = await getTrackedUserByExternalId(orgId, userId);
-  const isNew = !existing;
+  const anonymousExisting = anonymousId && anonymousId !== userId
+    ? await getTrackedUserByExternalId(orgId, anonymousId)
+    : null;
+  const isNew = !existing && !anonymousExisting;
 
   // Resolve account reference (if accountId trait provided)
   let dbAccountId: string | undefined;
@@ -78,39 +83,78 @@ export async function POST(request: NextRequest) {
       dbAccountId = account.id;
       accountName = account.name;
     }
-  } else if (existing?.accountId) {
-    dbAccountId = existing.accountId;
+  } else if (existing?.accountId || anonymousExisting?.accountId) {
+    dbAccountId = existing?.accountId ?? anonymousExisting?.accountId ?? undefined;
+    if (dbAccountId) {
+      const account = await getTrackedAccount(orgId, dbAccountId);
+      if (account) {
+        accountName = account.name;
+      }
+    }
   }
 
-  const name = (traits.name as string) || existing?.name || 'Unknown User';
+  const currentUser = existing ?? anonymousExisting ?? undefined;
+  const name = (traits.name as string) || currentUser?.name || 'Unknown User';
 
-  // Upsert tracked user
-  const dbUser = await upsertTrackedUser(orgId, {
-    id: existing?.id,
+  const mergedProperties: Record<string, unknown> = {
+    ...((currentUser?.properties as Record<string, unknown> | undefined) ?? {}),
+    ...((anonymousExisting?.properties as Record<string, unknown> | undefined) ?? {}),
+  };
+  if (visitorSnapshot) {
+    mergedProperties.visitor = visitorSnapshot;
+    mergedProperties.attribution = visitorSnapshot.source;
+    mergedProperties.firstSeenAt = visitorSnapshot.firstSeenAt;
+    mergedProperties.lastSeenAt = visitorSnapshot.lastSeenAt;
+    mergedProperties.landingPage = visitorSnapshot.landingPage;
+    mergedProperties.landingUrl = visitorSnapshot.landingUrl;
+    mergedProperties.pageCount = visitorSnapshot.pageCount;
+    mergedProperties.pagesVisited = visitorSnapshot.pagesVisited;
+  }
+
+  const upsertData = {
+    id: currentUser?.id,
     externalId: userId,
-    email: (traits.email as string) || existing?.email || undefined,
+    email: (traits.email as string) || currentUser?.email || undefined,
     name,
-    accountId: dbAccountId ?? existing?.accountId ?? undefined,
-    lifecycleState: existing?.lifecycleState ?? ('Lead' as const),
-    previousState: existing?.previousState,
-    mrr: existing?.mrr ?? 0,
-    plan: (traits.plan as string) || existing?.plan || 'Trial',
-    signupDate: (traits.createdAt ? new Date(traits.createdAt as string) : null) ?? existing?.signupDate ?? now,
-    lastLoginAt: existing?.lastLoginAt ?? now,
-    loginFrequency7d: existing?.loginFrequency7d ?? 1,
-    loginFrequency30d: existing?.loginFrequency30d ?? 1,
-    featureUsage30d: existing?.featureUsage30d ?? [],
-    sessionDepthMinutes: existing?.sessionDepthMinutes ?? 0,
-    churnRiskScore: existing?.churnRiskScore ?? 15,
-    expansionScore: existing?.expansionScore ?? 0,
-    seatCount: existing?.seatCount ?? 1,
-    seatLimit: existing?.seatLimit ?? 3,
-    apiCalls30d: existing?.apiCalls30d ?? 0,
-    apiLimit: existing?.apiLimit ?? 500,
-  });
+    accountId: dbAccountId ?? currentUser?.accountId ?? undefined,
+    lifecycleState: currentUser?.lifecycleState ?? ('Lead' as const),
+    previousState: currentUser?.previousState,
+    mrr: currentUser?.mrr ?? 0,
+    plan: (traits.plan as string) || currentUser?.plan || 'Trial',
+    signupDate: (traits.createdAt ? new Date(traits.createdAt as string) : null) ?? currentUser?.signupDate ?? now,
+    lastLoginAt: currentUser?.lastLoginAt ?? now,
+    loginFrequency7d: currentUser?.loginFrequency7d ?? 1,
+    loginFrequency30d: currentUser?.loginFrequency30d ?? 1,
+    featureUsage30d: currentUser?.featureUsage30d ?? [],
+    sessionDepthMinutes: currentUser?.sessionDepthMinutes ?? 0,
+    churnRiskScore: currentUser?.churnRiskScore ?? 15,
+    expansionScore: currentUser?.expansionScore ?? 0,
+    seatCount: currentUser?.seatCount ?? 1,
+    seatLimit: currentUser?.seatLimit ?? 3,
+    apiCalls30d: currentUser?.apiCalls30d ?? 0,
+    apiLimit: currentUser?.apiLimit ?? 500,
+    properties: Object.keys(mergedProperties).length > 0 ? mergedProperties : undefined,
+  };
+
+  // Upsert or merge tracked user
+  const dbUser = anonymousId && anonymousId !== userId
+    ? await mergeTrackedUserIdentity(orgId, anonymousId, userId, upsertData)
+    : await upsertTrackedUser(orgId, upsertData);
+
+  if (!dbUser) {
+    return apiError('USER_MERGE_FAILED', 'Unable to resolve the tracked user record.', 500);
+  }
 
   // Activity log for new users
-  if (isNew) {
+  if (anonymousExisting && !existing) {
+    await addActivityEntry(orgId, {
+      type: 'account_event',
+      title: 'Visitor Captured',
+      description: `${name} converted from anonymous visitor to identified lead`,
+      trackedUserId: dbUser.id,
+      accountId: dbAccountId ?? undefined,
+    });
+  } else if (isNew) {
     await addActivityEntry(orgId, {
       type: 'account_event',
       title: 'New User Identified',
@@ -162,12 +206,13 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Link orphaned events (events that arrived before this identify) ──
-  if (isNew) {
-    try {
-      await linkOrphanedEvents(orgId, userId, dbUser.id);
-    } catch {
-      // Non-critical - events still exist, just not linked to user
+  try {
+    await linkOrphanedEvents(orgId, userId, dbUser.id);
+    if (anonymousId && anonymousId !== userId) {
+      await linkOrphanedEvents(orgId, anonymousId, dbUser.id);
     }
+  } catch {
+    // Non-critical - events still exist, just not linked to user
   }
 
   // ── Segment Evaluation ────────────────────────────────────────
@@ -292,6 +337,152 @@ export async function POST(request: NextRequest) {
       }
     } catch (e) {
       console.error('[identify] Flow enrollment error:', (e as Error).message);
+    }
+  }
+
+  // ── Lead Capture Flow Enrollment (anonymous visitor handoff) ───
+  if (anonymousId && anonymousId !== userId && traits.email) {
+    try {
+      const activeFlows = (await getAllFlowDefinitions(orgId, 'active')).items;
+      for (const dbFlow of activeFlows) {
+        const flow = mapFlowDefToUI(dbFlow);
+        const triggerNode = findTriggerNode(flow);
+        if (!triggerNode || !triggerNode.data.triggerConfig) continue;
+
+        const triggerEvent = {
+          type: 'event_received' as const,
+          eventName: 'lead_captured',
+          eventProperties: {
+            anonymousId,
+            email: traits.email,
+            source: 'identify',
+          },
+          userId: user.id,
+          accountId: user.account?.id,
+        };
+
+        if (!matchesTrigger(triggerNode.data.triggerConfig, triggerEvent)) continue;
+
+        const existingEnrollments = await dbGetUserEnrollments(orgId, dbUser.id);
+        const alreadyEnrolled = existingEnrollments.some(
+          (e) => e.flowId === flow.id && (e.status === 'active' || e.status === 'paused'),
+        );
+        if (alreadyEnrolled) continue;
+
+        const hasCompleted = existingEnrollments.some(
+          (e) => e.flowId === flow.id && (e.status === 'completed' || e.status === 'exited'),
+        );
+        if (hasCompleted) continue;
+
+        const enrollment = createEnrollment(flow, user.id, user.account?.id, user, {});
+        if (!enrollment) continue;
+
+        await dbUpsertEnrollment({
+          id: enrollment.id,
+          organizationId: orgId,
+          flowId: enrollment.flowId,
+          trackedUserId: dbUser.id,
+          accountId: dbAccountId ?? undefined,
+          flowVersion: enrollment.flowVersion ?? 1,
+          status: enrollment.status,
+          currentNodeId: enrollment.currentNodeId,
+          variables: enrollment.variables,
+          enrolledAt: new Date(enrollment.enrolledAt),
+          lastProcessedAt: enrollment.lastProcessedAt ? new Date(enrollment.lastProcessedAt) : undefined,
+          nextProcessAt: enrollment.nextProcessAt ? new Date(enrollment.nextProcessAt) : undefined,
+          history: enrollment.history,
+        });
+        flowEnrollments++;
+
+        const metrics = flow.metrics ?? {
+          totalEnrolled: 0,
+          currentlyActive: 0,
+          completed: 0,
+          goalReached: 0,
+          exitedEarly: 0,
+          errorCount: 0,
+        };
+        metrics.totalEnrolled++;
+        metrics.currentlyActive++;
+        await dbUpsertFlowDefinition(orgId, {
+          id: dbFlow.id,
+          name: dbFlow.name,
+          description: dbFlow.description,
+          status: dbFlow.status,
+          nodes: dbFlow.nodes,
+          edges: dbFlow.edges,
+          variables: dbFlow.variables,
+          settings: dbFlow.settings,
+          metrics: JSON.parse(JSON.stringify(metrics)),
+        });
+
+        const processResult = processEnrollment({ flow, enrollment, user });
+        await dbUpsertEnrollment({
+          id: processResult.enrollment.id,
+          organizationId: orgId,
+          flowId: processResult.enrollment.flowId,
+          trackedUserId: dbUser.id,
+          accountId: dbAccountId ?? undefined,
+          flowVersion: processResult.enrollment.flowVersion ?? 1,
+          status: processResult.enrollment.status,
+          currentNodeId: processResult.enrollment.currentNodeId,
+          variables: processResult.enrollment.variables,
+          enrolledAt: new Date(processResult.enrollment.enrolledAt),
+          lastProcessedAt: processResult.enrollment.lastProcessedAt ? new Date(processResult.enrollment.lastProcessedAt) : undefined,
+          completedAt: processResult.enrollment.completedAt ? new Date(processResult.enrollment.completedAt) : undefined,
+          nextProcessAt: processResult.enrollment.nextProcessAt ? new Date(processResult.enrollment.nextProcessAt) : undefined,
+          history: processResult.enrollment.history,
+        });
+        for (const action of processResult.actions) {
+          if (action.type !== 'send_email') continue;
+          if (!user.email) continue;
+
+          await sendEmail({
+            to: action.to || user.email,
+            subject: action.subject,
+            html: action.body,
+            fromName: action.fromName,
+            replyTo: action.replyTo,
+            orgId,
+          });
+        }
+
+        void dispatchWebhooks('flow.triggered', {
+          flowId: flow.id,
+          flowName: flow.name,
+          userId: user.id,
+          userName: user.name,
+          enrollmentId: enrollment.id,
+          trigger: 'lead_captured',
+        }, orgId);
+
+        if (processResult.enrollment.status === 'completed') {
+          metrics.currentlyActive = Math.max(0, metrics.currentlyActive - 1);
+          metrics.completed++;
+          await dbUpsertFlowDefinition(orgId, {
+            id: dbFlow.id,
+            name: dbFlow.name,
+            description: dbFlow.description,
+            status: dbFlow.status,
+            nodes: dbFlow.nodes,
+            edges: dbFlow.edges,
+            variables: dbFlow.variables,
+            settings: dbFlow.settings,
+            metrics: JSON.parse(JSON.stringify(metrics)),
+          });
+
+          void dispatchWebhooks('flow.completed', {
+            flowId: flow.id,
+            flowName: flow.name,
+            userId: user.id,
+            enrollmentId: enrollment.id,
+            status: 'completed',
+          }, orgId);
+        }
+
+      }
+    } catch (e) {
+      console.error('[identify] Lead capture flow error:', (e as Error).message);
     }
   }
 

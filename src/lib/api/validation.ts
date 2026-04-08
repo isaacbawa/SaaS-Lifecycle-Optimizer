@@ -101,8 +101,46 @@ export const MUTABLE_ACCOUNT_FIELDS = new Set([
 export interface IdentifyInput {
     userId: string;
     traits: Record<string, unknown>;
+    visitor?: VisitorInput;
+    anonymousId?: string;
     timestamp?: string;
     messageId?: string;
+}
+
+export interface VisitorPageInput {
+    url: string;
+    path?: string;
+    title?: string;
+    referrer?: string;
+    search?: string;
+    timestamp: string;
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    utmTerm?: string;
+    utmContent?: string;
+}
+
+export interface VisitorInput {
+    visitorId: string;
+    firstSeenAt: string;
+    lastSeenAt: string;
+    landingUrl?: string;
+    landingPage?: string;
+    landingReferrer?: string;
+    source?: {
+        channel?: string;
+        source?: string;
+        medium?: string;
+        campaign?: string;
+        term?: string;
+        content?: string;
+        referrer?: string;
+        landingUrl?: string;
+        landingPage?: string;
+    };
+    pagesVisited?: VisitorPageInput[];
+    pageCount?: number;
 }
 
 export function validateIdentify(body: unknown): ValidationResult<IdentifyInput> {
@@ -116,8 +154,47 @@ export function validateIdentify(body: unknown): ValidationResult<IdentifyInput>
         errors.push({ field: 'userId', message: 'userId is required and must be a non-empty string', received: body.userId });
     }
 
+    if (body.anonymousId !== undefined && !isNonEmptyString(body.anonymousId)) {
+        errors.push({ field: 'anonymousId', message: 'anonymousId must be a non-empty string if provided', received: body.anonymousId });
+    }
+
     if (body.traits !== undefined && !isObject(body.traits)) {
         errors.push({ field: 'traits', message: 'traits must be a JSON object if provided', received: typeof body.traits });
+    }
+
+    if (body.visitor !== undefined) {
+        if (!isObject(body.visitor)) {
+            errors.push({ field: 'visitor', message: 'visitor must be a JSON object if provided', received: typeof body.visitor });
+        } else {
+            if (!isNonEmptyString(body.visitor.visitorId)) {
+                errors.push({ field: 'visitor.visitorId', message: 'visitor.visitorId is required and must be a non-empty string', received: body.visitor.visitorId });
+            }
+            if (!isISOTimestamp(body.visitor.firstSeenAt)) {
+                errors.push({ field: 'visitor.firstSeenAt', message: 'visitor.firstSeenAt must be a valid ISO 8601 date string', received: body.visitor.firstSeenAt });
+            }
+            if (!isISOTimestamp(body.visitor.lastSeenAt)) {
+                errors.push({ field: 'visitor.lastSeenAt', message: 'visitor.lastSeenAt must be a valid ISO 8601 date string', received: body.visitor.lastSeenAt });
+            }
+            if (body.visitor.pagesVisited !== undefined) {
+                if (!Array.isArray(body.visitor.pagesVisited)) {
+                    errors.push({ field: 'visitor.pagesVisited', message: 'visitor.pagesVisited must be an array if provided', received: typeof body.visitor.pagesVisited });
+                } else {
+                    for (let i = 0; i < body.visitor.pagesVisited.length; i++) {
+                        const page = body.visitor.pagesVisited[i];
+                        if (!isObject(page)) {
+                            errors.push({ field: `visitor.pagesVisited[${i}]`, message: 'Each visited page must be an object' });
+                            continue;
+                        }
+                        if (!isNonEmptyString(page.url)) {
+                            errors.push({ field: `visitor.pagesVisited[${i}].url`, message: 'Visited page url is required and must be a non-empty string' });
+                        }
+                        if (!isISOTimestamp(page.timestamp)) {
+                            errors.push({ field: `visitor.pagesVisited[${i}].timestamp`, message: 'Visited page timestamp must be a valid ISO 8601 date string' });
+                        }
+                    }
+                }
+            }
+        }
     }
 
     const traits = isObject(body.traits) ? body.traits : {};
@@ -146,6 +223,8 @@ export function validateIdentify(body: unknown): ValidationResult<IdentifyInput>
         data: {
             userId: (body.userId as string).trim(),
             traits: traits as Record<string, unknown>,
+            visitor: isObject(body.visitor) ? (body.visitor as VisitorInput) : undefined,
+            anonymousId: body.anonymousId as string | undefined,
             timestamp: body.timestamp as string | undefined,
             messageId: body.messageId as string | undefined,
         },

@@ -27,6 +27,10 @@ export {
 
 export type {
     LifecycleOSConfig,
+    VisitorIdentity,
+    VisitorSource,
+    VisitorPageVisit,
+    VisitorProfile,
     ResolvedConfig,
     UserTraits,
     EventProperties,

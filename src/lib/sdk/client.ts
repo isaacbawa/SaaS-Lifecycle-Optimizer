@@ -23,6 +23,9 @@ import type {
   GroupTraits,
   GroupPayload,
   EventContext,
+  VisitorProfile,
+  VisitorPageVisit,
+  VisitorSource,
   ApiResponse,
 } from './types';
 
@@ -41,6 +44,9 @@ function isBrowser(): boolean {
   return typeof window !== 'undefined';
 }
 
+const VISITOR_STORAGE_KEY = 'lifecycleos.visitor_id';
+const VISITOR_PROFILE_STORAGE_KEY = 'lifecycleos.visitor_profile';
+
 /* ── Client Class ───────────────────────────────────────────────────── */
 
 export class LifecycleOS {
@@ -53,6 +59,7 @@ export class LifecycleOS {
   private readonly retryBaseDelay: number;
   private readonly debug: boolean;
   private readonly timeout: number;
+  private visitorId: string | null = null;
 
   private static readonly MAX_QUEUE_SIZE = 1000;
 
@@ -75,6 +82,7 @@ export class LifecycleOS {
     this.retryBaseDelay = config.retryBaseDelay ?? 1_000;
     this.debug = config.debug ?? false;
     this.timeout = config.timeout ?? 10_000;
+    this.visitorId = this.resolveVisitorId();
 
     this.startTimer();
     this.registerShutdownHook();
@@ -100,6 +108,8 @@ export class LifecycleOS {
     const payload: IdentifyPayload = {
       userId,
       traits,
+      visitor: this.getVisitorProfile(),
+      ...(this.visitorId ? { anonymousId: this.visitorId } : {}),
       timestamp: new Date().toISOString(),
       context: this.buildContext(),
     };
@@ -124,7 +134,12 @@ export class LifecycleOS {
 
     const payload: TrackPayload = {
       event,
-      properties,
+      properties: {
+        ...properties,
+        userId: properties.userId ?? this.userId ?? this.visitorId ?? undefined,
+        accountId: properties.accountId ?? this.accountId ?? undefined,
+        ...(this.visitorId ? { anonymousId: this.visitorId } : {}),
+      },
       timestamp: new Date().toISOString(),
       context: this.buildContext(),
       messageId: generateId(),
@@ -302,6 +317,21 @@ export class LifecycleOS {
     return ctx;
   }
 
+  private resolveVisitorId(): string | null {
+    if (!isBrowser()) return null;
+
+    try {
+      const existing = window.localStorage.getItem(VISITOR_STORAGE_KEY);
+      if (existing) return existing;
+
+      const visitorId = generateId();
+      window.localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
+      return visitorId;
+    } catch {
+      return generateId();
+    }
+  }
+
   /* ── Timer Management ───────────────────────────────────────────── */
 
   private startTimer(): void {
@@ -361,5 +391,134 @@ export class LifecycleOS {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private getVisitorProfile(): VisitorProfile | null {
+    if (!isBrowser()) return null;
+
+    try {
+      const raw = window.localStorage.getItem(VISITOR_PROFILE_STORAGE_KEY);
+      if (!raw) return null;
+
+      const parsed = JSON.parse(raw) as VisitorProfile;
+      return parsed?.visitorId ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private persistVisitorProfile(profile: VisitorProfile): VisitorProfile {
+    if (!isBrowser()) return profile;
+
+    try {
+      window.localStorage.setItem(VISITOR_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    } catch {
+      // Ignore storage failures; capture still continues in-memory.
+    }
+
+    return profile;
+  }
+
+  private buildVisitorSource(url: URL, referrer?: string): VisitorSource {
+    const source = url.searchParams.get('utm_source') ?? undefined;
+    const medium = url.searchParams.get('utm_medium') ?? undefined;
+    const campaign = url.searchParams.get('utm_campaign') ?? undefined;
+    const term = url.searchParams.get('utm_term') ?? undefined;
+    const content = url.searchParams.get('utm_content') ?? undefined;
+    const normalizedSource = source?.toLowerCase();
+    const normalizedMedium = medium?.toLowerCase();
+
+    const paidMediums = new Set(['cpc', 'ppc', 'paid', 'display', 'ad', 'ads']);
+    const emailMediums = new Set(['email', 'newsletter']);
+    const socialMediums = new Set(['social', 'social_paid', 'paid_social']);
+    const socialSources = new Set(['facebook', 'instagram', 'linkedin', 'x', 'twitter', 'tiktok', 'youtube', 'threads']);
+
+    let channel: VisitorSource['channel'] = 'direct';
+    if (source || medium || campaign) {
+      if (normalizedMedium && paidMediums.has(normalizedMedium)) {
+        channel = 'paid';
+      } else if (normalizedMedium && emailMediums.has(normalizedMedium)) {
+        channel = 'email';
+      } else if (normalizedMedium && socialMediums.has(normalizedMedium)) {
+        channel = 'social';
+      } else if (normalizedSource && socialSources.has(normalizedSource)) {
+        channel = 'social';
+      } else {
+        channel = 'organic';
+      }
+    } else if (referrer) {
+      try {
+        const referrerHost = new URL(referrer).hostname;
+        const currentHost = url.hostname;
+        channel = referrerHost === currentHost ? 'organic' : 'referral';
+      } catch {
+        channel = 'referral';
+      }
+    }
+
+    return {
+      channel,
+      source,
+      medium,
+      campaign,
+      term,
+      content,
+      referrer,
+      landingUrl: url.toString(),
+      landingPage: `${url.pathname}${url.search}`,
+    };
+  }
+
+  private recordVisitorPage(properties: EventProperties): VisitorProfile | undefined {
+    if (!isBrowser()) return undefined;
+
+    try {
+      const currentUrl = new URL((properties.url as string) ?? window.location.href);
+      const timestamp = new Date().toISOString();
+      const referrer = (properties.referrer as string | undefined) ?? (document.referrer || undefined);
+      const existing = this.getVisitorProfile();
+      const visitorId = this.visitorId ?? existing?.visitorId ?? generateId();
+      if (!this.visitorId) this.visitorId = visitorId;
+
+      const visit: VisitorPageVisit = {
+        url: currentUrl.toString(),
+        path: properties.path as string | undefined,
+        title: properties.title as string | undefined,
+        referrer,
+        search: currentUrl.search || undefined,
+        timestamp,
+        utmSource: currentUrl.searchParams.get('utm_source') ?? undefined,
+        utmMedium: currentUrl.searchParams.get('utm_medium') ?? undefined,
+        utmCampaign: currentUrl.searchParams.get('utm_campaign') ?? undefined,
+        utmTerm: currentUrl.searchParams.get('utm_term') ?? undefined,
+        utmContent: currentUrl.searchParams.get('utm_content') ?? undefined,
+      };
+
+      const source = existing?.source ?? this.buildVisitorSource(currentUrl, referrer);
+      const pagesVisited = [...(existing?.pagesVisited ?? [])];
+      const lastVisit = pagesVisited[pagesVisited.length - 1];
+      if (!lastVisit || lastVisit.url !== visit.url) {
+        pagesVisited.push(visit);
+        if (pagesVisited.length > 100) pagesVisited.splice(0, pagesVisited.length - 100);
+      } else {
+        pagesVisited[pagesVisited.length - 1] = visit;
+      }
+
+      const profile: VisitorProfile = {
+        visitorId,
+        firstSeenAt: existing?.firstSeenAt ?? timestamp,
+        lastSeenAt: timestamp,
+        landingUrl: existing?.landingUrl ?? visit.url,
+        landingPage: existing?.landingPage ?? `${currentUrl.pathname}${currentUrl.search}`,
+        landingReferrer: existing?.landingReferrer ?? referrer,
+        source,
+        pagesVisited,
+        pageCount: pagesVisited.length,
+      };
+
+      return this.persistVisitorProfile(profile);
+    } catch {
+      return this.getVisitorProfile() ?? undefined;
+    }
   }
 }

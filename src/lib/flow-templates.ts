@@ -129,6 +129,7 @@ const welcomeSeriesTemplate: FlowTemplate = {
     nodes: [
         {
             id: 'n1', type: 'trigger', position: { x: 400, y: 50 },
+
             data: {
                 label: 'New User Signup',
                 description: 'Fires when a new user creates an account',
@@ -280,6 +281,76 @@ const welcomeSeriesTemplate: FlowTemplate = {
         { id: 'e12', source: 'n10', target: 'n12' },
         { id: 'e13', source: 'n11', target: 'n12' },
         { id: 'e14', source: 'n12', target: 'n13' },
+    ],
+};
+
+const visitorLeadNurtureTemplate: FlowTemplate = {
+    id: 'ftpl_visitor_lead_nurture',
+    name: 'Visitor-to-Lead Nurture',
+    description: 'Welcomes a website visitor after they identify, then follows up with a short value-first email sequence.',
+    category: 'onboarding',
+    trigger: 'Visitor identified as a lead',
+    tags: ['visitor', 'lead', 'capture', 'welcome', 'nurture'],
+    estimatedSetupMinutes: 10,
+    goalEvent: 'lead_captured',
+    settings: { ...defaultSettings, goalEvent: 'lead_captured', goalTimeout: 4320, priority: 10 },
+    variables: [],
+    nodes: [
+        {
+            id: 'vl1', type: 'trigger', position: { x: 400, y: 50 },
+            data: {
+                label: 'Lead Captured',
+                description: 'Fires when an anonymous visitor becomes an identified lead',
+                nodeType: 'trigger',
+                triggerConfig: { kind: 'event_received', eventName: 'lead_captured', allowReEntry: false },
+            },
+        },
+        {
+            id: 'vl2', type: 'action', position: { x: 400, y: 180 },
+            data: {
+                label: 'Welcome Email',
+                description: 'Send the first helpful email after capture',
+                nodeType: 'action',
+                actionConfig: {
+                    kind: 'send_email',
+                    emailSubject: 'Thanks for checking out {{company.name}}, {{user.name}}',
+                    emailBody: 'Hi {{user.name}},\n\nThanks for stopping by {{company.name}}. If you are evaluating us, here are three fast ways to get value from the product:\n\n1. Review the core workflow\n2. Invite your team\n3. Try the first automation\n\nIf you have questions, just reply here.\n\nBest,\n{{company.name}}',
+                    emailFromName: '{{company.name}} Team',
+                },
+            },
+        },
+        {
+            id: 'vl3', type: 'delay', position: { x: 400, y: 310 },
+            data: {
+                label: 'Wait 2 Days',
+                nodeType: 'delay',
+                delayConfig: { kind: 'fixed_duration', durationMinutes: 2880 },
+            },
+        },
+        {
+            id: 'vl4', type: 'action', position: { x: 400, y: 440 },
+            data: {
+                label: 'Follow-Up Email',
+                description: 'Send a second message with a concrete next step',
+                nodeType: 'action',
+                actionConfig: {
+                    kind: 'send_email',
+                    emailSubject: 'A quick next step for {{company.name}}',
+                    emailBody: 'Hi {{user.name}},\n\nMost teams get the best results by setting up one small workflow first. If you want help choosing the right starting point, reply to this email and we will point you in the right direction.\n\nStart here →',
+                    emailFromName: '{{company.name}} Team',
+                },
+            },
+        },
+        {
+            id: 'vl5', type: 'exit', position: { x: 400, y: 570 },
+            data: { label: 'End', nodeType: 'exit', exitConfig: { reason: 'Visitor lead nurture complete' } },
+        },
+    ],
+    edges: [
+        { id: 'vle1', source: 'vl1', target: 'vl2' },
+        { id: 'vle2', source: 'vl2', target: 'vl3' },
+        { id: 'vle3', source: 'vl3', target: 'vl4' },
+        { id: 'vle4', source: 'vl4', target: 'vl5' },
     ],
 };
 
@@ -2193,6 +2264,7 @@ const securityAlertTemplate: FlowTemplate = {
 export const FLOW_TEMPLATES: FlowTemplate[] = [
     // Onboarding (3)
     welcomeSeriesTemplate,
+    visitorLeadNurtureTemplate,
     emailVerificationTemplate,
     teamInviteTemplate,
 

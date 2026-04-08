@@ -11,6 +11,10 @@
 export { LifecycleOS } from './client';
 export type {
   LifecycleOSConfig,
+  VisitorIdentity,
+  VisitorSource,
+  VisitorPageVisit,
+  VisitorProfile,
   UserTraits,
   IdentifyPayload,
   EventProperties,

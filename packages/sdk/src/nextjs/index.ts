@@ -119,17 +119,24 @@ async function serverRequest<T>(
 export async function serverIdentify(
     userId: string,
     traits?: UserTraits,
+    anonymousIdOrConfigOverride?: string | Partial<ServerConfig>,
     configOverride?: Partial<ServerConfig>,
 ): Promise<ApiResponse<IdentifyResponse>> {
+    const anonymousId = typeof anonymousIdOrConfigOverride === 'string' ? anonymousIdOrConfigOverride : undefined;
+    const resolvedConfigOverride = typeof anonymousIdOrConfigOverride === 'string'
+        ? configOverride
+        : anonymousIdOrConfigOverride;
+
     return serverRequest<IdentifyResponse>('/identify', {
         userId,
         traits: traits ?? {},
+        ...(anonymousId ? { anonymousId } : {}),
         timestamp: new Date().toISOString(),
         context: {
             library: { name: SDK_NAME, version: SDK_VERSION },
             environment: process.env.NODE_ENV ?? 'production',
         },
-    }, configOverride);
+    }, resolvedConfigOverride);
 }
 
 /**

@@ -434,6 +434,225 @@ export async function updateTrackedUserByExternalId(
     return user ?? null;
 }
 
+export async function mergeTrackedUserIdentity(
+    orgId: string,
+    sourceExternalId: string,
+    targetExternalId: string,
+    updates: Partial<Omit<TrackedUserInsert, 'organizationId' | 'externalId'>> = {},
+) {
+    return dbWrite('mergeTrackedUserIdentity', async () => db.transaction(async (tx) => {
+        const [source] = await tx
+            .select()
+            .from(schema.trackedUsers)
+            .where(and(
+                eq(schema.trackedUsers.organizationId, orgId),
+                eq(schema.trackedUsers.externalId, sourceExternalId),
+            ))
+            .limit(1);
+
+        const [target] = await tx
+            .select()
+            .from(schema.trackedUsers)
+            .where(and(
+                eq(schema.trackedUsers.organizationId, orgId),
+                eq(schema.trackedUsers.externalId, targetExternalId),
+            ))
+            .limit(1);
+
+        const now = new Date();
+
+        const mergeStrings = (...values: Array<string | null | undefined>) => values.find((value) => value !== undefined && value !== null && value !== '') ?? undefined;
+        const mergeNumbers = (...values: Array<number | null | undefined>) => values.find((value) => value !== undefined && value !== null) ?? undefined;
+        const mergeDates = (...values: Array<Date | string | null | undefined>) => {
+            const value = values.find((item) => item !== undefined && item !== null);
+            if (value === undefined || value === null) return undefined;
+            return value instanceof Date ? value : new Date(value);
+        };
+        const mergeStringArrays = (...values: Array<string[] | null | undefined>) => {
+            const merged = new Set<string>();
+            for (const value of values) {
+                for (const item of value ?? []) merged.add(item);
+            }
+            return merged.size > 0 ? [...merged] : undefined;
+        };
+        const mergeProperties = (...values: Array<Record<string, unknown> | null | undefined>) => {
+            const merged: Record<string, unknown> = {};
+            for (const value of values) {
+                if (value) Object.assign(merged, value);
+            }
+            return Object.keys(merged).length > 0 ? merged : undefined;
+        };
+
+        const mergedSet: Partial<TrackedUserInsert> = {
+            accountId: mergeStrings(updates.accountId as string | null | undefined, target?.accountId ?? undefined, source?.accountId ?? undefined),
+            email: mergeStrings(updates.email as string | null | undefined, target?.email ?? undefined, source?.email ?? undefined),
+            name: mergeStrings(updates.name as string | null | undefined, target?.name ?? undefined, source?.name ?? undefined),
+            lifecycleState: mergeStrings(updates.lifecycleState as string | null | undefined, target?.lifecycleState ?? undefined, source?.lifecycleState ?? undefined) as TrackedUserInsert['lifecycleState'] | undefined,
+            previousState: mergeStrings(updates.previousState as string | null | undefined, target?.previousState ?? undefined, source?.previousState ?? undefined) as TrackedUserInsert['previousState'] | undefined,
+            stateChangedAt: mergeDates(updates.stateChangedAt as Date | string | null | undefined, target?.stateChangedAt ?? undefined, source?.stateChangedAt ?? undefined),
+            mrr: mergeNumbers(updates.mrr as number | null | undefined, target?.mrr ?? undefined, source?.mrr ?? undefined),
+            plan: mergeStrings(updates.plan as string | null | undefined, target?.plan ?? undefined, source?.plan ?? undefined),
+            signupDate: mergeDates(updates.signupDate as Date | string | null | undefined, target?.signupDate ?? undefined, source?.signupDate ?? undefined),
+            activatedDate: mergeDates(updates.activatedDate as Date | string | null | undefined, target?.activatedDate ?? undefined, source?.activatedDate ?? undefined),
+            lastLoginAt: mergeDates(updates.lastLoginAt as Date | string | null | undefined, target?.lastLoginAt ?? undefined, source?.lastLoginAt ?? undefined),
+            loginFrequency7d: mergeNumbers(updates.loginFrequency7d as number | null | undefined, target?.loginFrequency7d ?? undefined, source?.loginFrequency7d ?? undefined),
+            loginFrequency30d: mergeNumbers(updates.loginFrequency30d as number | null | undefined, target?.loginFrequency30d ?? undefined, source?.loginFrequency30d ?? undefined),
+            featureUsage30d: mergeStringArrays(updates.featureUsage30d as string[] | null | undefined, target?.featureUsage30d ?? undefined, source?.featureUsage30d ?? undefined),
+            sessionDepthMinutes: mergeNumbers(updates.sessionDepthMinutes as number | null | undefined, target?.sessionDepthMinutes ?? undefined, source?.sessionDepthMinutes ?? undefined),
+            churnRiskScore: mergeNumbers(updates.churnRiskScore as number | null | undefined, target?.churnRiskScore ?? undefined, source?.churnRiskScore ?? undefined),
+            expansionScore: mergeNumbers(updates.expansionScore as number | null | undefined, target?.expansionScore ?? undefined, source?.expansionScore ?? undefined),
+            npsScore: mergeNumbers(updates.npsScore as number | null | undefined, target?.npsScore ?? undefined, source?.npsScore ?? undefined),
+            seatCount: mergeNumbers(updates.seatCount as number | null | undefined, target?.seatCount ?? undefined, source?.seatCount ?? undefined),
+            seatLimit: mergeNumbers(updates.seatLimit as number | null | undefined, target?.seatLimit ?? undefined, source?.seatLimit ?? undefined),
+            apiCalls30d: mergeNumbers(updates.apiCalls30d as number | null | undefined, target?.apiCalls30d ?? undefined, source?.apiCalls30d ?? undefined),
+            apiLimit: mergeNumbers(updates.apiLimit as number | null | undefined, target?.apiLimit ?? undefined, source?.apiLimit ?? undefined),
+            supportTickets30d: mergeNumbers(updates.supportTickets30d as number | null | undefined, target?.supportTickets30d ?? undefined, source?.supportTickets30d ?? undefined),
+            supportEscalations: mergeNumbers(updates.supportEscalations as number | null | undefined, target?.supportEscalations ?? undefined, source?.supportEscalations ?? undefined),
+            daysUntilRenewal: mergeNumbers(updates.daysUntilRenewal as number | null | undefined, target?.daysUntilRenewal ?? undefined, source?.daysUntilRenewal ?? undefined),
+            tags: mergeStringArrays(updates.tags as string[] | null | undefined, target?.tags ?? undefined, source?.tags ?? undefined),
+            properties: mergeProperties(target?.properties ?? undefined, source?.properties ?? undefined, updates.properties as Record<string, unknown> | null | undefined),
+            updatedAt: now,
+        };
+
+        if (!source && !target) {
+            const [created] = await tx
+                .insert(schema.trackedUsers)
+                .values({
+                    ...updates,
+                    organizationId: orgId,
+                    externalId: targetExternalId,
+                })
+                .returning();
+            return created ?? null;
+        }
+
+        if (!source && target) {
+            const [updatedTarget] = await tx
+                .update(schema.trackedUsers)
+                .set({ ...mergedSet, externalId: targetExternalId })
+                .where(and(
+                    eq(schema.trackedUsers.organizationId, orgId),
+                    eq(schema.trackedUsers.id, target.id),
+                ))
+                .returning();
+            return updatedTarget ?? target;
+        }
+
+        if (source && !target) {
+            const [updatedSource] = await tx
+                .update(schema.trackedUsers)
+                .set({ ...mergedSet, externalId: targetExternalId })
+                .where(and(
+                    eq(schema.trackedUsers.organizationId, orgId),
+                    eq(schema.trackedUsers.id, source.id),
+                ))
+                .returning();
+            return updatedSource ?? source;
+        }
+
+        if (!source || !target) {
+            return null;
+        }
+
+        if (source.id === target.id) {
+            const [updated] = await tx
+                .update(schema.trackedUsers)
+                .set({ ...mergedSet, externalId: targetExternalId })
+                .where(and(
+                    eq(schema.trackedUsers.organizationId, orgId),
+                    eq(schema.trackedUsers.id, target.id),
+                ))
+                .returning();
+            return updated ?? target;
+        }
+
+        await tx
+            .update(schema.events)
+            .set({ trackedUserId: target.id, externalUserId: targetExternalId })
+            .where(and(
+                eq(schema.events.organizationId, orgId),
+                eq(schema.events.trackedUserId, source.id),
+            ));
+
+        await tx
+            .update(schema.flowEnrollments)
+            .set({ trackedUserId: target.id })
+            .where(and(
+                eq(schema.flowEnrollments.organizationId, orgId),
+                eq(schema.flowEnrollments.trackedUserId, source.id),
+            ));
+
+        await tx
+            .update(schema.activityLog)
+            .set({ trackedUserId: target.id })
+            .where(and(
+                eq(schema.activityLog.organizationId, orgId),
+                eq(schema.activityLog.trackedUserId, source.id),
+            ));
+
+        await tx
+            .update(schema.emailSends)
+            .set({ trackedUserId: target.id })
+            .where(and(
+                eq(schema.emailSends.organizationId, orgId),
+                eq(schema.emailSends.trackedUserId, source.id),
+            ));
+
+        const sourceMemberships = await tx
+            .select({ id: schema.segmentMemberships.id, segmentId: schema.segmentMemberships.segmentId })
+            .from(schema.segmentMemberships)
+            .where(eq(schema.segmentMemberships.trackedUserId, source.id));
+
+        for (const membership of sourceMemberships) {
+            const [existingTargetMembership] = await tx
+                .select({ id: schema.segmentMemberships.id })
+                .from(schema.segmentMemberships)
+                .where(and(
+                    eq(schema.segmentMemberships.segmentId, membership.segmentId),
+                    eq(schema.segmentMemberships.trackedUserId, target.id),
+                ))
+                .limit(1);
+
+            if (existingTargetMembership) {
+                await tx
+                    .delete(schema.segmentMemberships)
+                    .where(eq(schema.segmentMemberships.id, membership.id));
+            } else {
+                await tx
+                    .update(schema.segmentMemberships)
+                    .set({ trackedUserId: target.id })
+                    .where(eq(schema.segmentMemberships.id, membership.id));
+            }
+        }
+
+        await tx
+            .update(schema.trackedUsers)
+            .set({ ...mergedSet, externalId: targetExternalId })
+            .where(and(
+                eq(schema.trackedUsers.organizationId, orgId),
+                eq(schema.trackedUsers.id, target.id),
+            ));
+
+        await tx
+            .delete(schema.trackedUsers)
+            .where(and(
+                eq(schema.trackedUsers.organizationId, orgId),
+                eq(schema.trackedUsers.id, source.id),
+            ));
+
+        const [merged] = await tx
+            .select()
+            .from(schema.trackedUsers)
+            .where(and(
+                eq(schema.trackedUsers.organizationId, orgId),
+                eq(schema.trackedUsers.id, target.id),
+            ))
+            .limit(1);
+
+        return merged ?? target;
+    }));
+}
+
 export async function getTrackedUserCount(orgId: string) {
     const [result] = await db
         .select({ count: count() })

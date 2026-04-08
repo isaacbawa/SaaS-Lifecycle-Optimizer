@@ -31,6 +31,12 @@ export interface LifecycleOSConfig {
     timeout?: number;
 }
 
+/** Persistent anonymous browser identity used before `identify()`. */
+export interface VisitorIdentity {
+    visitorId?: string;
+    anonymousId?: string;
+}
+
 /** Resolved config with defaults applied */
 export interface ResolvedConfig extends Required<LifecycleOSConfig> { }
 
@@ -47,11 +53,59 @@ export interface UserTraits {
     [key: string]: string | number | boolean | string[] | undefined;
 }
 
+export interface VisitorSource {
+    channel: 'direct' | 'organic' | 'paid' | 'social' | 'referral' | 'email' | 'unknown';
+    source?: string;
+    medium?: string;
+    campaign?: string;
+    term?: string;
+    content?: string;
+    referrer?: string;
+    landingUrl?: string;
+    landingPage?: string;
+}
+
+export interface VisitorPageVisit {
+    url: string;
+    path?: string;
+    title?: string;
+    referrer?: string;
+    search?: string;
+    timestamp: string;
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    utmTerm?: string;
+    utmContent?: string;
+}
+
+export interface VisitorProfile {
+    visitorId: string;
+    firstSeenAt: string;
+    lastSeenAt: string;
+    landingUrl?: string;
+    landingPage?: string;
+    landingReferrer?: string;
+    source: VisitorSource;
+    pagesVisited: VisitorPageVisit[];
+    pageCount: number;
+}
+
+export interface IdentifyPayload {
+    userId: string;
+    traits: UserTraits;
+    visitor?: VisitorProfile;
+    anonymousId?: string;
+    timestamp: string;
+    context: EventContext;
+}
+
 /* ── Track ──────────────────────────────────────────────────────────── */
 
 export interface EventProperties {
     userId?: string;
     accountId?: string;
+    anonymousId?: string;
     [key: string]: string | number | boolean | string[] | Record<string, unknown> | undefined;
 }
 
