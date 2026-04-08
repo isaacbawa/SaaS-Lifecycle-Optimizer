@@ -60,6 +60,8 @@ export class LifecycleOS {
   private readonly debug: boolean;
   private readonly timeout: number;
   private visitorId: string | null = null;
+  private userId: string | null = null;
+  private accountId: string | null = null;
 
   private static readonly MAX_QUEUE_SIZE = 1000;
 

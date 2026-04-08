@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
   const name = (traits.name as string) || currentUser?.name || 'Unknown User';
 
   const mergedProperties: Record<string, unknown> = {
-    ...((currentUser?.properties as Record<string, unknown> | undefined) ?? {}),
     ...((anonymousExisting?.properties as Record<string, unknown> | undefined) ?? {}),
+    ...((currentUser?.properties as Record<string, unknown> | undefined) ?? {}),
   };
   if (visitorSnapshot) {
     mergedProperties.visitor = visitorSnapshot;
@@ -437,14 +437,18 @@ export async function POST(request: NextRequest) {
           if (action.type !== 'send_email') continue;
           if (!user.email) continue;
 
-          await sendEmail({
-            to: action.to || user.email,
-            subject: action.subject,
-            html: action.body,
-            fromName: action.fromName,
-            replyTo: action.replyTo,
-            orgId,
-          });
+          try {
+            await sendEmail({
+              to: action.to || user.email,
+              subject: action.subject,
+              html: action.body,
+              fromName: action.fromName,
+              replyTo: action.replyTo,
+              orgId,
+            });
+          } catch (error) {
+            console.error('[identify] Send email action error:', (error as Error).message);
+          }
         }
 
         void dispatchWebhooks('flow.triggered', {

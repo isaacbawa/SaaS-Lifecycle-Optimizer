@@ -84,7 +84,9 @@ function generateId(): string {
     });
 }
 
-const VISITOR_STORAGE_KEY = 'lifecycleos.visitor_id';
+function isBrowser(): boolean {
+    return typeof window !== 'undefined' && !!window.localStorage;
+}
 
 /* ── Context Builder ────────────────────────────────────────────────── */
 
@@ -472,7 +474,7 @@ class LifecycleOSClientImpl implements LifecycleOSClient {
             try {
                 const referrerHost = new URL(referrer).hostname;
                 const currentHost = url.hostname;
-                channel = referrerHost === currentHost ? 'organic' : 'referral';
+                channel = referrerHost === currentHost ? 'direct' : 'referral';
             } catch {
                 channel = 'referral';
             }
@@ -555,6 +557,9 @@ class LifecycleOSClientImpl implements LifecycleOSClient {
             window.localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
             return visitorId;
         } catch {
+            // localStorage can fail in private mode or blocked-storage contexts.
+            // The constructor caches the generated value in this.visitorId so it
+            // remains stable for the lifetime of the client even when storage is unavailable.
             return generateId();
         }
     }

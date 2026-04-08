@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
+import { Suspense } from 'react';
 import { ChunkLoadErrorRecovery } from '@/components/chunk-load-error-recovery';
 import { VisitorTelemetry } from '@/components/analytics/visitor-telemetry';
 import './globals.css';
@@ -31,7 +32,9 @@ export default function RootLayout({
       <html lang="en" suppressHydrationWarning>
         <body className={`${inter.variable} font-body antialiased`}>
           <ChunkLoadErrorRecovery />
-          <VisitorTelemetry />
+          <Suspense fallback={null}>
+            <VisitorTelemetry />
+          </Suspense>
           {children}
           <Toaster />
         </body>
