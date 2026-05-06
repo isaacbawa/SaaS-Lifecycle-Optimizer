@@ -41,6 +41,7 @@ import type {
     DelayKind,
 } from '@/lib/definitions';
 import { flowNodeTypes } from './flow-nodes';
+import { flowEdgeTypes } from './flow-edges';
 import { NodePalette } from './node-palette';
 import { PropertyPanel } from './property-panel';
 import { Button } from '@/components/ui/button';
@@ -139,9 +140,9 @@ function toReactFlowEdges(edges: FlowEdgeDef[]): Edge[] {
         targetHandle: e.targetHandle,
         label: e.label,
         animated: e.animated ?? false,
-        type: 'smoothstep',
-        markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-        style: { strokeWidth: 2 },
+        type: 'flow',
+        markerEnd: { type: MarkerType.ArrowClosed, width: 10, height: 10, color: '#94a3b8' },
+        style: { strokeWidth: 1.75 },
     }));
 }
 
@@ -363,10 +364,10 @@ export function FlowBuilderCanvas({ flow, onSave, onBack }: FlowBuilderCanvasPro
         setEdges((eds) => addEdge({
             ...conn,
             id: newEdgeId(),
-            type: 'smoothstep',
+            type: 'flow',
             animated: false,
-            markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-            style: { strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, width: 10, height: 10, color: '#94a3b8' },
+            style: { strokeWidth: 1.75 },
         }, eds));
     }, [setEdges]);
 
@@ -619,11 +620,12 @@ export function FlowBuilderCanvas({ flow, onSave, onBack }: FlowBuilderCanvasPro
                             onDragOver={onDragOver}
                             onDrop={onDrop}
                             nodeTypes={flowNodeTypes}
+                            edgeTypes={flowEdgeTypes}
                             connectionMode={ConnectionMode.Loose}
                             defaultEdgeOptions={{
-                                type: 'smoothstep',
-                                markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-                                style: { strokeWidth: 2 },
+                                type: 'flow',
+                                markerEnd: { type: MarkerType.ArrowClosed, width: 10, height: 10, color: '#94a3b8' },
+                                style: { strokeWidth: 1.75 },
                             }}
                             proOptions={{ hideAttribution: true }}
                             fitView

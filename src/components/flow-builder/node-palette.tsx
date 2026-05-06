@@ -35,7 +35,7 @@ const paletteItems: PaletteItem[] = [
     /* Triggers */
     { nodeType: 'trigger', label: 'Lifecycle Change', description: 'User enters a lifecycle state', icon: <Zap className="h-4 w-4" />, color: 'text-amber-600 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400', category: 'triggers', defaultKind: 'lifecycle_change' },
     { nodeType: 'trigger', label: 'Event Received', description: 'Specific event is tracked', icon: <Zap className="h-4 w-4" />, color: 'text-amber-600 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400', category: 'triggers', defaultKind: 'event_received' },
-    { nodeType: 'trigger', label: 'Scheduled', description: 'Run on a cron schedule', icon: <Clock className="h-4 w-4" />, color: 'text-amber-600 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400', category: 'triggers', defaultKind: 'schedule' },
+    { nodeType: 'trigger', label: 'Recurring Schedule', description: 'Run on a recurring schedule', icon: <Clock className="h-4 w-4" />, color: 'text-amber-600 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400', category: 'triggers', defaultKind: 'schedule' },
     { nodeType: 'trigger', label: 'Manual', description: 'Triggered manually or via API', icon: <Zap className="h-4 w-4" />, color: 'text-amber-600 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400', category: 'triggers', defaultKind: 'manual' },
 
     /* Actions */

@@ -210,6 +210,17 @@ export class LifecycleOS {
   }
 
   /**
+   * Reset user identity state (call on sign-out).
+   * Preserves the visitor ID so anonymous tracking continues seamlessly.
+   * A subsequent identify() will re-establish the link.
+   */
+  reset(): void {
+    this.userId = null;
+    this.accountId = null;
+    this.log('reset');
+  }
+
+  /**
    * Track a page view and persist the visitor profile.
    */
   page(properties: EventProperties = {}): void {
@@ -224,7 +235,7 @@ export class LifecycleOS {
     const visitor = this.recordVisitorPage(pageProperties);
     this.track('$page', {
       ...pageProperties,
-      ...(visitor ? { visitor: { ...visitor } as Record<string, unknown> } : {}),
+      ...(visitor ? { visitor } : {}),
     });
   }
 

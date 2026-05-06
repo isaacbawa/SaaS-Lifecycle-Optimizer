@@ -51,10 +51,15 @@ export async function POST(request: NextRequest) {
   const nowIso = now.toISOString();
 
   // ── Timestamp replay-attack guard ─────────────────────────────
-  // Reject batches with a sentAt timestamp older than 5 minutes or
-  // more than 30 seconds in the future (clock skew tolerance).
-  const MAX_AGE_MS = 5 * 60 * 1_000;
-  const MAX_FUTURE_MS = 30 * 1_000;
+  // Reject batches with a sentAt timestamp older than 30 minutes or
+  // more than 60 seconds in the future.
+  // Beacon payloads (_beacon: true) use a wider window because the
+  // browser sends them asynchronously at page unload and the timestamp
+  // reflects when the unload fired, not when the server receives it.
+  const isBeacon = typeof (raw as Record<string, unknown>)._beacon === 'boolean'
+    && (raw as Record<string, unknown>)._beacon === true;
+  const MAX_AGE_MS = isBeacon ? 30 * 60 * 1_000 : 5 * 60 * 1_000;
+  const MAX_FUTURE_MS = 60 * 1_000;
   if (sentAt) {
     const sentAtDate = new Date(sentAt);
     const drift = now.getTime() - sentAtDate.getTime();

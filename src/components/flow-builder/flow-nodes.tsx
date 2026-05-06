@@ -47,6 +47,42 @@ function getActionIcon(kind?: string) {
     }
 }
 
+/* ── Schedule Description Helpers ───────────────────────────────────── */
+
+function fmtScheduleHour(h: number, m: number): string {
+    const mm = String(m).padStart(2, '0');
+    if (h === 0) return `12:${mm} AM`;
+    if (h < 12) return `${h}:${mm} AM`;
+    if (h === 12) return `12:${mm} PM`;
+    return `${h - 12}:${mm} PM`;
+}
+
+function describeCronSchedule(cron: string): string {
+    if (!cron) return 'Not configured';
+    const parts = cron.trim().split(/\s+/);
+    if (parts.length !== 5) return cron;
+    const [min, hr, dom, , dow] = parts;
+    const parsedMin = parseInt(min, 10);
+    const parsedHr = parseInt(hr, 10);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const timeStr = fmtScheduleHour(parsedHr, parsedMin);
+    if (min === '0' && hr.startsWith('*/')) {
+        const n = parseInt(hr.slice(2), 10);
+        return `Every ${n} hour${n !== 1 ? 's' : ''}`;
+    }
+    if (dom === '*' && dow !== '*') {
+        const days = dow.split(',').map((d) => dayNames[parseInt(d, 10)] ?? d).join(', ');
+        return `${days} at ${timeStr}`;
+    }
+    if (dom !== '*' && dow === '*') {
+        return `Day ${dom} of month at ${timeStr}`;
+    }
+    if (dom === '*' && dow === '*') {
+        return `Daily at ${timeStr}`;
+    }
+    return cron;
+}
+
 /* ── Summary Text Generator ──────────────────────────────────────────── */
 
 function getNodeSummary(data: FlowNodeData): string {
@@ -57,7 +93,7 @@ function getNodeSummary(data: FlowNodeData): string {
             switch (cfg.kind) {
                 case 'lifecycle_change': return `State → ${cfg.lifecycleTo?.join(', ') ?? 'any'}`;
                 case 'event_received': return `Event: ${cfg.eventName ?? 'any'}`;
-                case 'schedule': return `Cron: ${cfg.cronExpression ?? '-'}`;
+                case 'schedule': return describeCronSchedule(cfg.cronExpression ?? '');
                 case 'manual': return 'Manual trigger';
                 case 'segment_entry': return `Segment: ${cfg.segmentId ?? '-'}`;
                 case 'webhook_received': return 'Incoming webhook';

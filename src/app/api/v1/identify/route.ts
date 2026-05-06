@@ -292,7 +292,7 @@ export async function POST(request: NextRequest) {
         });
         flowEnrollments++;
 
-        // Process the enrollment
+        // Process the enrollment (advance through immediate nodes)
         const processResult = processEnrollment({ flow, enrollment, user });
         await dbUpsertEnrollment({
           id: processResult.enrollment.id,
@@ -310,6 +310,24 @@ export async function POST(request: NextRequest) {
           nextProcessAt: processResult.enrollment.nextProcessAt ? new Date(processResult.enrollment.nextProcessAt) : undefined,
           history: processResult.enrollment.history,
         });
+
+        // Dispatch email actions produced by the flow engine
+        for (const action of processResult.actions) {
+          if (action.type !== 'send_email') continue;
+          if (!user.email) continue;
+          try {
+            await sendEmail({
+              to: action.to || user.email,
+              subject: action.subject,
+              html: action.body,
+              fromName: action.fromName,
+              replyTo: action.replyTo,
+              orgId,
+            });
+          } catch (emailErr) {
+            console.error('[identify] lifecycle_change email error:', (emailErr as Error).message);
+          }
+        }
 
         // Update flow metrics
         const metrics = flow.metrics ?? {
@@ -334,6 +352,14 @@ export async function POST(request: NextRequest) {
           userId: user.id, userName: user.name,
           enrollmentId: enrollment.id,
         }, orgId);
+
+        if (processResult.enrollment.status === 'completed') {
+          void dispatchWebhooks('flow.completed', {
+            flowId: flow.id, flowName: flow.name,
+            userId: user.id, enrollmentId: enrollment.id,
+            status: 'completed',
+          }, orgId);
+        }
       }
     } catch (e) {
       console.error('[identify] Flow enrollment error:', (e as Error).message);

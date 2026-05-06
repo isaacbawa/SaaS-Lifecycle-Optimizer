@@ -7,7 +7,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type {
     FlowNodeData,
     FlowNodeType,
@@ -174,13 +174,235 @@ export function PropertyPanel({ node, allNodes, onUpdate, onDelete, onClose }: P
  * Type-Specific Config Sections
  * ═══════════════════════════════════════════════════════════════════════ */
 
+/* ── Schedule Builder ────────────────────────────────────────────────── */
+
+type ScheduleFreq = 'hourly' | 'daily' | 'weekly' | 'monthly';
+
+interface ParsedSchedule {
+    frequency: ScheduleFreq;
+    everyHours: number;
+    hour: number;
+    minute: number;
+    weekDays: number[];
+    dayOfMonth: number;
+}
+
+function parseCronToSchedule(cron: string): ParsedSchedule {
+    const defaults: ParsedSchedule = { frequency: 'daily', everyHours: 1, hour: 9, minute: 0, weekDays: [1], dayOfMonth: 1 };
+    if (!cron) return defaults;
+    const parts = cron.trim().split(/\s+/);
+    if (parts.length !== 5) return defaults;
+    const [min, hr, dom, , dow] = parts;
+    const parsedMin = parseInt(min, 10);
+    const parsedHr = parseInt(hr, 10);
+    const minute = [0, 15, 30, 45].includes(parsedMin) ? parsedMin : 0;
+    const hour = isNaN(parsedHr) ? 9 : Math.min(23, Math.max(0, parsedHr));
+    if (min === '0' && hr.startsWith('*/') && dom === '*') {
+        const n = parseInt(hr.slice(2), 10);
+        return { ...defaults, frequency: 'hourly', everyHours: isNaN(n) ? 1 : n };
+    }
+    if (dom === '*' && dow !== '*') {
+        const days = dow.split(',').map((d) => parseInt(d.trim(), 10)).filter((n) => !isNaN(n));
+        return { ...defaults, frequency: 'weekly', hour, minute, weekDays: days.length ? days : [1] };
+    }
+    if (dom !== '*' && dow === '*') {
+        const d = parseInt(dom, 10);
+        return { ...defaults, frequency: 'monthly', hour, minute, dayOfMonth: isNaN(d) ? 1 : Math.min(28, Math.max(1, d)) };
+    }
+    return { ...defaults, frequency: 'daily', hour, minute };
+}
+
+function buildCronFromSchedule(s: ParsedSchedule): string {
+    switch (s.frequency) {
+        case 'hourly': return `0 */${Math.max(1, s.everyHours)} * * *`;
+        case 'daily': return `${s.minute} ${s.hour} * * *`;
+        case 'weekly': {
+            const days = (s.weekDays.length ? s.weekDays : [1]).slice().sort((a, b) => a - b).join(',');
+            return `${s.minute} ${s.hour} * * ${days}`;
+        }
+        case 'monthly': return `${s.minute} ${s.hour} ${Math.max(1, s.dayOfMonth)} * *`;
+    }
+}
+
+function fmtScheduleTime(h: number, m: number): string {
+    const mm = String(m).padStart(2, '0');
+    if (h === 0) return `12:${mm} AM`;
+    if (h < 12) return `${h}:${mm} AM`;
+    if (h === 12) return `12:${mm} PM`;
+    return `${h - 12}:${mm} PM`;
+}
+
+function describeSchedule(s: ParsedSchedule): string {
+    const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const timeStr = fmtScheduleTime(s.hour, s.minute);
+    switch (s.frequency) {
+        case 'hourly': return `Every ${s.everyHours} hour${s.everyHours !== 1 ? 's' : ''}`;
+        case 'daily': return `Every day at ${timeStr}`;
+        case 'weekly': {
+            const dayLabels = s.weekDays.slice().sort((a, b) => a - b).map((d) => DAYS[d] ?? '?').join(', ');
+            return `Every ${dayLabels} at ${timeStr}`;
+        }
+        case 'monthly': return `Day ${s.dayOfMonth} of every month at ${timeStr}`;
+    }
+}
+
+const WEEK_DAYS = [
+    { value: 1, label: 'Mon' },
+    { value: 2, label: 'Tue' },
+    { value: 3, label: 'Wed' },
+    { value: 4, label: 'Thu' },
+    { value: 5, label: 'Fri' },
+    { value: 6, label: 'Sat' },
+    { value: 0, label: 'Sun' },
+];
+
+function ScheduleBuilder({ value, onChange }: { value: string; onChange: (cron: string) => void }) {
+    const [schedule, setSchedule] = useState<ParsedSchedule>(() => parseCronToSchedule(value));
+
+    const update = useCallback((updates: Partial<ParsedSchedule>) => {
+        setSchedule((prev) => {
+            const next = { ...prev, ...updates };
+            onChange(buildCronFromSchedule(next));
+            return next;
+        });
+    }, [onChange]);
+
+    const FREQ_OPTIONS: { value: ScheduleFreq; label: string }[] = [
+        { value: 'hourly', label: 'Hourly' },
+        { value: 'daily', label: 'Daily' },
+        { value: 'weekly', label: 'Weekly' },
+        { value: 'monthly', label: 'Monthly' },
+    ];
+
+    const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => ({ value: i, label: fmtScheduleTime(i, 0).replace(':00', '') }));
+    const MINUTE_OPTIONS = [
+        { value: 0, label: ':00' },
+        { value: 15, label: ':15' },
+        { value: 30, label: ':30' },
+        { value: 45, label: ':45' },
+    ];
+
+    return (
+        <div className="space-y-3">
+            <div>
+                <Label className="text-xs">Repeat</Label>
+                <Select value={schedule.frequency} onValueChange={(v) => update({ frequency: v as ScheduleFreq })}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        {FREQ_OPTIONS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {schedule.frequency === 'hourly' && (
+                <div className="flex items-center gap-2">
+                    <Label className="text-xs shrink-0">Every</Label>
+                    <Select
+                        value={String(schedule.everyHours)}
+                        onValueChange={(v) => update({ everyHours: parseInt(v, 10) })}
+                    >
+                        <SelectTrigger className="h-8 text-sm w-20"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {[1, 2, 3, 4, 6, 8, 12].map((h) => (
+                                <SelectItem key={h} value={String(h)}>{h}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Label className="text-xs shrink-0">hours</Label>
+                </div>
+            )}
+
+            {schedule.frequency === 'weekly' && (
+                <div>
+                    <Label className="text-xs">On these days</Label>
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                        {WEEK_DAYS.map((day) => {
+                            const active = schedule.weekDays.includes(day.value);
+                            return (
+                                <button
+                                    key={day.value}
+                                    type="button"
+                                    onClick={() => {
+                                        const days = active
+                                            ? schedule.weekDays.filter((d) => d !== day.value)
+                                            : [...schedule.weekDays, day.value];
+                                        if (days.length > 0) update({ weekDays: days });
+                                    }}
+                                    className={`px-2 py-1 rounded text-xs font-medium border transition-colors ${
+                                        active
+                                            ? 'bg-primary text-primary-foreground border-primary'
+                                            : 'bg-muted text-muted-foreground border-transparent hover:bg-muted/80'
+                                    }`}
+                                >
+                                    {day.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {schedule.frequency === 'monthly' && (
+                <div>
+                    <Label className="text-xs">Day of month</Label>
+                    <Input
+                        type="number"
+                        min={1}
+                        max={28}
+                        value={schedule.dayOfMonth}
+                        onChange={(e) => {
+                            const d = Math.min(28, Math.max(1, parseInt(e.target.value, 10) || 1));
+                            update({ dayOfMonth: d });
+                        }}
+                        className="h-8 text-sm w-24 mt-1"
+                    />
+                </div>
+            )}
+
+            {schedule.frequency !== 'hourly' && (
+                <div>
+                    <Label className="text-xs">At time</Label>
+                    <div className="flex items-center gap-1.5 mt-1">
+                        <Select
+                            value={String(schedule.hour)}
+                            onValueChange={(v) => update({ hour: parseInt(v, 10) })}
+                        >
+                            <SelectTrigger className="h-8 text-sm w-24"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                {HOUR_OPTIONS.map((o) => (
+                                    <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select
+                            value={String(schedule.minute)}
+                            onValueChange={(v) => update({ minute: parseInt(v, 10) })}
+                        >
+                            <SelectTrigger className="h-8 text-sm w-16"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                {MINUTE_OPTIONS.map((o) => (
+                                    <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            )}
+
+            <p className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1">
+                {describeSchedule(schedule)}
+            </p>
+        </div>
+    );
+}
+
 /* ── Trigger ─────────────────────────────────────────────────────────── */
 
 function TriggerConfig({ config, onChange }: { config: TriggerNodeConfig; onChange: (c: TriggerNodeConfig) => void }) {
     const kinds: { value: TriggerKind; label: string }[] = [
         { value: 'lifecycle_change', label: 'Lifecycle Change' },
         { value: 'event_received', label: 'Event Received' },
-        { value: 'schedule', label: 'Schedule (Cron)' },
+        { value: 'schedule', label: 'Recurring Schedule' },
         { value: 'manual', label: 'Manual / API' },
         { value: 'segment_entry', label: 'Segment Entry' },
         { value: 'webhook_received', label: 'Webhook Received' },
@@ -193,7 +415,16 @@ function TriggerConfig({ config, onChange }: { config: TriggerNodeConfig; onChan
         <div className="space-y-3">
             <div>
                 <Label className="text-xs">Trigger Type</Label>
-                <Select value={config.kind} onValueChange={(v) => onChange({ ...config, kind: v as TriggerKind })}>
+                <Select
+                value={config.kind}
+                onValueChange={(v) => {
+                    const next: TriggerNodeConfig = { ...config, kind: v as TriggerKind };
+                    if (v === 'schedule' && !next.cronExpression) {
+                        next.cronExpression = buildCronFromSchedule({ frequency: 'daily', everyHours: 1, hour: 9, minute: 0, weekDays: [1], dayOfMonth: 1 });
+                    }
+                    onChange(next);
+                }}
+            >
                     <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                         {kinds.map((k) => <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>)}
@@ -238,15 +469,10 @@ function TriggerConfig({ config, onChange }: { config: TriggerNodeConfig; onChan
             )}
 
             {config.kind === 'schedule' && (
-                <div>
-                    <Label className="text-xs">Cron Expression</Label>
-                    <Input
-                        value={config.cronExpression ?? ''}
-                        onChange={(e) => onChange({ ...config, cronExpression: e.target.value })}
-                        placeholder="0 9 * * 1 (Mon 9am)"
-                        className="h-8 text-sm font-mono"
-                    />
-                </div>
+                <ScheduleBuilder
+                    value={config.cronExpression ?? ''}
+                    onChange={(cron) => onChange({ ...config, cronExpression: cron })}
+                />
             )}
 
             {config.kind === 'date_property' && (

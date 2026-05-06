@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path . -Depth 2 -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(xargs grep -l \"visitor\")",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Bash(Get-Content \"C:/Users/ACER/AppData/Local/Temp/claude/c--Users-ACER-SaaS-Lifecycle-Optimizer/1631fd49-d9dd-4e84-8811-3d2eee7739c7/tasks/bay1fww0l.output\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -Last 40)",
+      "Bash(tail -40 \"/c/Users/ACER/AppData/Local/Temp/claude/c--Users-ACER-SaaS-Lifecycle-Optimizer/1631fd49-d9dd-4e84-8811-3d2eee7739c7/tasks/bay1fww0l.output\" 2>/dev/null || echo \"file not readable yet\")",
+      "Read(//c/Users/ACER/AppData/Local/Temp/claude/c--Users-ACER-SaaS-Lifecycle-Optimizer/1631fd49-d9dd-4e84-8811-3d2eee7739c7/tasks/**)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\ACER\\\\SaaS-Lifecycle-Optimizer\\\\src\\\\components\\\\flow-builder\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 45; Get-Content 'C:\\\\Users\\\\ACER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-ACER-SaaS-Lifecycle-Optimizer\\\\1631fd49-d9dd-4e84-8811-3d2eee7739c7\\\\tasks\\\\bmvac7ori.output' | Select-Object -Last 40\")",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\ACER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-ACER-SaaS-Lifecycle-Optimizer\\\\1631fd49-d9dd-4e84-8811-3d2eee7739c7\\\\tasks\\\\b8ia9eevt.output'\")",
+      "Bash(powershell -Command \"Get-Item 'C:\\\\Users\\\\ACER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-ACER-SaaS-Lifecycle-Optimizer\\\\1631fd49-d9dd-4e84-8811-3d2eee7739c7\\\\tasks\\\\bnq8ktsjw.output' | Select-Object Length\")",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\ACER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-ACER-SaaS-Lifecycle-Optimizer\\\\1631fd49-d9dd-4e84-8811-3d2eee7739c7\\\\tasks\\\\bnq8ktsjw.output' -Raw\")",
+      "Bash(powershell -Command \"Get-Item 'C:\\\\Users\\\\ACER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-ACER-SaaS-Lifecycle-Optimizer\\\\1631fd49-d9dd-4e84-8811-3d2eee7739c7\\\\tasks\\\\bd82yya33.output' | Select-Object Length, LastWriteTime\")",
+      "Read(//c/Users/ACER/.claude/projects/c--Users-ACER-SaaS-Lifecycle-Optimizer/memory/**)",
+      "Bash(powershell -Command \"Get-Item 'C:\\\\Users\\\\ACER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-ACER-SaaS-Lifecycle-Optimizer\\\\1631fd49-d9dd-4e84-8811-3d2eee7739c7\\\\tasks\\\\bd82yya33.output' | Select-Object Length\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\ACER\\.claude\\projects\\c--Users-ACER-SaaS-Lifecycle-Optimizer\\memory"
+    ]
+  }
+}
