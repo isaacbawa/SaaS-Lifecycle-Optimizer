@@ -1,0 +1,51 @@
+﻿
+> saas-lifecycle-optimizer@1.0.0 build
+> next build
+
+node.exe :  ΓÜá Attempted to load @next/swc-win32-x64-msvc, but an error 
+occurred: \\?\C:\Users\ACER\SaaS-Lifecycle-Optimizer\node_modules\@next\swc-win
+32-x64-msvc\next-swc.win32-x64-msvc.node is not a valid Win32 application.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( ΓÜá Attempted ...32 application. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+\\?\C:\Users\ACER\SaaS-Lifecycle-Optimizer\node_modules\@next\swc-win32-x64-msv
+c\next-swc.win32-x64-msvc.node
+   Γû▓ Next.js 15.5.9
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: 
+ENOENT: no such file or directory, rename 'C:\Users\ACER\SaaS-Lifecycle-Optimiz
+er\.next\cache\webpack\client-production\5.pack_' -> 'C:\Users\ACER\SaaS-Lifecy
+cle-Optimizer\.next\cache\webpack\client-production\5.pack'
+ Γ£ô Compiled successfully in 3.1min
+   Linting and checking validity of types ...
+Failed to compile.
+
+./src/lib/sdk/client.ts:225:25
+Type error: Argument of type '{ visitor?: Record<string, unknown> | 
+VisitorProfile | undefined; userId?: string; accountId?: string; anonymousId?: 
+string; }' is not assignable to parameter of type 'EventProperties'.
+  Types of property 'visitor' are incompatible.
+    Type 'Record<string, unknown> | VisitorProfile | undefined' is not 
+assignable to type 'VisitorProfile | undefined'.
+      Type 'Record<string, unknown>' is missing the following properties from 
+type 'VisitorProfile': visitorId, firstSeenAt, lastSeenAt, source, and 2 more.
+
+[0m [90m 223 |[39m
+ [90m 224 |[39m     [36mconst[39m visitor [33m=[39m 
+[36mthis[39m[33m.[39mrecordVisitorPage(pageProperties)[33m;[39m
+[31m[1m>[22m[39m[90m 225 |[39m     
+[36mthis[39m[33m.[39mtrack([32m'$page'[39m[33m,[39m {
+ [90m     |[39m                         [31m[1m^[22m[39m
+ [90m 226 |[39m       [33m...[39mpageProperties[33m,[39m
+ [90m 227 |[39m       [33m...[39m(visitor [33m?[39m { visitor[33m:[39m 
+{ [33m...[39mvisitor } [36mas[39m 
+[33mRecord[39m[33m<[39m[33mstring[39m[33m,[39m unknown[33m>[39m } 
+[33m:[39m {})[33m,[39m
+ [90m 228 |[39m     })[33m;[39m[0m
+Next.js build worker exited with code: 1 and signal: null

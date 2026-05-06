@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 const tiers = [
   {
     name: 'Starter',
-    price: '$49',
+    price: '$59',
     pricePeriod: '/ month',
     description:
       'For early-stage SaaS teams setting up lifecycle infrastructure for the first time. Get the foundation right before you scale.',

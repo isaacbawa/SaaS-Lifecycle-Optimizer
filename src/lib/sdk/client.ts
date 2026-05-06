@@ -224,7 +224,7 @@ export class LifecycleOS {
     const visitor = this.recordVisitorPage(pageProperties);
     this.track('$page', {
       ...pageProperties,
-      visitor,
+      ...(visitor ? { visitor: { ...visitor } as Record<string, unknown> } : {}),
     });
   }
 

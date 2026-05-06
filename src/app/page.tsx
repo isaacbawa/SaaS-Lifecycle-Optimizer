@@ -56,7 +56,7 @@ export default function HomePage() {
               <div className="flex flex-col gap-6">
                 <Badge variant="secondary" className="w-fit text-sm font-medium px-4 py-1.5 gap-2">
                   {/* <Sparkles className="h-3.5 w-3.5" /> */}
-                  The SaaS Email Marketing Platform
+                  The SaaS User Lifecycle Marketing Platform
                 </Badge>
                 <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-[1.1]">
                   Turn product usage into{' '}
@@ -859,7 +859,7 @@ export default function HomePage() {
           </div>
           <div className="grid gap-6 sm:grid-cols-3 max-w-4xl mx-auto">
             {[
-              { plan: 'Starter', price: '$49', users: 'Up to 1,000 users', popular: false },
+              { plan: 'Starter', price: '$59', users: 'Up to 1,000 users', popular: false },
               { plan: 'Growth', price: '$149', users: 'Up to 10,000 users', popular: true },
               { plan: 'Business', price: '$349', users: 'Up to 50,000 users', popular: false },
             ].map((tier) => (

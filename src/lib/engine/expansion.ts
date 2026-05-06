@@ -23,7 +23,7 @@ const PLAN_HIERARCHY: PlanTier[] = ['Trial', 'Starter', 'Growth', 'Business', 'E
 
 const PLAN_MRR: Record<PlanTier, number> = {
   Trial: 0,
-  Starter: 49,
+  Starter: 59,
   Growth: 149,
   Business: 349,
   Enterprise: 799,

@@ -230,7 +230,7 @@ class LifecycleOSClientImpl implements LifecycleOSClient {
         const visitor = this.recordVisitorPage(pageProps);
         this.track('$page', {
             ...pageProps,
-            visitor,
+            ...(visitor ? { visitor: { ...visitor } as Record<string, unknown> } : {}),
         });
     }
 

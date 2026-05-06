@@ -118,7 +118,7 @@ export interface EventProperties {
   accountId?: string;
   anonymousId?: string;
   visitor?: VisitorProfile;
-  [key: string]: string | number | boolean | string[] | Record<string, unknown> | undefined;
+  [key: string]: string | number | boolean | string[] | VisitorProfile | Record<string, unknown> | undefined;
 }
 
 /** Wire format for a single event in a batch */
