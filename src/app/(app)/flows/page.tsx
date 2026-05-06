@@ -419,7 +419,7 @@ export default function FlowsPage() {
           setSelectedCategory('all');
         }
       }}>
-        <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-3xl h-[85vh] flex flex-col overflow-hidden">
           {createStep === 'pick' ? (
             <>
               <DialogHeader>
@@ -448,7 +448,7 @@ export default function FlowsPage() {
                 <button
                   onClick={() => setSelectedCategory('all')}
                   className={cn(
-                    'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
+                    'px-2.5 py-1 rounded-sm text-xs font-medium border transition-colors',
                     selectedCategory === 'all'
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'bg-muted text-muted-foreground border-transparent hover:bg-muted/80',
@@ -461,7 +461,7 @@ export default function FlowsPage() {
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
                     className={cn(
-                      'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors flex items-center gap-1',
+                      'px-2.5 py-1 rounded-sm text-xs font-medium border transition-colors flex items-center gap-1',
                       selectedCategory === cat.id
                         ? 'bg-primary text-primary-foreground border-primary'
                         : 'bg-muted text-muted-foreground border-transparent hover:bg-muted/80',
@@ -474,61 +474,63 @@ export default function FlowsPage() {
               </div>
 
               {/* Template grid */}
-              <ScrollArea className="flex-1 -mx-6 px-6 min-h-0 max-h-[420px]">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">
-                  {/* Start from scratch card */}
-                  <button
-                    onClick={startFromScratch}
-                    className="text-left p-4 rounded-lg border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-muted/30 transition-all group"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
-                      <span className="font-medium text-sm">Start from Scratch</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Build a flow from an empty canvas with a trigger and exit node.
-                    </p>
-                  </button>
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="px-6 pb-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">
+                    {/* Start from scratch card */}
+                    <button
+                      onClick={startFromScratch}
+                      className="text-left p-4 rounded-lg border-2 border-dashed border-muted-foreground/60 hover:border-primary/100 bg-white transition-all group"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <FileText className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                        <span className="font-medium text-sm">Start from Scratch</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Build a flow from an empty canvas with a trigger and exit node.
+                      </p>
+                    </button>
 
-                  {filteredTemplates.map((tpl) => {
-                    const catMeta = FLOW_TEMPLATE_CATEGORIES.find(c => c.id === tpl.category);
-                    return (
-                      <button
-                        key={tpl.id}
-                        onClick={() => pickTemplate(tpl)}
-                        className="text-left p-4 rounded-lg border hover:border-primary/40 hover:bg-muted/30 transition-all group"
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="font-medium text-sm line-clamp-1">{tpl.name}</span>
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-2 shrink-0" style={{ borderColor: catMeta?.color }}>
-                            {catMeta?.label}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                          {tpl.description}
-                        </p>
-                        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Activity className="h-3 w-3" />
-                            {tpl.nodes.length} nodes
-                          </span>
-                          {tpl.estimatedSetupMinutes && (
+                    {filteredTemplates.map((tpl) => {
+                      const catMeta = FLOW_TEMPLATE_CATEGORIES.find(c => c.id === tpl.category);
+                      return (
+                        <button
+                          key={tpl.id}
+                          onClick={() => pickTemplate(tpl)}
+                          className="text-left p-4 rounded-lg border hover:border-primary/100 bg-white transition-all group"
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="font-medium text-sm line-clamp-1">{tpl.name}</span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-2 shrink-0" style={{ borderColor: catMeta?.color }}>
+                              {catMeta?.label}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                            {tpl.description}
+                          </p>
+                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                             <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              ~{tpl.estimatedSetupMinutes}m setup
+                              <Activity className="h-3 w-3" />
+                              {tpl.nodes.length} nodes
                             </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {filteredTemplates.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    No templates match your search.
+                            {tpl.estimatedSetupMinutes && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                ~{tpl.estimatedSetupMinutes}m setup
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
+
+                  {filteredTemplates.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      No templates match your search.
+                    </div>
+                  )}
+                </div>
               </ScrollArea>
             </>
           ) : (
@@ -599,6 +601,6 @@ export default function FlowsPage() {
         description="This will permanently remove this flow and all its enrollment data. This cannot be undone."
         onConfirm={() => { if (deleteId) deleteFlow(deleteId); }}
       />
-    </div>
+    </div >
   );
 }
