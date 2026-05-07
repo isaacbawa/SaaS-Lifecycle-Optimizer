@@ -128,7 +128,7 @@ function VariablePanel({ onInsert, compact }: { onInsert: (v: string) => void; c
     return (
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]">
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px] bg-white">
             <Variable className="h-3 w-3" />
             Variables
           </Button>
@@ -149,16 +149,16 @@ function VariablePanel({ onInsert, compact }: { onInsert: (v: string) => void; c
                 return (
                   <div key={cat.name}>
                     <div className="flex items-center gap-1 px-1.5 py-0.5">
-                      <Icon className="h-2.5 w-2.5 text-muted-foreground" />
-                      <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{cat.name}</span>
+                      <Icon className="h-2.5 w-2.5" />
+                      <span className="text-[9px] font-semibold uppercase tracking-wider">{cat.name}</span>
                     </div>
-                    {cat.hint && <p className="text-[8px] text-muted-foreground/70 px-1.5 -mt-0.5 mb-0.5">{cat.hint}</p>}
+                    {cat.hint && <p className="text-[8px] px-1.5 -mt-0.5 mb-0.5">{cat.hint}</p>}
                     <div className="grid grid-cols-2 gap-0.5 mt-0.5">
                       {cat.variables.map((v) => (
                         <button
                           key={v.key}
                           onClick={() => onInsert(`{{${v.key}}}`)}
-                          className="rounded px-1.5 py-1 text-left hover:bg-muted transition-colors"
+                          className="rounded px-1.5 py-1 text-left bg-white hover:bg-muted transition-colors overflow-hidden"
                         >
                           <code className="text-[10px] font-mono text-primary block">{`{{${v.key}}}`}</code>
                           <span className="text-[9px] text-muted-foreground">{v.label}</span>
@@ -985,7 +985,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
 
         {/* ═══ Subject + Preheader Bar ═══════════════════════════════ */}
         {editorMode !== 'preview' && (
-          <div className="flex items-center gap-3 border-b bg-muted/20 px-4 py-2">
+          <div className="flex items-center gap-3 border-b bg-muted/20 px-4 py-2 max-w-5xl">
             <div className="flex items-center gap-2 flex-1">
               <Label className="text-xs font-medium shrink-0 text-muted-foreground">Subject</Label>
               <Input
@@ -994,7 +994,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                 onChange={(e) => setSubject(e.target.value)}
                 onFocus={() => setActiveSubjectField('subject')}
                 placeholder="Enter email subject line..."
-                className="h-8 text-sm font-mono"
+                className="h-8 text-sm bg-white font-mono"
               />
             </div>
             <div className="flex items-center gap-2 flex-1">
@@ -1005,7 +1005,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                 onChange={(e) => setPreheader(e.target.value)}
                 onFocus={() => setActiveSubjectField('preheader')}
                 placeholder="Preview text shown in inbox..."
-                className="h-8 text-sm"
+                className="h-8 text-sm bg-white font-mono"
               />
             </div>
             <VariablePanel onInsert={insertVariableInSubject} compact />
@@ -1023,14 +1023,16 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                 <div className="p-3 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Blocks</h3>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs"
-                      onClick={() => setShowTemplateDialog(true)}
-                    >
-                      Templates
-                    </Button>
+                    <div className="flex items-center gap-1 bg-white px-2 py-1.5 rounded-sm">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        onClick={() => setShowTemplateDialog(true)}
+                      >
+                        Templates
+                      </Button>
+                    </div>
                   </div>
 
                   {PALETTE_CATEGORIES.map((cat) => (
@@ -1047,7 +1049,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                                 e.dataTransfer.setData('application/x-block-type', item.type);
                                 e.dataTransfer.effectAllowed = 'copy';
                               }}
-                              className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-dashed border-transparent bg-muted/40 hover:bg-muted hover:border-muted-foreground/20 cursor-grab active:cursor-grabbing transition-colors select-none"
+                              className="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-dashed border-transparent bg-white hover:bg-muted hover:border-muted-foreground/100 cursor-grab active:cursor-grabbing transition-colors select-none"
                             >
                               <Icon className="h-4 w-4 text-muted-foreground" />
                               <span className="text-[10px] font-medium text-muted-foreground">{item.label}</span>
@@ -1203,7 +1205,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
-                      variant="ghost" size="sm" className="h-7 text-[11px]"
+                      variant="ghost" size="sm" className="h-7 text-[11px] bg-white"
                       onClick={copyHtml}
                     >
                       <Copy className="h-3 w-3 mr-1" /> Copy
@@ -1226,7 +1228,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                       ref={codeRef}
                       value={codeHtml}
                       onChange={(e) => setCodeHtml(e.target.value)}
-                      className="flex-1 resize-none bg-background font-mono text-[13px] leading-[1.65rem] p-3 outline-none focus:ring-0 border-0 text-foreground"
+                      className="flex-1 resize-none bg-white font-mono text-[13px] leading-[1.65rem] p-3 outline-none focus:ring-0 border-0 text-foreground"
                       spellCheck={false}
                       autoCapitalize="off"
                       autoCorrect="off"
@@ -1269,7 +1271,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                 <iframe
                   srcDoc={htmlOutput}
                   className="w-full border rounded-lg shadow-sm bg-white"
-                  style={{ height: 800, maxWidth: '100%' }}
+                  style={{ height: 500, maxWidth: '100%' }}
                   sandbox="allow-same-origin"
                   title="Email Preview"
                 />
@@ -1280,7 +1282,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
 
         {/* ═══ Template Picker Dialog ════════════════════════════════ */}
         <Dialog open={showTemplateDialog} onOpenChange={(open) => { setShowTemplateDialog(open); if (!open) { setTemplateCategoryFilter('all'); setTemplateSearch(''); setShowInternalTemplates(false); } }}>
-          <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogContent className="sm:max-w-4xl h-[85vh] flex flex-col overflow-hidden">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -1295,7 +1297,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                   <Button
                     variant={showInternalTemplates ? 'default' : 'outline'}
                     size="sm"
-                    className="shrink-0 ml-4 gap-1.5"
+                    className="shrink-0 ml-4 gap-1.5 bg-white"
                     onClick={() => { setShowInternalTemplates(!showInternalTemplates); setTemplateCategoryFilter('all'); setTemplateSearch(''); }}
                   >
                     <Sparkles className="h-3.5 w-3.5" />
@@ -1311,22 +1313,22 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
               return (
                 <>
                   <div className="flex flex-col gap-3 pt-1">
-                    <div className="relative">
+                    <div className="relative rounded-md max-w-sm">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Search templates..."
+                        placeholder="Search templates g..."
                         value={templateSearch}
                         onChange={(e) => setTemplateSearch(e.target.value)}
-                        className="pl-9 h-9"
+                        className="pl-9 h-9 bg-white"
                       />
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       <button
                         className={cn(
-                          'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
+                          'px-3 py-1 rounded-sm text-xs font-medium transition-colors border',
                           templateCategoryFilter === 'all'
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'
+                            ? 'bg-blue-600 text-primary-foreground border-primary'
+                            : 'bg-muted/100 text-muted-foreground border-transparent'
                         )}
                         onClick={() => setTemplateCategoryFilter('all')}
                       >
@@ -1339,12 +1341,12 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                           <button
                             key={cat.id}
                             className={cn(
-                              'px-3 py-1 rounded-full text-xs font-medium transition-colors border',
+                              'px-3 py-1 rounded-sm first-line: text-xs font-medium transition-colors border',
                               templateCategoryFilter === cat.id
                                 ? 'text-white border-transparent'
-                                : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'
+                                : 'bg-muted text-muted-foreground border-transparent hover:bg-white'
                             )}
-                            style={templateCategoryFilter === cat.id ? { backgroundColor: cat.color } : undefined}
+                            style={templateCategoryFilter === cat.id ? { backgroundColor: cat.color, border: `1px solid ${cat.color}` } : undefined}
                             onClick={() => setTemplateCategoryFilter(cat.id)}
                           >
                             {cat.label} ({count})
@@ -1355,83 +1357,85 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                   </div>
 
                   {/* Template Grid */}
-                  <ScrollArea className="flex-1 -mx-6 px-6">
-                    <div className="space-y-6 py-3">
-                      {(() => {
-                        const searchLower = templateSearch.toLowerCase();
-                        const categoriesToShow = templateCategoryFilter === 'all'
-                          ? TEMPLATE_CATEGORIES.filter((cat) =>
-                            activeTemplates.some((t) => t.category === cat.id)
-                          )
-                          : TEMPLATE_CATEGORIES.filter((cat) => cat.id === templateCategoryFilter);
+                  <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
+                    <div className="px-6 pb-2">
+                      <div className="space-y-6 py-3">
+                        {(() => {
+                          const searchLower = templateSearch.toLowerCase();
+                          const categoriesToShow = templateCategoryFilter === 'all'
+                            ? TEMPLATE_CATEGORIES.filter((cat) =>
+                              activeTemplates.some((t) => t.category === cat.id)
+                            )
+                            : TEMPLATE_CATEGORIES.filter((cat) => cat.id === templateCategoryFilter);
 
-                        return categoriesToShow.map((cat) => {
-                          const templates = activeTemplates.filter(
-                            (t) =>
-                              t.category === cat.id &&
-                              (searchLower === '' ||
-                                t.name.toLowerCase().includes(searchLower) ||
-                                t.subject.toLowerCase().includes(searchLower) ||
-                                t.preheaderText.toLowerCase().includes(searchLower))
-                          );
-                          if (templates.length === 0) return null;
-                          return (
-                            <div key={cat.id}>
-                              <div className="flex items-center gap-2 mb-2">
-                                <div
-                                  className="h-2 w-2 rounded-full"
-                                  style={{ backgroundColor: cat.color }}
-                                />
-                                <h3 className="text-sm font-semibold">{cat.label}</h3>
-                                <span className="text-xs text-muted-foreground">{cat.description}</span>
-                              </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {templates.map((tpl) => (
-                                  <button
-                                    key={tpl.id}
-                                    className="group flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all hover:border-primary hover:bg-muted/50 hover:shadow-sm"
-                                    onClick={() => loadTemplate(tpl)}
-                                  >
-                                    <div className="flex items-center gap-2 w-full">
-                                      <div
-                                        className="rounded-md p-1.5 shrink-0"
-                                        style={{ backgroundColor: `${cat.color}15` }}
-                                      >
-                                        <FileText className="h-4 w-4" style={{ color: cat.color }} />
+                          return categoriesToShow.map((cat) => {
+                            const templates = activeTemplates.filter(
+                              (t) =>
+                                t.category === cat.id &&
+                                (searchLower === '' ||
+                                  t.name.toLowerCase().includes(searchLower) ||
+                                  t.subject.toLowerCase().includes(searchLower) ||
+                                  t.preheaderText.toLowerCase().includes(searchLower))
+                            );
+                            if (templates.length === 0) return null;
+                            return (
+                              <div key={cat.id}>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div
+                                    className="h-2 w-2 rounded-full"
+                                    style={{ backgroundColor: cat.color }}
+                                  />
+                                  <h3 className="text-sm font-semibold">{cat.label}</h3>
+                                  <span className="text-xs text-muted-foreground">{cat.description}</span>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  {templates.map((tpl) => (
+                                    <button
+                                      key={tpl.id}
+                                      className="group flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all hover:border-primary/100 bg-white hover:shadow-sm"
+                                      onClick={() => loadTemplate(tpl)}
+                                    >
+                                      <div className="flex items-center gap-2 w-full">
+                                        <div
+                                          className="rounded-md p-1.5 shrink-0"
+                                          style={{ backgroundColor: `${cat.color}15` }}
+                                        >
+                                          <FileText className="h-4 w-4" style={{ color: cat.color }} />
+                                        </div>
+                                        <span className="text-sm font-medium truncate">{tpl.name}</span>
                                       </div>
-                                      <span className="text-sm font-medium truncate">{tpl.name}</span>
-                                    </div>
-                                    {tpl.subject && (
-                                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                                        {tpl.subject}
-                                      </p>
-                                    )}
-                                    <div className="flex items-center gap-2">
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-[10px]"
-                                        style={{ color: cat.color }}
-                                      >
-                                        {tpl.blocks.length} blocks
-                                      </Badge>
-                                      {tpl.id.startsWith('tpl_pro_') && (
-                                        <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-600">
-                                          Internal
-                                        </Badge>
+                                      {tpl.subject && (
+                                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                          {tpl.subject}
+                                        </p>
                                       )}
-                                      {tpl.id.startsWith('tpl_saas_') && (
-                                        <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-600">
-                                          SaaS
+                                      <div className="flex items-center gap-2">
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-[10px]"
+                                          style={{ color: cat.color }}
+                                        >
+                                          {tpl.blocks.length} blocks
                                         </Badge>
-                                      )}
-                                    </div>
-                                  </button>
-                                ))}
+                                        {tpl.id.startsWith('tpl_pro_') && (
+                                          <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-600">
+                                            Internal
+                                          </Badge>
+                                        )}
+                                        {tpl.id.startsWith('tpl_saas_') && (
+                                          <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-600">
+                                            SaaS
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          );
-                        });
-                      })()}
+                            );
+                          });
+                        })()}
+                      </div>
                     </div>
                   </ScrollArea>
 
@@ -1441,7 +1445,7 @@ export default function EmailBuilder({ templateId, context, campaignId }: EmailB
                         {activeTemplates.length} templates across {TEMPLATE_CATEGORIES.filter(c => activeTemplates.some(t => t.category === c.id)).length} categories
                         {showInternalTemplates && <span className="ml-1 text-amber-600">(Internal)</span>}
                       </span>
-                      <Button variant="ghost" size="sm" onClick={() => setShowTemplateDialog(false)}>
+                      <Button variant="ghost" size="sm" onClick={() => setShowTemplateDialog(false)} className='bg-white'>
                         Skip - Start Empty
                       </Button>
                     </div>
